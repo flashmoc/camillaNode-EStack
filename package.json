@@ -11,9 +11,6 @@
   "license": "ISC",
   "dependencies": {
     "express": "^4.19.2",
-    "node-navigator": "^1.0.1",
-    "websocket": "^1.0.34",
-    "websockets": "^0.2.0",
     "ws": "^8.13.0"
   },
   "devDependencies": {

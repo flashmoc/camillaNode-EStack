@@ -2,6 +2,6 @@
 /config
 *.zip
 .github
-*.md
+/*.md
 sampleConfig.json
 savedConfigs.dat
