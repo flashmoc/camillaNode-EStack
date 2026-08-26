@@ -7,9 +7,16 @@ const EStackControlChannels = {
     5: { name: "HIGH R", color: "#f472b6" }
 };
 
+const EStackGainLinks = {
+    mid: { label: "MID L/R", channels: [2, 3], storageKey: "estack.control.link.mid" },
+    high: { label: "HIGH L/R", channels: [4, 5], storageKey: "estack.control.link.high" }
+};
+
 let DSP;
 let meterTimer;
 let meterStrips = new Map();
+let faderControls = new Map();
+let gainLinks = { mid: true, high: true };
 
 function waitForDSP() {
     return new Promise(resolve => {
@@ -50,18 +57,66 @@ function protectedFingerprint(config) {
     });
 }
 
-async function updateOutputGain(channel, gain, mute = null) {
-    const entry = gainEntryForChannel(channel);
-    if (!entry) {
-        setMixerStatus(`${EStackControlChannels[channel]?.name || `OUT ${channel + 1}`}: no Gain filter found`, "error");
-        return false;
+function loadGainLinks() {
+    for (const [key, link] of Object.entries(EStackGainLinks)) {
+        const stored = window.localStorage.getItem(link.storageKey);
+        gainLinks[key] = stored === null ? true : stored === "true";
+    }
+}
+
+function saveGainLink(key) {
+    const link = EStackGainLinks[key];
+    if (!link) return;
+    window.localStorage.setItem(link.storageKey, String(!!gainLinks[key]));
+}
+
+function linkKeyForChannel(channel) {
+    const ch = Number(channel);
+    for (const [key, link] of Object.entries(EStackGainLinks)) {
+        if (link.channels.includes(ch)) return key;
+    }
+    return null;
+}
+
+function linkedChannelsFor(channel) {
+    const ch = Number(channel);
+    const key = linkKeyForChannel(ch);
+    if (!key || !gainLinks[key]) return [ch];
+    return EStackGainLinks[key].channels.filter(candidate => activeOutputs().includes(candidate));
+}
+
+function syncLinkedPreview(channel, value) {
+    const channels = linkedChannelsFor(channel);
+    if (channels.length < 2) return;
+
+    for (const linkedChannel of channels) {
+        if (linkedChannel === Number(channel)) continue;
+        const control = faderControls.get(linkedChannel);
+        if (!control) continue;
+        control.fader.value = value;
+        control.valueBox.textContent = `${Number(value).toFixed(1)} dB`;
+    }
+}
+
+async function updateOutputChannels(channels, gain, mute = null) {
+    const targetChannels = [...new Set(channels.map(Number))];
+    const entries = [];
+
+    for (const channel of targetChannels) {
+        const entry = gainEntryForChannel(channel);
+        if (!entry) {
+            setMixerStatus(`${EStackControlChannels[channel]?.name || `OUT ${channel + 1}`}: no Gain filter found`, "error");
+            return false;
+        }
+        entries.push([channel, ...entry]);
     }
 
-    const [name, filter] = entry;
     const fingerprint = protectedFingerprint(DSP.config);
-    filter.parameters = filter.parameters || {};
-    filter.parameters.gain = Number(gain);
-    if (mute !== null) filter.parameters.mute = !!mute;
+    for (const [, , filter] of entries) {
+        filter.parameters = filter.parameters || {};
+        filter.parameters.gain = Number(gain);
+        if (mute !== null) filter.parameters.mute = !!mute;
+    }
 
     try {
         const ok = await DSP.uploadConfig();
@@ -70,12 +125,51 @@ async function updateOutputGain(channel, gain, mute = null) {
         if (protectedFingerprint(DSP.config) !== fingerprint) {
             throw new Error("protected DSP structure changed");
         }
-        setMixerStatus(`${EStackControlChannels[channel]?.name}: ${Number(gain).toFixed(1)} dB · applied`, "ok");
+
+        const names = entries.map(([channel]) => EStackControlChannels[channel]?.name || `OUT ${channel + 1}`).join(" + ");
+        setMixerStatus(`${names}: ${Number(gain).toFixed(1)} dB · applied`, "ok");
         return true;
     } catch (error) {
         console.error("Output gain update failed", error);
         setMixerStatus(`Gain update failed: ${error?.message || error}`, "error");
         return false;
+    }
+}
+
+async function updateOutputGain(channel, gain, mute = null) {
+    return updateOutputChannels([channel], gain, mute);
+}
+
+async function updateLinkedGain(channel, gain) {
+    return updateOutputChannels(linkedChannelsFor(channel), gain, null);
+}
+
+function renderLinkControls() {
+    const root = document.getElementById("linkControls");
+    if (!root) return;
+    root.replaceChildren();
+
+    for (const [key, link] of Object.entries(EStackGainLinks)) {
+        const button = document.createElement("button");
+        button.className = "estack-link-button";
+        button.classList.toggle("active", !!gainLinks[key]);
+        button.setAttribute("aria-pressed", String(!!gainLinks[key]));
+        button.innerHTML = `<span>${link.label}</span><strong>${gainLinks[key] ? "LINKED" : "FREE"}</strong>`;
+        button.title = gainLinks[key]
+            ? `${link.label} gains move together. Click to unlink.`
+            : `${link.label} gains are independent. Click to link.`;
+
+        button.addEventListener("click", () => {
+            gainLinks[key] = !gainLinks[key];
+            saveGainLink(key);
+            renderLinkControls();
+            setMixerStatus(
+                `${link.label}: ${gainLinks[key] ? "gain link enabled — next move controls both channels" : "independent gain mode"}`,
+                "ok"
+            );
+        });
+
+        root.appendChild(button);
     }
 }
 
@@ -93,7 +187,7 @@ function makeMeter() {
     return meter;
 }
 
-function makeFader({ id, value, min, max, step, color, label, sublabel, onCommit, onMute, muted = false, isMaster = false }) {
+function makeFader({ id, value, min, max, step, color, label, sublabel, onPreview, onCommit, onMute, muted = false, isMaster = false }) {
     const strip = document.createElement("article");
     strip.className = `estack-mixer-strip${isMaster ? " master" : ""}`;
     strip.style.setProperty("--channel-color", color || "hsl(var(--bck-hue), 65%, 58%)");
@@ -125,7 +219,9 @@ function makeFader({ id, value, min, max, step, color, label, sublabel, onCommit
     valueBox.textContent = `${Number(value).toFixed(1)} dB`;
 
     fader.addEventListener("input", () => {
-        valueBox.textContent = `${Number(fader.value).toFixed(1)} dB`;
+        const next = Number(fader.value);
+        valueBox.textContent = `${next.toFixed(1)} dB`;
+        if (onPreview) onPreview(next);
     });
     fader.addEventListener("change", async () => {
         fader.disabled = true;
@@ -159,7 +255,13 @@ function makeFader({ id, value, min, max, step, color, label, sublabel, onCommit
     center.append(meter, faderWrap);
 
     strip.append(head, center, valueBox, controls);
-    return { strip, meterFill: meter.querySelector(".estack-meter-fill"), meterPeak: meter.querySelector(".estack-meter-peak") };
+    return {
+        strip,
+        fader,
+        valueBox,
+        meterFill: meter.querySelector(".estack-meter-fill"),
+        meterPeak: meter.querySelector(".estack-meter-peak")
+    };
 }
 
 function dbToMeterPercent(db) {
@@ -199,10 +301,13 @@ async function startMeters() {
 async function loadBasic() {
     DSP = await waitForDSP();
     await DSP.downloadConfig();
+    loadGainLinks();
+    renderLinkControls();
 
     const root = document.getElementById("estackMixerStrips");
     root.replaceChildren();
     meterStrips.clear();
+    faderControls.clear();
 
     let masterValue = -20;
     try {
@@ -244,22 +349,25 @@ async function loadBasic() {
             label: meta.name,
             sublabel: `OUT ${channel + 1}${entry ? ` · ${entry[0]}` : " · no Gain filter"}`,
             muted,
-            onCommit: value => updateOutputGain(channel, value),
+            onPreview: value => syncLinkedPreview(channel, value),
+            onCommit: value => updateLinkedGain(channel, value),
+            // Mutes intentionally remain independent even when gain linking is active.
             onMute: (mute, currentGain) => updateOutputGain(channel, currentGain, mute)
         });
 
         if (!entry) {
             parts.strip.classList.add("disabled");
-            parts.strip.querySelector(".estack-vertical-fader").disabled = true;
+            parts.fader.disabled = true;
             const mute = parts.strip.querySelector(".estack-mute-button");
             if (mute) mute.disabled = true;
         }
 
         root.appendChild(parts.strip);
         meterStrips.set(channel, parts);
+        faderControls.set(channel, parts);
     }
 
-    setMixerStatus("Connected · output gain controls ready", "ok");
+    setMixerStatus("Connected · MID L/R and HIGH L/R gain links enabled by default", "ok");
     startMeters();
 }
 
