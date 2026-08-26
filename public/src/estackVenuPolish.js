@@ -3,10 +3,31 @@
 
 const ESTACK_RTA_FREQS = [25,30,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000,5000,6300,8000,10000,12500,16000,20000];
 
-// The original E-Stack graph intentionally overlaid RTA bars behind the filter
-// curve. For speaker-management work that makes measured signal content look
-// like part of the filter response, so the response graph is now DSP-only.
+// The previous screen intentionally overlaid RTA bars behind the filter curve.
+// For speaker-management work that makes measured signal content look like part
+// of the transfer function, so the response graph is now DSP-only.
 drawRta = function() {};
+
+// The original crossover view used a large opaque orange fill. Keep the module
+// curve readable, but make the graph behave more like a technical DSP display.
+drawFilledCurve = function(ctx, freqs, values, margin, innerW, innerH, range, fill, stroke, lineWidth) {
+    const zeroY = margin.top + dbToY(0, innerH, range);
+    ctx.save();
+    ctx.beginPath();
+    values.forEach((db, index) => {
+        const x = margin.left + freqToX(freqs[index], innerW);
+        const y = margin.top + dbToY(clamp(db, range.min - 10, range.max + 10), innerH, range);
+        if (index === 0) ctx.moveTo(x, zeroY);
+        ctx.lineTo(x, y);
+    });
+    ctx.lineTo(margin.left + innerW, zeroY);
+    ctx.closePath();
+    ctx.globalAlpha = activeModule === "crossover" ? .22 : .48;
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.restore();
+    drawCurve(ctx, freqs, values, margin, innerW, innerH, range, stroke, lineWidth);
+};
 
 function estackRtaX(freq, width) {
     const min = 20;
@@ -38,9 +59,7 @@ function drawDedicatedRta() {
     gradient.addColorStop(.6, "rgba(48, 170, 184, .72)");
     gradient.addColorStop(1, "rgba(31, 105, 125, .28)");
 
-    // Subtle -100 / -60 / -30 / 0 dB reference lines.
     ctx.lineWidth = 1;
-    ctx.font = "10px system-ui, sans-serif";
     for (const db of [-90, -60, -30, 0]) {
         const y = height - ((db + 100) / 100) * (height - 8) - 4;
         ctx.strokeStyle = db === 0 ? "rgba(255,255,255,.14)" : "rgba(255,255,255,.055)";
