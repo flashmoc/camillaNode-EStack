@@ -8,9 +8,11 @@
     <link rel="stylesheet" href="/css/estackBasic.css">
     <link rel="stylesheet" href="/css/estackBasicLinks.css">
     <link rel="stylesheet" href="/css/estackInputs.css">
+    <link rel="stylesheet" href="/css/estackControlNumeric.css">
     <script src="/src/estackBasic.js" defer></script>
     <script src="/src/estackControlInputCompat.js" defer></script>
     <script src="/src/estackInputMeters.js" defer></script>
+    <script src="/src/estackControlNumeric.js" defer></script>
 </head>
 <body>
     <div id="sectionMainTitle"><img src="img/icon/basic.png" class="icon">E-Stack Control</div>
@@ -19,24 +21,23 @@
         <div class="estack-input-head">
             <div>
                 <strong>Inputs</strong>
-                <span>Raw ADC/capture level plus digital trim before routing and crossover processing.</span>
+                <span>Raw ADC / capture level reported by CamillaDSP. Metering only: no artificial input gain stage.</span>
             </div>
             <div class="estack-input-actions">
-                <button id="inputLinkToggle" class="estack-input-link active" aria-pressed="true"><span>IN L/R</span><strong>LINKED</strong></button>
-                <div class="estack-input-badge">ADC METER · dBFS</div>
-                <div id="inputTrimStatus" class="estack-input-status">Loading input trim…</div>
+                <div class="estack-input-badge">RAW ADC · dBFS · READ ONLY</div>
+                <div id="inputMeterStatus" class="estack-input-status">Loading capture meters…</div>
             </div>
         </div>
         <div id="estackInputMeters" class="estack-input-meter-grid"></div>
     </section>
 
-    <div class="estack-signal-flow-note">Signal flow: ADC / CAPTURE meter → INPUT TRIM → CamillaDSP master volume / processing → SUB · KICK · MID L/R · HIGH L/R outputs.</div>
+    <div class="estack-signal-flow-note">Signal flow: ADC / CAPTURE meter → CamillaDSP processing / master volume → SUB · KICK · MID L/R · HIGH L/R outputs.</div>
 
     <section class="estack-mixer group" label="Levels & Outputs">
         <div class="estack-control-head">
             <div>
                 <strong>Output Mixer</strong>
-                <span>Master volume and per-output gain. Existing E-Stack Gain filters only.</span>
+                <span>Master volume and per-output gain. Every fader also has direct numeric dB entry.</span>
             </div>
             <div class="estack-control-actions">
                 <div id="linkControls" class="estack-link-controls" aria-label="Stereo gain links"></div>
@@ -48,7 +49,7 @@
     </section>
 
     <div class="estack-control-note">
-        INPUT meters show the raw ADC/capture level, so they can reveal input clipping even when digital trim is reduced. IN L/R trims are linked by default and can be unlinked. MASTER is the global CamillaDSP volume control; E-Stack keeps its hard maximum at 0 dB. MID L/R and HIGH L/R gains are linked by default. Mutes remain independent. Crossovers, delays, PEQ and protection filters are not changed here.
+        INPUT meters are raw capture metering and are intentionally read-only: reducing a digital gain after the ADC cannot repair ADC clipping. MASTER is the global CamillaDSP volume control and remains hard-limited to 0 dB. MID L/R and HIGH L/R gains are linked by default; mutes remain independent. Crossovers, delays, PEQ and protection filters are not changed here.
     </div>
 </body>
 </html>
