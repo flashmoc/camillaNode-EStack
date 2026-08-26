@@ -1,0 +1,72 @@
+.estack-control-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.estack-link-controls {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.estack-link-button {
+    min-width: 96px;
+    height: 31px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 0 8px;
+    border: 1px solid hsl(var(--bck-hue), 22%, 30%);
+    border-radius: 6px;
+    color: hsla(0,0%,100%,.58);
+    background: hsl(var(--bck-hue), 31%, 14%);
+    font-family: "Abel", sans-serif;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 140ms linear;
+}
+
+.estack-link-button span {
+    color: inherit;
+    font-size: 10px;
+}
+
+.estack-link-button strong {
+    min-width: 34px;
+    color: hsla(0,0%,100%,.35);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: .04em;
+}
+
+.estack-link-button:hover {
+    color: white;
+    border-color: hsl(var(--bck-hue), 42%, 45%);
+    background: hsl(var(--bck-hue), 34%, 17%);
+}
+
+.estack-link-button.active {
+    color: hsl(var(--bck-hue), 55%, 82%);
+    border-color: hsl(var(--bck-hue), 45%, 42%);
+    background: hsl(var(--bck-hue), 43%, 18%);
+    box-shadow: inset 0 0 8px hsla(var(--bck-hue), 75%, 55%, .10);
+}
+
+.estack-link-button.active strong {
+    color: hsl(var(--bck-hue), 60%, 72%);
+}
+
+@media (max-width: 900px) {
+    .estack-control-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+
+    .estack-link-controls {
+        flex-wrap: wrap;
+    }
+}
