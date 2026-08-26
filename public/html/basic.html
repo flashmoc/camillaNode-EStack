@@ -7,10 +7,25 @@
     <link rel="stylesheet" href="/css/main.css">
     <link rel="stylesheet" href="/css/estackBasic.css">
     <link rel="stylesheet" href="/css/estackBasicLinks.css">
+    <link rel="stylesheet" href="/css/estackInputs.css">
     <script src="/src/estackBasic.js" defer></script>
+    <script src="/src/estackInputMeters.js" defer></script>
 </head>
 <body>
     <div id="sectionMainTitle"><img src="img/icon/basic.png" class="icon">E-Stack Control</div>
+
+    <section class="estack-inputs group" label="Inputs">
+        <div class="estack-input-head">
+            <div>
+                <strong>Inputs</strong>
+                <span>Capture level before the E-Stack output processing chain.</span>
+            </div>
+            <div class="estack-input-badge">READ ONLY · dBFS</div>
+        </div>
+        <div id="estackInputMeters" class="estack-input-meter-grid"></div>
+    </section>
+
+    <div class="estack-signal-flow-note">Signal flow: INPUTS → CamillaDSP master volume / processing → SUB · KICK · MID L/R · HIGH L/R outputs.</div>
 
     <section class="estack-mixer group" label="Levels & Outputs">
         <div class="estack-control-head">
@@ -28,7 +43,7 @@
     </section>
 
     <div class="estack-control-note">
-        MID L/R and HIGH L/R gains are linked by default. Disable the corresponding LINK button to adjust left and right independently. Mutes remain independent. Crossovers, delays, PEQ and protection filters are not changed here.
+        MASTER is the global CamillaDSP volume control; its meter shows the hottest playback/output channel, not a separate physical audio channel. MID L/R and HIGH L/R gains are linked by default. Disable the corresponding LINK button to adjust left and right independently. Mutes remain independent. Crossovers, delays, PEQ and protection filters are not changed here.
     </div>
 </body>
 </html>
