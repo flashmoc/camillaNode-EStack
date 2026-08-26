@@ -6,8 +6,16 @@
 let estackInputDSP;
 let estackInputMeterTimer;
 const estackInputMeterParts = new Map();
+const estackInputActivity = new Map();
 
 const LEGACY_INPUT_TRIM_NAMES = new Set(["INPUT_TRIM_L", "INPUT_TRIM_R"]);
+
+// Inputs are intentionally demand-driven: an input appears as soon as useful
+// signal is detected, then remains visible briefly after silence so the layout
+// never chatters between frames. A lower hold threshold adds hysteresis.
+const ESTACK_INPUT_SHOW_THRESHOLD_DB = -70;
+const ESTACK_INPUT_HOLD_THRESHOLD_DB = -76;
+const ESTACK_INPUT_HIDE_DELAY_MS = 2500;
 
 function waitForInputDSP() {
     return new Promise(resolve => {
@@ -39,7 +47,7 @@ function meterPercent(db) {
 function setInputStatus(message, state = "info") {
     const status = document.getElementById("inputMeterStatus");
     if (!status) return;
-    status.textContent = message;
+    if (status.textContent !== message) status.textContent = message;
     status.dataset.state = state;
 }
 
@@ -80,13 +88,13 @@ async function cleanupLegacyInputTrims() {
     const ok = await estackInputDSP.uploadConfig();
     if (!ok) throw new Error("CamillaDSP rejected legacy input-trim cleanup");
     await estackInputDSP.downloadConfig();
-    setInputStatus("RAW capture metering · no input gain stage", "ok");
     return true;
 }
 
 function makeInputMeter(index) {
     const card = document.createElement("article");
     card.className = "estack-input-card";
+    card.dataset.inputIndex = String(index);
     card.innerHTML = `
         <div class="estack-input-card-head">
             <div>
@@ -113,7 +121,7 @@ function makeInputMeter(index) {
 
 function updateInputMeter(parts, db) {
     if (!parts) return;
-    const level = Number.isFinite(Number(db)) ? Number(db) : -60;
+    const level = Number.isFinite(Number(db)) ? Number(db) : -100;
     const pct = meterPercent(level);
     parts.fill.style.width = `${pct}%`;
     parts.peak.style.left = `${pct}%`;
@@ -121,18 +129,124 @@ function updateInputMeter(parts, db) {
     parts.fill.dataset.zone = level > -3 ? "clip" : level > -10 ? "hot" : "normal";
 }
 
+function inputMeterRoot() {
+    return document.getElementById("estackInputMeters");
+}
+
+function updateInputEmptyState() {
+    const root = inputMeterRoot();
+    if (!root) return;
+
+    let empty = document.getElementById("estackInputEmpty");
+    if (estackInputMeterParts.size > 0) {
+        if (empty) empty.remove();
+        return;
+    }
+
+    if (!empty) {
+        empty = document.createElement("div");
+        empty.id = "estackInputEmpty";
+        empty.className = "estack-input-empty";
+        empty.textContent = "No active input";
+        empty.style.cssText = [
+            "min-height:72px",
+            "display:flex",
+            "align-items:center",
+            "justify-content:center",
+            "border:1px dashed hsla(0,0%,100%,.12)",
+            "border-radius:8px",
+            "color:hsla(0,0%,100%,.34)",
+            "background:hsla(0,0%,0%,.08)",
+            "font:11px Abel,sans-serif",
+            "letter-spacing:.04em"
+        ].join(";");
+        root.appendChild(empty);
+    }
+}
+
+function reorderInputCards() {
+    const root = inputMeterRoot();
+    if (!root) return;
+    const cards = [...estackInputMeterParts.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([, parts]) => parts.card);
+    const empty = document.getElementById("estackInputEmpty");
+    root.replaceChildren(...cards, ...(empty && !cards.length ? [empty] : []));
+}
+
+function ensureInputMeter(index) {
+    if (estackInputMeterParts.has(index)) return estackInputMeterParts.get(index);
+    const root = inputMeterRoot();
+    if (!root) return null;
+
+    const empty = document.getElementById("estackInputEmpty");
+    if (empty) empty.remove();
+
+    const parts = makeInputMeter(index);
+    estackInputMeterParts.set(index, parts);
+    root.appendChild(parts.card);
+    reorderInputCards();
+    return parts;
+}
+
+function removeInputMeter(index) {
+    const parts = estackInputMeterParts.get(index);
+    if (!parts) return;
+    parts.card.remove();
+    estackInputMeterParts.delete(index);
+    updateInputEmptyState();
+}
+
 function renderInputMeters() {
-    const root = document.getElementById("estackInputMeters");
+    const root = inputMeterRoot();
     if (!root) return;
     root.replaceChildren();
     estackInputMeterParts.clear();
+    estackInputActivity.clear();
+    updateInputEmptyState();
+}
 
+function syncActiveInputMeters(peaks) {
+    const now = performance.now();
     const count = configuredCaptureChannels();
+
     for (let index = 0; index < count; index++) {
-        const parts = makeInputMeter(index);
-        root.appendChild(parts.card);
-        estackInputMeterParts.set(index, parts);
+        const level = Number.isFinite(Number(peaks[index])) ? Number(peaks[index]) : -100;
+        const state = estackInputActivity.get(index) || { lastSignalAt: -Infinity };
+        const visible = estackInputMeterParts.has(index);
+
+        // Show immediately at the requested signal threshold. Once visible,
+        // keep the activity timer alive a little lower to avoid flicker.
+        if (level > ESTACK_INPUT_SHOW_THRESHOLD_DB || (visible && level > ESTACK_INPUT_HOLD_THRESHOLD_DB)) {
+            state.lastSignalAt = now;
+        }
+
+        const shouldShow = level > ESTACK_INPUT_SHOW_THRESHOLD_DB ||
+            (visible && now - state.lastSignalAt <= ESTACK_INPUT_HIDE_DELAY_MS);
+
+        if (shouldShow) {
+            const parts = ensureInputMeter(index);
+            updateInputMeter(parts, level);
+        } else if (visible) {
+            removeInputMeter(index);
+        }
+
+        estackInputActivity.set(index, state);
     }
+
+    // Remove stale cards if capture channel count was reduced at runtime.
+    for (const index of [...estackInputMeterParts.keys()]) {
+        if (index >= count) removeInputMeter(index);
+    }
+
+    updateInputEmptyState();
+    const active = estackInputMeterParts.size;
+    setInputStatus(
+        active
+            ? `RAW capture · ${active} active input${active === 1 ? "" : "s"} / ${count} configured`
+            : `RAW capture · waiting for signal above ${ESTACK_INPUT_SHOW_THRESHOLD_DB} dBFS`,
+        "ok"
+    );
 }
 
 function clarifyMasterMeter() {
@@ -151,9 +265,7 @@ async function startInputMeters() {
             if (!estackInputDSP?.connected) return;
             const peaks = await estackInputDSP.sendDSPMessage("GetCaptureSignalPeak");
             if (!Array.isArray(peaks)) return;
-            for (const [index, parts] of estackInputMeterParts.entries()) {
-                updateInputMeter(parts, peaks[index] ?? -60);
-            }
+            syncActiveInputMeters(peaks);
         } catch (_) {}
     }, 120);
 }
@@ -163,8 +275,8 @@ async function initInputMeters() {
     await estackInputDSP.downloadConfig();
 
     try {
-        const cleaned = await cleanupLegacyInputTrims();
-        if (!cleaned) setInputStatus("RAW capture metering · read only", "ok");
+        await cleanupLegacyInputTrims();
+        setInputStatus(`RAW capture · waiting for signal above ${ESTACK_INPUT_SHOW_THRESHOLD_DB} dBFS`, "ok");
     } catch (error) {
         console.error("Legacy input-trim cleanup failed", error);
         setInputStatus(`Cleanup failed: ${error?.message || error}`, "error");
