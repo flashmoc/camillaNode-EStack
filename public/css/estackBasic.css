@@ -268,6 +268,27 @@
     font-size: 8px;
 }
 
+/* E-Stack deliberately keeps devices.volume_limit at 0 dB. Give the master
+   fader the same visual unity position as the output faders, while retaining a
+   real hard maximum of 0 dB instead of pretending there is +12 dB headroom. */
+.estack-mixer-strip.master .estack-vertical-fader {
+    height: 205px;
+    transform: translateY(15px);
+}
+
+.estack-mixer-strip.master .estack-fader-wrap::before {
+    content: "0 dB LIMIT";
+    position: absolute;
+    top: 12px;
+    left: 0;
+    right: 0;
+    color: hsl(var(--bck-hue), 55%, 72%);
+    text-align: center;
+    font-size: 8px;
+    letter-spacing: .04em;
+    pointer-events: none;
+}
+
 .estack-fader-value {
     min-height: 27px;
     display: flex;
