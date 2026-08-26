@@ -15,11 +15,13 @@
     <script type="module">
         import camillaDSP from "/src/camillaDSP.js";
         import installEStackCompatibility from "/src/estackCompat.js";
+        import installEStackConnectionDecouple from "/src/estackConnectionDecouple.js";
         import savedConfigs from "/src/savedConfigs.js";
         import preferences from '/src/preferences.js';
         import autoEQ from '/src/autoeq.js';
 
         installEStackCompatibility(camillaDSP);
+        installEStackConnectionDecouple(camillaDSP);
 
         window.camillaDSP = camillaDSP;
         window.configsObject = new savedConfigs();
