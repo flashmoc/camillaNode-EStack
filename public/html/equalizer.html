@@ -6,44 +6,65 @@
     <title>E-Stack DSP</title>
     <link rel="stylesheet" href="/css/main.css">
     <link rel="stylesheet" href="/css/estackEqualizer.css">
+    <link rel="stylesheet" href="/css/estackVenuPolish.css">
     <script src="/src/estackEqualizer.js" defer></script>
+    <script src="/src/estackVenuPolish.js" defer></script>
 </head>
-<body>
-    <div class="venu-topline">
-        <div>
-            <span class="venu-brand">E-STACK</span>
-            <strong id="selectedChannelTitle">SUB</strong>
-            <span id="selectedChannelMeta">OUT 1</span>
+<body class="estack-dsp-page">
+    <header class="venu-page-head">
+        <div class="venu-page-identity">
+            <span class="venu-eyebrow">E-STACK DSP</span>
+            <strong id="selectedChannelTitle">Output</strong>
+            <span id="selectedChannelMeta"></span>
         </div>
-        <button id="systemEditToggle" class="venu-edit-toggle" aria-pressed="false">EDIT SYSTEM</button>
-    </div>
+        <button id="systemEditToggle" class="venu-system-edit" aria-pressed="false">EDIT SYSTEM</button>
+    </header>
 
-    <div id="channelTabs" class="venu-output-tabs"></div>
+    <nav id="channelTabs" class="venu-output-tabs" aria-label="E-Stack outputs"></nav>
 
-    <div id="moduleTabs" class="venu-module-tabs">
+    <section class="venu-rta-strip" aria-label="Live spectrum analyzer">
+        <div class="venu-rta-label">
+            <strong>LIVE SPECTRUM</strong>
+            <span>Analyzer · port 6413</span>
+        </div>
+        <div class="venu-rta-canvas-wrap">
+            <canvas id="rtaCanvas"></canvas>
+            <div class="venu-rta-scale" aria-hidden="true">
+                <span>20</span><span>100</span><span>1k</span><span>10k</span><span>20k</span>
+            </div>
+        </div>
+    </section>
+
+    <nav id="moduleTabs" class="venu-module-tabs" aria-label="DSP modules">
         <button data-module="crossover" class="active">Crossover</button>
         <button data-module="peq">Parametric EQ</button>
         <button data-module="output">Output</button>
         <button data-module="protection">Protection</button>
-    </div>
+    </nav>
 
-    <section class="venu-workspace">
+    <main class="venu-workspace">
         <div class="venu-module-title">
-            <strong id="moduleTitle">Crossover</strong>
-            <span id="moduleSubtitle">SUB · Output 1</span>
+            <div>
+                <strong id="moduleTitle">Crossover</strong>
+                <span id="moduleSubtitle">Output</span>
+            </div>
+            <div class="venu-graph-legend">
+                <span><i class="legend-total"></i>Output response</span>
+                <span><i class="legend-module"></i>Selected module</span>
+            </div>
         </div>
 
-        <div class="venu-graph-wrap">
+        <section class="venu-graph-wrap">
             <canvas id="responseCanvas"></canvas>
-        </div>
+        </section>
 
         <div id="bandSelector" class="venu-band-selector"></div>
-        <div id="moduleControls" class="venu-controls"></div>
-    </section>
+        <section id="moduleControls" class="venu-controls"></section>
 
-    <div class="venu-statusbar">
-        <span id="estackEqStatus">Loading DSP...</span>
-        <span id="estackEqCount"></span>
-    </div>
+        <footer class="venu-statusbar">
+            <span id="estackEqStatus">Loading DSP...</span>
+            <span id="estackEqCount"></span>
+        </footer>
+    </main>
 </body>
 </html>
