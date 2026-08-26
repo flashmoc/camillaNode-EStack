@@ -1,0 +1,17 @@
+.estack-basic-panel {
+    margin-right: 10%;
+    padding: 18px;
+    border: 1px solid hsl(var(--bck-hue), 35%, 22%);
+    border-radius: 10px;
+    background-image: linear-gradient(45deg,hsl(var(--bck-hue), 35%, 15%),hsl(var(--bck-hue), 45%, 10%));
+    box-shadow: 0 0 10px 1px #111;
+}
+.estack-basic-panel h2 { margin-top:0; }
+.estack-basic-note { color: hsla(0,0%,100%,.55); margin-bottom:20px; }
+.estack-master { display:grid; grid-template-columns:160px minmax(240px,1fr) 80px; gap:12px; align-items:center; max-width:700px; }
+.estack-master input { width:100%; }
+#masterVolumeValue { text-align:right; font-variant-numeric: tabular-nums; }
+#estackOutputSummary { display:grid; grid-template-columns:repeat(auto-fit,minmax(140px,1fr)); gap:8px; margin-top:24px; }
+.estack-basic-output { display:flex; flex-direction:column; padding:10px; border:1px solid hsl(var(--bck-hue),25%,25%); border-radius:7px; background:hsl(var(--bck-hue),35%,13%); }
+.estack-basic-output span, .estack-basic-output small { color:hsla(0,0%,100%,.48); }
+.estack-safe-badge { display:inline-block; padding:4px 7px; border-radius:5px; background:hsl(var(--bck-hue),45%,20%); color:hsl(var(--bck-hue),50%,75%); font-size:12px; }
