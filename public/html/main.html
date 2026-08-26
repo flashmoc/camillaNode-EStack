@@ -26,10 +26,63 @@
         window.preferences = new preferences();
         window.autoEQ = new autoEQ();
 
-        // E-Stack already has deliberate low-frequency protection in the system
-        // pipeline. Disable CamillaNode's legacy automatic 5 Hz DC filter so a
-        // page reload can never inject another filter into the protected chain.
-        window.preferences.applySetting('general', 'DCProtection', false);
+        // Migrate the browser's old CamillaNode preferences to the E-Stack UI.
+        // Preferences live in localStorage, so simply changing repository defaults
+        // does not update an existing browser profile.
+        const pref = window.preferences.preferenceObject;
+        if (pref?.ui) {
+            const defaultPage = pref.ui.find(item => item.id === 'defaultPage');
+            if (defaultPage) {
+                defaultPage.options = {
+                    'Connections': 'connections',
+                    'Control': 'basic',
+                    'E-Stack EQ': 'equalizer',
+                    'Advanced': 'advanced',
+                    'Room EQ': 'room',
+                    'Preferences': 'preferences'
+                };
+
+                // The upstream default was Connections. For an already configured
+                // E-Stack that is a setup page, not the normal landing page.
+                if (String(defaultPage.value).toLowerCase() === 'connections') {
+                    defaultPage.value = 'basic';
+                }
+            }
+        }
+
+        if (pref?.sections) {
+            pref.sections.general = 'E-Stack Preferences';
+            pref.sections.ui = 'User Interface Preferences';
+            pref.sections.basic = 'Control Preferences';
+            pref.sections.equalizer = 'E-Stack EQ Preferences';
+        }
+
+        // E-Stack already has deliberate low-frequency protection in its system
+        // pipeline. Keep the legacy automatic 5 Hz CamillaNode filter disabled.
+        const dcProtection = pref?.general?.find(item => item.id === 'DCProtection');
+        if (dcProtection) {
+            dcProtection.value = false;
+            dcProtection.enabled = false;
+            dcProtection.name = 'Legacy DC Protection (disabled for E-Stack)';
+        }
+
+        // The old Basic tone knobs no longer exist in the E-Stack Control page.
+        // Keep only the spectrum preference so stale tone-control settings cannot
+        // confuse the UI.
+        if (Array.isArray(pref?.basic)) {
+            pref.basic = pref.basic.filter(item => item.id === 'showBasicSpectrum');
+            const spectrumItem = pref.basic.find(item => item.id === 'showBasicSpectrum');
+            if (spectrumItem) spectrumItem.name = 'Show spectrum analyzer in Control';
+        }
+
+        // The E-Stack EQ is always per-output. Legacy stereo merge/split/preamp
+        // options are deliberately removed from the visible preferences.
+        if (Array.isArray(pref?.equalizer)) {
+            pref.equalizer = pref.equalizer.filter(item => item.id === 'showEqualizerSpectrum');
+            const spectrumItem = pref.equalizer.find(item => item.id === 'showEqualizerSpectrum');
+            if (spectrumItem) spectrumItem.name = 'Show spectrum analyzer in E-Stack EQ';
+        }
+
         window.preferences.saveSettings();
 
         document.addEventListener('DOMContentLoaded', mainBodyOnLoad);
@@ -90,9 +143,6 @@
         </section>
 
         <section id="sectionMain">
-            <!-- A single leading slash is intentional. `//preferences` is a
-                 protocol-relative URL and makes browsers try to load a host
-                 literally named "preferences" instead of this local route. -->
             <iframe id="mainframe" src="/preferences" frameborder="0"></iframe>
         </section>
     </main>
