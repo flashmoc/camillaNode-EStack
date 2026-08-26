@@ -7,8 +7,10 @@
     <link rel="stylesheet" href="/css/main.css">
     <link rel="stylesheet" href="/css/estackEqualizer.css">
     <link rel="stylesheet" href="/css/estackVenuPolish.css">
+    <link rel="stylesheet" href="/css/estackGlobalGraph.css">
     <script src="/src/estackEqualizer.js" defer></script>
     <script src="/src/estackVenuPolish.js" defer></script>
+    <script src="/src/estackGlobalGraph.js" defer></script>
 </head>
 <body class="estack-dsp-page">
     <header class="venu-page-head">
@@ -22,6 +24,9 @@
 
     <nav id="channelTabs" class="venu-output-tabs" aria-label="E-Stack outputs"></nav>
 
+    <!-- Kept in the DOM for compatibility with the previous presentation layer,
+         but hidden by estackGlobalGraph.css. The analyzer is rendered as a subtle
+         overlay inside the main response graph instead. -->
     <section class="venu-rta-strip" aria-label="Live spectrum analyzer">
         <div class="venu-rta-label">
             <strong>LIVE SPECTRUM</strong>
@@ -45,13 +50,10 @@
     <main class="venu-workspace">
         <div class="venu-module-title">
             <div>
-                <strong id="moduleTitle">Crossover</strong>
-                <span id="moduleSubtitle">Output</span>
+                <strong id="moduleTitle">System Response</strong>
+                <span id="moduleSubtitle">All outputs</span>
             </div>
-            <div class="venu-graph-legend">
-                <span><i class="legend-total"></i>Output response</span>
-                <span><i class="legend-module"></i>Selected module</span>
-            </div>
+            <div class="venu-graph-legend" aria-label="Output response legend"></div>
         </div>
 
         <section class="venu-graph-wrap">
