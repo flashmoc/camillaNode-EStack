@@ -9,59 +9,41 @@
     <script src="/src/estackEqualizer.js" defer></script>
 </head>
 <body>
-    <div id="sectionMainTitle"><img src="img/icon/equalizer.png" class="icon">E-Stack DSP</div>
-
-    <div id="channelTabs" class="estack-channel-tabs"></div>
-
-    <section class="estack-response-panel">
-        <div class="estack-response-header">
-            <div>
-                <strong id="selectedChannelTitle">Output</strong>
-                <span id="selectedChannelMeta"></span>
-            </div>
-            <div class="estack-legend">
-                <span><i class="legend-total"></i>Total response</span>
-                <span><i class="legend-system"></i>Crossover</span>
-                <span><i class="legend-peq"></i>PEQ</span>
-            </div>
+    <div class="venu-topline">
+        <div>
+            <span class="venu-brand">E-STACK</span>
+            <strong id="selectedChannelTitle">SUB</strong>
+            <span id="selectedChannelMeta">OUT 1</span>
         </div>
-        <canvas id="responseCanvas"></canvas>
-        <div id="spectrum" class="estack-spectrum"></div>
-    </section>
-
-    <div class="estack-eq-toolbar">
-        <div id="estackEqStatus">Loading DSP...</div>
-        <div id="estackEqCount"></div>
+        <button id="systemEditToggle" class="venu-edit-toggle" aria-pressed="false">EDIT SYSTEM</button>
     </div>
 
-    <div class="estack-dsp-grid">
-        <section class="estack-module" id="crossoverModule">
-            <div class="estack-module-title"><span>Crossover</span><small>HPF / LPF</small></div>
-            <div id="crossoverControls"></div>
-        </section>
+    <div id="channelTabs" class="venu-output-tabs"></div>
 
-        <section class="estack-module" id="outputModule">
-            <div class="estack-module-title"><span>Output</span><small>gain · polarity · delay</small></div>
-            <div id="outputControls"></div>
-        </section>
+    <div id="moduleTabs" class="venu-module-tabs">
+        <button data-module="crossover" class="active">Crossover</button>
+        <button data-module="peq">Parametric EQ</button>
+        <button data-module="output">Output</button>
+        <button data-module="protection">Protection</button>
+    </div>
 
-        <section class="estack-module estack-module-wide" id="peqModule">
-            <div class="estack-module-title">
-                <span>Parametric EQ</span>
-                <button id="addPeqButton" class="estack-primary-button">+ Add PEQ</button>
-            </div>
-            <div id="peqControls"></div>
-        </section>
+    <section class="venu-workspace">
+        <div class="venu-module-title">
+            <strong id="moduleTitle">Crossover</strong>
+            <span id="moduleSubtitle">SUB · Output 1</span>
+        </div>
 
-        <section class="estack-module" id="protectionModule">
-            <div class="estack-module-title"><span>Protection</span><small>limiter / processor</small></div>
-            <div id="protectionControls"></div>
-        </section>
+        <div class="venu-graph-wrap">
+            <canvas id="responseCanvas"></canvas>
+        </div>
 
-        <section class="estack-module" id="otherModule">
-            <div class="estack-module-title"><span>Other DSP</span><small>remaining filters</small></div>
-            <div id="otherControls"></div>
-        </section>
+        <div id="bandSelector" class="venu-band-selector"></div>
+        <div id="moduleControls" class="venu-controls"></div>
+    </section>
+
+    <div class="venu-statusbar">
+        <span id="estackEqStatus">Loading DSP...</span>
+        <span id="estackEqCount"></span>
     </div>
 </body>
 </html>
