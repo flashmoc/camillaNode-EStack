@@ -3,41 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=100vw, initial-scale=1.0">
+    <title>E-Stack Equalizer</title>
     <link rel="stylesheet" href="/css/main.css">
-    <script src="/src/equalizer.js"></script>
-    <title>Equalizer</title>
+    <link rel="stylesheet" href="/css/estackEqualizer.css">
+    <script src="/src/estackEqualizer.js" defer></script>
 </head>
 <body>
+    <div id="sectionMainTitle"><img src="img/icon/equalizer.png" class="icon">E-Stack Equalizer</div>
 
-    <div id="sectionMainTitle"><img src="img/icon/equalizer.png" class="icon">Equalizer</div>
-    
-    <script type="module">        
-        import camillaDSP from "/src/camillaDSP.js";       
-        import EQKnob from '/src/knob.js';
-        import plot from '/src/eqplot.js';        
-        import savedConfigs from "/src/savedConfigs.js";     
-        import filter from "/src/filter.js"        
-    
-        window.filter = filter;
-        window.savedConfigs = new savedConfigs();                
-        window.camillaDSP = camillaDSP;                        
-        window.EQKnob=EQKnob;
-        window.plot = plot;               
-    </script>
-<!-- 
-    <input type="button" onclick="DSP.sendDSPMessage('GetConfigJson').then(r=>console.log(r));" value="Show Config">    
-    <input type="button" onclick="DSP.mergeFilters(DSP.config.filters)" value="Convert Configs"> 
-    <br><br>
--->
+    <div id="spectrum"></div>
 
-    <div id="spectrum" class="group">
+    <div class="estack-eq-toolbar">
+        <div id="estackEqStatus">Loading E-Stack DSP...</div>
+        <div id="estackEqCount"></div>
     </div>
-    
-    <canvas id="plotCanvas" width="1024" height="500"></canvas>
-    
-    <div class="group" id="basicControls" label="Basic Controls"></div> 
-    <div class="group PEQ" id="PEQ" label="Parametric EQ"></div>    
 
-    
+    <div id="estackChannels"></div>
 </body>
 </html>
