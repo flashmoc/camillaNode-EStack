@@ -9,6 +9,7 @@
     <link rel="stylesheet" href="/css/estackBasicLinks.css">
     <link rel="stylesheet" href="/css/estackInputs.css">
     <script src="/src/estackBasic.js" defer></script>
+    <script src="/src/estackControlInputCompat.js" defer></script>
     <script src="/src/estackInputMeters.js" defer></script>
 </head>
 <body>
@@ -18,14 +19,18 @@
         <div class="estack-input-head">
             <div>
                 <strong>Inputs</strong>
-                <span>Capture level before the E-Stack output processing chain.</span>
+                <span>Raw ADC/capture level plus digital trim before routing and crossover processing.</span>
             </div>
-            <div class="estack-input-badge">READ ONLY · dBFS</div>
+            <div class="estack-input-actions">
+                <button id="inputLinkToggle" class="estack-input-link active" aria-pressed="true"><span>IN L/R</span><strong>LINKED</strong></button>
+                <div class="estack-input-badge">ADC METER · dBFS</div>
+                <div id="inputTrimStatus" class="estack-input-status">Loading input trim…</div>
+            </div>
         </div>
         <div id="estackInputMeters" class="estack-input-meter-grid"></div>
     </section>
 
-    <div class="estack-signal-flow-note">Signal flow: INPUTS → CamillaDSP master volume / processing → SUB · KICK · MID L/R · HIGH L/R outputs.</div>
+    <div class="estack-signal-flow-note">Signal flow: ADC / CAPTURE meter → INPUT TRIM → CamillaDSP master volume / processing → SUB · KICK · MID L/R · HIGH L/R outputs.</div>
 
     <section class="estack-mixer group" label="Levels & Outputs">
         <div class="estack-control-head">
@@ -43,7 +48,7 @@
     </section>
 
     <div class="estack-control-note">
-        MASTER is the global CamillaDSP volume control; its meter shows the hottest playback/output channel, not a separate physical audio channel. MID L/R and HIGH L/R gains are linked by default. Disable the corresponding LINK button to adjust left and right independently. Mutes remain independent. Crossovers, delays, PEQ and protection filters are not changed here.
+        INPUT meters show the raw ADC/capture level, so they can reveal input clipping even when digital trim is reduced. IN L/R trims are linked by default and can be unlinked. MASTER is the global CamillaDSP volume control; E-Stack keeps its hard maximum at 0 dB. MID L/R and HIGH L/R gains are linked by default. Mutes remain independent. Crossovers, delays, PEQ and protection filters are not changed here.
     </div>
 </body>
 </html>
