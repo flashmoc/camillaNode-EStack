@@ -14,10 +14,15 @@
 <body id="mainBody">
     <script type="module">
         import camillaDSP from "/src/camillaDSP.js";
+        import installEStackCompatibility from "/src/estackCompat.js";
         import savedConfigs from "/src/savedConfigs.js";
         import preferences from '/src/preferences.js';
         import autoEQ from '/src/autoeq.js';
 
+        // Patch the original CamillaNode client for CamillaDSP 4.x before any
+        // DSP instance is created. This preserves E-Stack routing/processors and
+        // adds support for modern `channels: [...]` Filter pipeline steps.
+        installEStackCompatibility(camillaDSP);
 
         window.camillaDSP = camillaDSP;
         window.configsObject = new savedConfigs();
@@ -120,7 +125,7 @@
 
     <dialog id="modalWindow">
         <div class="navigate" onclick="this.parentElement.close()" target=""><img src="/img/icon/remove.png"
-                class="icon">Close</div>
+            class="icon">Close</div>
     </dialog>
 
 
@@ -128,8 +133,7 @@
         <p>Import EQ settings from a text file. Please paste the text to import below.</p>
         <div id="importText" contenteditable="true"></div>
         <div class="navigate" onclick="importClick()" target=""><img src="/img/icon/import.png" class="icon">Import</div>
-        <div class="navigate" onclick="this.parentElement.close()" target=""><img src="/img/icon/remove.png"
-                class="icon">Close</div>
+        <div class="navigate" onclick="this.parentElement.close()" target=""><img src="/img/icon/remove.png" class="icon">Close</div>
     </dialog>
 
 
@@ -138,14 +142,15 @@
         <div id="configList">
         </div>
         <div class="navigate" onclick="openConfigurationClick()" target=""><img src="/img/icon/open.png"
-                class="icon">Open</div>
+            class="icon">Open</div>
         <div class="navigate" onclick="saveConfigurationClick()" target=""><img src="/img/icon/save.png"
-                class="icon">Save</div>
+            class="icon">Save</div>
         <div class="navigate" onclick="deleteConfigurationClick()" target=""><img src="/img/icon/delete.png"
-                class="icon">Delete</div>
+            class="icon">Delete</div>
         <div class="navigate" onclick="this.parentElement.close()" target=""><img src="/img/icon/remove.png"
-                class="icon">Close</div>
+            class="icon">Close</div>
     </dialog>
+
 
     <dialog id="autoEQDialog">
         <div id="autoEQWindow">
