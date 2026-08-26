@@ -27,7 +27,6 @@ async function loadBasic() {
     volume.addEventListener("change", async () => {
         const gain = Number(volume.value);
         await DSP.sendDSPMessage({ SetVolume: gain });
-        try { await DSP.sendSpectrumMessage({ SetVolume: gain }); } catch (_) {}
     });
 
     const outputs = document.getElementById("estackOutputSummary");
