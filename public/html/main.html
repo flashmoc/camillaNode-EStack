@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=100vw, initial-scale=1.0">
-    <title>CamillaNode</title>
+    <title>CamillaNode E-Stack</title>
     <script src="/src/main.js" defer></script>
     <link rel="stylesheet" href="/css/main.css">
     <link rel="shortcut icon" href="/img/favicon.ico" type="image/x-icon">
@@ -29,6 +29,12 @@
         window.preferences = new preferences();
         window.autoEQ = new autoEQ();
 
+        // E-Stack already has deliberate low-frequency protection in the system
+        // pipeline. Disable CamillaNode's legacy automatic 5 Hz DC filter so a
+        // page reload can never inject another filter into the protected chain.
+        window.preferences.applySetting('general', 'DCProtection', false);
+        window.preferences.saveSettings();
+
         document.addEventListener('DOMContentLoaded', mainBodyOnLoad);
     </script>
 
@@ -36,7 +42,7 @@
         <div id="header" class="section">
             <div id="title">
                 <img id="logo" src="/img/icon.jpg" alt="" style="height: 50px; margin:10px;">
-                <span>CamillaNode</span>
+                <span>CamillaNode · E-Stack</span>
             </div>
         </div>
         <div id="indicators">
@@ -46,32 +52,28 @@
             <div class="indicator" id="limiterInd">Limiter Off</div>
             <div class="indicator" id="balanceInd">0 Center</div>
             <div class="indicator" id="crossfeedInd">0dB</div>
-            <div class="indicator" id="filtersInd">12 filters</div>
+            <div class="indicator" id="filtersInd">filters</div>
             <div class="indicator" id="spectrumInd">Spectrum On</div>
             <div class="indicator" id="DSPstateInd">Running</div>
-            <div class="indicator" id="DSPversionInd">DSP : 2.0.3</div>
-            <div class="indicator" id="nodeVersionInd">Node : 2.0.38</div>
-        </div> 
-        <!-- <div id="version" class="smallInfo"></div> 
-        <div class="smallInfo">CamillaNode Version 2.0.1</div> 
-        <div id="status" class="smallInfo"></div> -->
+            <div class="indicator" id="DSPversionInd">DSP</div>
+            <div class="indicator" id="nodeVersionInd">Node : 2.0.38 E-Stack</div>
+        </div>
     </header>
 
-    <main>        
+    <main>
 
         <section id="sectionLeft">
 
             <span class="leftTitle">Navigation</span>
             <div class="navigate" target="/connections"><img src="/img/icon/connections.png" class="icon">Connections
             </div>
-            <div class="navigate" target="/basic"><img src="/img/icon/basic.png" class="icon">Basic</div>
-            <div class="navigate" target="/equalizer"><img src="/img/icon/equalizer.png" class="icon">Equalizer</div>
+            <div class="navigate" target="/basic"><img src="/img/icon/basic.png" class="icon">Control</div>
+            <div class="navigate" target="/equalizer"><img src="/img/icon/equalizer.png" class="icon">E-Stack EQ</div>
             <div class="navigate" target="/advanced"><img src="/img/icon/advanced.png" class="icon">Advanced</div>
             <div class="navigate" target="/room"><img src="/img/icon/room.png" class="icon">Room EQ</div>
             <div class="navigate" target="/preferences"><img src="/img/icon/preferences.png" class="icon">Preferences
             </div>
             <br>
-
 
             <div class="leftTitle">Tools</div>
 
@@ -82,37 +84,25 @@
             <div class="navigate" onclick="showAutoEQ()" target=""><img src="/img/icon/connections.png" class="icon">Auto
                 EQ</div>
 
-
             <div class="leftTitle">Configurations</div>
             <div class="navigate" onclick="showManageConfigs()" target=""><img src="/img/icon/manageconfig.png"
                     class="icon">Manage Configurations</div>
 
             <div class="leftTitle">Actions</div>
             <div id="eqTools">
-                <div id="basicTools" class="tools">
-                    <div class="navigate" onclick="" target=""><img src="/img/icon/reset.png" class="icon">Reset</div>
-                </div>
+                <div id="basicTools" class="tools"></div>
                 <div id="equalizerTools" class="tools">
                     <div class="navigate" onclick="window.mainframe.contentWindow.sortAll.apply()" target=""><img
                             src="/img/icon/sort.png" class="icon">Sort</div>
                     <div class="navigate" onclick="window.mainframe.contentWindow.resetPEQ.apply()" target=""><img
-                            src="/img/icon/reset.png" class="icon">Reset</div>
+                            src="/img/icon/reset.png" class="icon">Reset USER EQ</div>
                     <div class="navigate" onclick="window.mainframe.contentWindow.clearPEQ.apply()" target=""><img
-                            src="/img/icon/delete.png" class="icon">Clear</div>
-                    
-                            
+                            src="/img/icon/delete.png" class="icon">Clear USER EQ</div>
                     <div class="navigate" onclick="window.mainframe.contentWindow.addNewFilter.apply()" target=""><img
-                            src="/img/icon/add.png" class="icon">Add New</div>
+                            src="/img/icon/add.png" class="icon">Add PEQ</div>
                 </div>
-                <div id="advancedTools" class="tools">
-                    
-                    <div class="navigate" onclick="window.mainframe.contentWindow.splitFilterToAllChannels.apply()" target=""><img
-                        src="/img/icon/split.png" class="icon">Split Channels Filters</div>
-                    <div class="navigate" onclick="window.mainframe.contentWindow.mergeFilters.apply()" target=""><img
-                            src="/img/icon/merge.png" class="icon">Merge Filters</div>
-                </div>
+                <div id="advancedTools" class="tools"></div>
             </div>
-
 
         </section>
 
@@ -122,12 +112,10 @@
 
     </main>
 
-
     <dialog id="modalWindow">
         <div class="navigate" onclick="this.parentElement.close()" target=""><img src="/img/icon/remove.png"
             class="icon">Close</div>
     </dialog>
-
 
     <dialog id="importWindow">
         <p>Import EQ settings from a text file. Please paste the text to import below.</p>
@@ -136,11 +124,9 @@
         <div class="navigate" onclick="this.parentElement.close()" target=""><img src="/img/icon/remove.png" class="icon">Close</div>
     </dialog>
 
-
     <dialog id="manageConfigs">
         <span>Name : </span><input type="text" name="" id="configName"><br>
-        <div id="configList">
-        </div>
+        <div id="configList"></div>
         <div class="navigate" onclick="openConfigurationClick()" target=""><img src="/img/icon/open.png"
             class="icon">Open</div>
         <div class="navigate" onclick="saveConfigurationClick()" target=""><img src="/img/icon/save.png"
@@ -150,7 +136,6 @@
         <div class="navigate" onclick="this.parentElement.close()" target=""><img src="/img/icon/remove.png"
             class="icon">Close</div>
     </dialog>
-
 
     <dialog id="autoEQDialog">
         <div id="autoEQWindow">
@@ -165,12 +150,6 @@
         </div>
     </dialog>
 
-
 </body>
 
 </html>
-
-
-<!-- 
-Revolve
-NTF0424S4H8VWRU8  -->
