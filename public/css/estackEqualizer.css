@@ -1,154 +1,336 @@
-#spectrum {
-    display: grid;
-    grid-template-columns: repeat(30, minmax(12px, 1fr));
-    gap: 4px;
-    align-items: end;
-    height: 220px;
-    margin-right: 10%;
-    padding: 10px;
-    border-radius: 10px;
-    background-image: linear-gradient(45deg,hsl(var(--bck-hue), 35%, 15%),hsl(var(--bck-hue), 45%, 10%));
-    border: 1px solid hsl(var(--bck-hue), 35%, 20%);
-    box-shadow: 0 0 10px 1px #111;
+body {
+    padding-bottom: 24px;
 }
 
-.levelbar {
+.venu-topline {
     display: flex;
-    flex-direction: column-reverse;
-    gap: 2px;
-    position: relative;
-    min-width: 0;
-    height: 190px;
-    padding-top: 15px;
-    background: hsl(var(--bck-hue), 30%, 10%);
+    justify-content: space-between;
+    align-items: center;
+    margin: 0 7% 8px 0;
+    padding: 4px 2px 8px;
+}
+
+.venu-topline > div {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+}
+
+.venu-brand {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .12em;
+    color: hsl(var(--bck-hue), 65%, 66%);
+}
+
+#selectedChannelTitle {
+    font-size: 23px;
+    font-weight: 500;
+}
+
+#selectedChannelMeta,
+#moduleSubtitle {
+    color: hsla(0, 0%, 100%, .46);
+    font-size: 12px;
+}
+
+.venu-edit-toggle {
+    border: 1px solid hsl(var(--bck-hue), 28%, 34%);
     border-radius: 4px;
+    padding: 6px 12px;
+    background: hsl(var(--bck-hue), 30%, 18%);
+    color: hsla(0, 0%, 100%, .68);
+    cursor: pointer;
+    font-family: inherit;
 }
 
-.levelbar::after {
-    content: attr(freq);
-    position: absolute;
-    top: 2px;
-    left: 0;
-    right: 0;
-    text-align: center;
-    font-size: 10px;
-    color: hsla(0, 0%, 100%, 0.45);
-}
-
-.levelbox {
-    height: 3px;
-    margin: 0 2px;
-    border-radius: 2px;
-    opacity: 0;
-    background: hsl(var(--bck-hue), 55%, 55%);
-    transition: opacity 80ms linear;
-}
-
-.estack-eq-toolbar {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin: 8px 10% 14px 0;
-    padding: 10px 12px;
-    border: 1px solid hsl(var(--bck-hue), 35%, 24%);
-    border-radius: 8px;
-    background: hsl(var(--bck-hue), 35%, 12%);
-}
-
-#estackEqStatus { flex: 1; color: hsla(0,0%,100%,0.72); }
-#estackEqStatus[data-state="ok"] { color: hsl(var(--bck-hue), 50%, 72%); }
-#estackEqCount { color: hsla(0,0%,100%,0.45); font-size: 13px; }
-
-#estackChannels {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(440px, 1fr));
-    gap: 12px;
-    margin-right: 10%;
-}
-
-.estack-channel-card {
-    display: block;
-    height: auto;
-    overflow: visible;
-    padding: 0 0 12px 0;
-    border: 1px solid hsl(var(--bck-hue), 35%, 22%);
-    border-radius: 10px;
-    background-image: linear-gradient(45deg,hsl(var(--bck-hue), 35%, 15%),hsl(var(--bck-hue), 45%, 10%));
-    box-shadow: 0 0 10px 1px #111;
-}
-
-.estack-channel-card.selected { border-color: hsl(var(--bck-hue), 55%, 48%); }
-
-.estack-channel-header {
-    display: grid;
-    grid-template-columns: 1fr auto auto;
-    gap: 10px;
-    align-items: center;
-    padding: 10px 12px;
-    background: hsl(var(--bck-hue), 38%, 10%);
-    border-radius: 10px 10px 0 0;
-}
-
-.estack-channel-header h2 { margin: 0; font-size: 20px; }
-.estack-channel-header > span { color: hsla(0,0%,100%,0.45); font-size: 12px; }
-
-.estack-primary-button, .estack-danger-button {
-    border: 1px solid hsl(var(--bck-hue), 40%, 35%);
-    border-radius: 6px;
-    padding: 6px 10px;
+.venu-edit-toggle[aria-pressed="true"] {
+    background: hsl(var(--bck-hue), 65%, 42%);
     color: white;
-    background: hsl(var(--bck-hue), 45%, 22%);
+    border-color: hsl(var(--bck-hue), 70%, 62%);
+    box-shadow: 0 0 12px hsla(var(--bck-hue), 70%, 55%, .25);
+}
+
+.venu-output-tabs {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(90px, 1fr));
+    gap: 3px;
+    margin: 0 7% 7px 0;
+    background: hsl(var(--bck-hue), 28%, 10%);
+    padding: 3px;
+}
+
+.venu-output-tab {
+    border: 0;
+    border-bottom: 3px solid transparent;
+    padding: 9px 10px 8px;
+    background: hsl(var(--bck-hue), 25%, 16%);
+    color: hsla(0,0%,100%,.65);
+    cursor: pointer;
+    text-align: left;
+    font-family: inherit;
+}
+
+.venu-output-tab strong,
+.venu-output-tab small {
+    display: block;
+}
+
+.venu-output-tab strong { font-size: 14px; }
+.venu-output-tab small { margin-top: 2px; font-size: 10px; opacity: .55; }
+
+.venu-output-tab.active {
+    color: white;
+    background: hsl(var(--bck-hue), 35%, 20%);
+    border-bottom-color: hsl(var(--bck-hue), 68%, 58%);
+}
+
+.venu-module-tabs {
+    display: flex;
+    margin: 0 7% 0 0;
+    background: hsl(var(--bck-hue), 24%, 11%);
+    border-bottom: 1px solid hsl(var(--bck-hue), 25%, 28%);
+}
+
+.venu-module-tabs button {
+    min-width: 145px;
+    border: 0;
+    border-right: 1px solid hsl(var(--bck-hue), 22%, 24%);
+    padding: 10px 16px;
+    color: hsla(0,0%,100%,.62);
+    background: hsl(var(--bck-hue), 25%, 14%);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 14px;
+}
+
+.venu-module-tabs button.active {
+    color: white;
+    background: hsl(var(--bck-hue), 38%, 22%);
+    box-shadow: inset 0 -3px hsl(var(--bck-hue), 68%, 58%);
+}
+
+.venu-workspace {
+    margin: 0 7% 0 0;
+    background: linear-gradient(180deg, hsl(var(--bck-hue), 22%, 18%), hsl(var(--bck-hue), 26%, 12%));
+    border: 1px solid hsl(var(--bck-hue), 24%, 28%);
+    border-top: none;
+    box-shadow: 0 5px 18px #111;
+}
+
+.venu-module-title {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding: 11px 16px 7px;
+    background: hsl(var(--bck-hue), 18%, 34%);
+}
+
+.venu-module-title strong {
+    font-size: 20px;
+    font-weight: 500;
+}
+
+.venu-graph-wrap {
+    padding: 12px 16px 6px;
+    background: hsl(var(--bck-hue), 18%, 28%);
+}
+
+#responseCanvas {
+    display: block;
+    width: 100%;
+    height: 345px;
+    box-sizing: border-box;
+    border: 1px solid #5a5a5a;
+    border-radius: 0;
+    padding: 0;
+    background: #1d1f20;
+    box-shadow: none;
+}
+
+.venu-band-selector {
+    display: flex;
+    gap: 6px;
+    min-height: 45px;
+    padding: 8px 16px;
+    overflow-x: auto;
+    background: hsl(var(--bck-hue), 25%, 14%);
+    border-top: 1px solid hsl(var(--bck-hue), 22%, 26%);
+    border-bottom: 1px solid hsl(var(--bck-hue), 22%, 25%);
+}
+
+.venu-band-button {
+    min-width: 66px;
+    border: 1px solid hsl(var(--bck-hue), 18%, 34%);
+    border-radius: 3px;
+    padding: 7px 10px;
+    background: hsl(var(--bck-hue), 20%, 23%);
+    color: hsla(0,0%,100%,.72);
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.venu-band-button.active {
+    color: white;
+    border-color: var(--band-color, hsl(var(--bck-hue), 65%, 60%));
+    box-shadow: inset 0 -3px var(--band-color, hsl(var(--bck-hue), 65%, 60%));
+    background: hsl(var(--bck-hue), 24%, 17%);
+}
+
+.venu-controls {
+    display: grid;
+    grid-template-columns: minmax(170px, .75fr) minmax(440px, 2fr);
+    min-height: 205px;
+    background: hsl(var(--bck-hue), 26%, 13%);
+}
+
+.venu-control-left {
+    padding: 14px 16px;
+    border-right: 1px solid hsl(var(--bck-hue), 22%, 28%);
+    background: hsl(var(--bck-hue), 30%, 16%);
+}
+
+.venu-control-left h3 {
+    margin: 0 0 5px;
+    font-size: 18px;
+    font-weight: 500;
+}
+
+.venu-control-left p {
+    margin: 0;
+    color: hsla(0,0%,100%,.48);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.venu-control-left .danger-note {
+    margin-top: 12px;
+    color: hsl(28, 70%, 70%);
+}
+
+.venu-control-right {
+    display: grid;
+    align-content: start;
+    padding: 6px 16px 10px;
+}
+
+.venu-param-row {
+    display: grid;
+    grid-template-columns: 130px 1fr 95px;
+    align-items: center;
+    gap: 12px;
+    min-height: 43px;
+    border-bottom: 1px solid hsla(0,0%,100%,.08);
+}
+
+.venu-param-row label {
+    color: hsla(0,0%,100%,.58);
+    font-size: 12px;
+}
+
+.venu-param-row input[type="range"] {
+    width: 100%;
+    accent-color: hsl(var(--bck-hue), 65%, 52%);
+}
+
+.venu-param-row input[type="number"],
+.venu-param-row select {
+    width: 95px;
+    height: 28px;
+    box-sizing: border-box;
+    border: 1px solid #555;
+    border-radius: 2px;
+    background: #e9e9e9;
+    color: #222;
+    padding: 3px 6px;
+}
+
+.venu-param-row input:disabled,
+.venu-param-row select:disabled {
+    opacity: .42;
+}
+
+.venu-choice-row {
+    display: flex;
+    gap: 7px;
+    flex-wrap: wrap;
+    padding: 8px 0;
+}
+
+.venu-choice {
+    border: 1px solid hsl(var(--bck-hue), 18%, 37%);
+    border-radius: 3px;
+    padding: 7px 12px;
+    background: hsl(var(--bck-hue), 20%, 24%);
+    color: hsla(0,0%,100%,.72);
     cursor: pointer;
 }
-.estack-primary-button:hover { filter: brightness(1.2); }
-.estack-danger-button { background: hsl(0, 35%, 24%); border-color: hsl(0, 40%, 38%); }
 
-.estack-system-block, .estack-user-block { padding: 10px 12px 0; }
-.estack-block-title { display:flex; justify-content:space-between; align-items:baseline; margin-bottom: 7px; }
-.estack-block-title span { font-size: 16px; }
-.estack-block-title small { color: hsla(0,0%,100%,0.42); }
-
-.estack-system-list { display: flex; flex-wrap: wrap; gap: 6px; }
-.estack-system-chip {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    max-width: 250px;
-    padding: 6px 8px;
-    border: 1px solid hsl(var(--bck-hue), 25%, 24%);
-    border-radius: 6px;
-    background: hsla(var(--bck-hue), 25%, 18%, 0.8);
-}
-.estack-system-chip strong { font-size: 12px; font-weight: 500; }
-.estack-system-chip span { font-size: 11px; color: hsla(0,0%,100%,0.5); }
-
-.estack-empty {
-    padding: 10px;
-    border: 1px dashed hsl(var(--bck-hue), 25%, 28%);
-    border-radius: 6px;
-    color: hsla(0,0%,100%,0.45);
-    font-size: 13px;
+.venu-choice.active {
+    color: #171717;
+    background: #f0f0f0;
 }
 
-.estack-peq-row {
+.venu-primary,
+.venu-danger {
+    border: 1px solid hsl(var(--bck-hue), 38%, 40%);
+    border-radius: 3px;
+    padding: 7px 12px;
+    color: white;
+    background: hsl(var(--bck-hue), 48%, 24%);
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.venu-danger {
+    background: hsl(0, 38%, 25%);
+    border-color: hsl(0, 38%, 40%);
+}
+
+.venu-primary:disabled,
+.venu-danger:disabled,
+.venu-choice:disabled {
+    opacity: .4;
+    cursor: not-allowed;
+}
+
+.venu-protection-list {
     display: grid;
-    grid-template-columns: minmax(140px, 1.2fr) minmax(100px, .8fr) repeat(3, minmax(70px, .55fr)) auto;
     gap: 8px;
-    align-items: end;
-    padding: 8px;
-    margin-top: 7px;
-    border: 1px solid hsl(var(--bck-hue), 28%, 26%);
-    border-radius: 7px;
-    background: hsl(var(--bck-hue), 35%, 14%);
+    padding: 10px 0;
 }
 
-.estack-peq-name { align-self:center; overflow:hidden; text-overflow:ellipsis; font-size:12px; color:hsla(0,0%,100%,.7); }
-.estack-field { display:flex; flex-direction:column; gap:3px; }
-.estack-field span { font-size:11px; color:hsla(0,0%,100%,.48); }
-.estack-field input, .estack-field select { width: 100%; box-sizing:border-box; height:28px; border-radius:5px; border:1px solid #444; padding:3px 6px; }
+.venu-protection-item {
+    display: grid;
+    grid-template-columns: minmax(130px, .8fr) 1fr;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid hsla(0,0%,100%,.1);
+    background: hsla(0,0%,100%,.025);
+}
 
-@media (max-width: 900px) {
-    #estackChannels { grid-template-columns: 1fr; margin-right: 2%; }
-    #spectrum, .estack-eq-toolbar { margin-right: 2%; }
-    .estack-peq-row { grid-template-columns: 1fr 1fr 1fr; }
+.venu-protection-item span {
+    color: hsla(0,0%,100%,.52);
+}
+
+.venu-statusbar {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin: 8px 7% 0 0;
+    padding: 7px 10px;
+    border: 1px solid hsl(var(--bck-hue), 24%, 24%);
+    background: hsl(var(--bck-hue), 28%, 11%);
+    color: hsla(0,0%,100%,.55);
+    font-size: 11px;
+}
+
+#estackEqStatus[data-state="ok"] { color: hsl(var(--bck-hue), 60%, 72%); }
+#estackEqStatus[data-state="error"] { color: hsl(0, 72%, 72%); }
+
+@media (max-width: 1050px) {
+    .venu-output-tabs { grid-template-columns: repeat(3, 1fr); margin-right: 2%; }
+    .venu-module-tabs, .venu-workspace, .venu-topline, .venu-statusbar { margin-right: 2%; }
+    .venu-controls { grid-template-columns: 1fr; }
+    .venu-control-left { border-right: 0; border-bottom: 1px solid hsl(var(--bck-hue),22%,28%); }
 }
