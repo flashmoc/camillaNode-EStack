@@ -12,7 +12,10 @@
 <body>
     <div id="sectionMainTitle"><img src="img/icon/connections.png" class="icon">Connections</div>
     <script type="module" >
-        import camillaDSP from "/src/camillaDSP.js"        
+        import camillaDSP from "/src/camillaDSP.js";
+        import installEStackCompatibility from "/src/estackCompat.js";
+
+        installEStackCompatibility(camillaDSP);
         window.camillaDSP = camillaDSP;
         document.addEventListener("DOMContentLoaded",connectionsOnLoad)
     </script>
@@ -30,9 +33,11 @@
                 document.getElementById("port").value=port;
                 document.getElementById("spectrumPort").value=spectrumPort;
             } else {
+                // E-Stack defaults: main CamillaDSP on 1234 and the dedicated
+                // spectrum instance on 6413, both hosted by the Raspberry Pi.
                 document.getElementById("server").value = window.location.hostname;
-                document.getElementById("port").value=3146;
-                document.getElementById("spectrumPort")=6413;
+                document.getElementById("port").value=1234;
+                document.getElementById("spectrumPort").value=6413;
             }
         }
     </script>
@@ -41,10 +46,10 @@
             text-align: left;
         }
     </style>
-    <p>Please enter the IP address aand port settings for your CamillaDSP instances below.</p>
+    <p>Please enter the IP address and port settings for your CamillaDSP instances below.</p>
     <div id="connectionsSection">        
-        <span>IP Address</span><input id="server" type="text" value="opizero2.local">
-        <span>Audio Port</span><input id="port" type="text" value="3146">
+        <span>IP Address</span><input id="server" type="text" value="estack-dsp.local">
+        <span>Audio Port</span><input id="port" type="text" value="1234">
         <span>Spectrum Port</span><input id="spectrumPort" type="text" value="6413">
         <div style="grid-column: 1 / span 2; display: flex; justify-content: right;"><button onclick="connect(camillaDSP)">Connect</button>        </div>
     </div>
