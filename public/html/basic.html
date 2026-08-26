@@ -3,39 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=100vw, initial-scale=1.0">
-    <title>basic</title>
-
-    <link rel="stylesheet" href="css/main.css">    
-    <script src="src/main.js"></script>    
-    <script type="module" >
-        import EQKnob from '/src/knob.js';
-        import camillaDSP from "/src/camillaDSP.js";        
-        import plot from '/src/eqplot.js';
-
-        window.EQKnob = EQKnob;        
-        window.plot=plot;
-
-        document.addEventListener("DOMContentLoaded",basicLoad);
-
-    </script>    
-    <script src="src/basic.js"></script>    
+    <title>E-Stack Control</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/estackBasic.css">
+    <script src="/src/estackBasic.js" defer></script>
 </head>
-<body>    
-    
-    <div id="sectionMainTitle"><img src="img/icon/basic.png" class="icon">Basic</div>    
-   
-    <div id="spectrum" class="group">
-    </div>
-
-    <canvas id="plotCanvas" width="1024" height="500"></canvas>
-
-    <div class="group" id="basicControls" label="Basic Controls">
-    </div>    
-
-    <div class="group" id="toneControls" label="Tone Controls">
-
+<body>
+    <div id="sectionMainTitle"><img src="img/icon/basic.png" class="icon">E-Stack Control</div>
+    <div class="estack-basic-panel">
+        <h2>Master</h2>
+        <div class="estack-basic-note"><span class="estack-safe-badge">SAFE MODE</span> This page never creates or rewrites DSP filters. Per-output EQ is managed in Equalizer.</div>
+        <div class="estack-master">
+            <label for="masterVolume">Master volume</label>
+            <input id="masterVolume" type="range" min="-90" max="0" step="0.5" value="-20">
+            <span id="masterVolumeValue">-- dB</span>
+        </div>
+        <div id="estackOutputSummary"></div>
     </div>
 </body>
-
-
 </html>
