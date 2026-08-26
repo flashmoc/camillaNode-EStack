@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global EQ</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/estackGlobalEq.css">
+    <script src="/src/estackGlobalEq.js" defer></script>
+</head>
+<body class="global-eq-page">
+    <header class="global-eq-head">
+        <div>
+            <span class="global-eq-eyebrow">E-STACK DSP</span>
+            <strong>Global / Input EQ</strong>
+            <span>INPUT L/R · pre-routing · affects all outputs</span>
+        </div>
+        <div class="global-eq-badges">
+            <span>10 PEQ</span>
+            <span id="globalEqActiveCount">0 ACTIVE</span>
+        </div>
+    </header>
+
+    <section class="global-eq-graph-panel">
+        <div class="global-eq-graph-head">
+            <div>
+                <strong>Global response + live spectrum</strong>
+                <span>White = realtime · grey = infinite spectrum · teal = global EQ</span>
+            </div>
+            <div class="global-eq-spectrum-controls">
+                <button type="button" id="globalEqFast" class="active">FAST</button>
+                <button type="button" id="globalEqSlow">SLOW</button>
+                <button type="button" id="globalEqInfinite" class="active">INFINITE</button>
+                <button type="button" id="globalEqResetInfinite">RESET</button>
+            </div>
+        </div>
+        <div class="global-eq-canvas-wrap">
+            <canvas id="globalEqCanvas"></canvas>
+        </div>
+    </section>
+
+    <section class="global-eq-console">
+        <div class="global-eq-console-head">
+            <div>
+                <strong>PARAMETRIC EQUALIZER</strong>
+                <span>Shared by INPUT L + INPUT R before the E-Stack mixer</span>
+            </div>
+            <button type="button" id="globalEqResetAll">RESET ALL</button>
+        </div>
+        <div id="globalEqBands" class="global-eq-bands"></div>
+    </section>
+
+    <footer class="global-eq-statusbar">
+        <span id="globalEqStatus">Connecting to CamillaDSP…</span>
+        <span>0 dB bands are kept out of the DSP pipeline automatically.</span>
+    </footer>
+</body>
+</html>
