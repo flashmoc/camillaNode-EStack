@@ -6,6 +6,12 @@
     <title>E-Stack EQ</title>
     <link rel="stylesheet" href="/css/main.css">
     <link rel="stylesheet" href="/css/estackEqV4.css">
+    <style>
+        /* main.css sizes every semantic header to 80px; dynamic DSP cards still
+           generate a few header tags, so isolate only those legacy semantics. */
+        .estack-eq-v4 .estack-peq-eq-head,
+        .estack-eq-v4 .estack-v2-card > header { height:auto !important; padding-top:4px !important; font-size:inherit !important; }
+    </style>
 
     <!-- Functional DSP/editor layers. Visual presentation is owned only by V4 CSS. -->
     <script src="/src/estackEqualizer.js" defer></script>
