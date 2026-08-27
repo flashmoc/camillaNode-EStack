@@ -1,40 +1,92 @@
 #!/usr/bin/env python3
-"""Build a Codespaces-safe spectrum config from the Raspberry spectrum config."""
+"""Generate a standalone CamillaDSP spectrum config for E-Stack cloud development.
+
+The production Raspberry spectrum config is deliberately not read or modified.
+The demo uses a white-noise SignalGenerator, creates 30 frequency bands for
+left/right (60 playback channels), and writes the result to /dev/null.
+"""
 
 from pathlib import Path
-import re
 import sys
 
-ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / "setupFiles" / "spectrum.yml"
-OUTPUT = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "dev" / "spectrum-demo.generated.yml"
+OUTPUT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("spectrum-demo.generated.yml")
 
-text = SOURCE.read_text(encoding="utf-8")
-
-text = text.replace("  enable_rate_adjust: true", "  enable_rate_adjust: false")
-
-old_capture = '''  capture:\n    type: ALSA\n    device: "gadget"\n    channels: 2\n    format: S32LE\n'''
-new_capture = '''  capture:\n    type: SignalGenerator\n    channels: 2\n    signal:\n      type: WhiteNoise\n      level: -30.0\n'''
-
-if old_capture not in text:
-    raise SystemExit("Could not find the expected ALSA capture block in setupFiles/spectrum.yml")
-text = text.replace(old_capture, new_capture, 1)
-
-# Keep analyzer bands exactly aligned with the E-Stack spectrum UI.
-frequencies = [
+FREQUENCIES = [
     25, 30, 40, 50, 63, 80, 100, 125, 160, 200,
     250, 315, 400, 500, 630, 800, 1000, 1250, 1600, 2000,
     2500, 3150, 4000, 5000, 6300, 8000, 10000, 12500, 16000, 20000,
 ]
 
-for index, frequency in enumerate(frequencies):
-    pattern = re.compile(
-        rf"(  band_{index}:\n    type: Biquad\n    parameters:\n      type: Bandpass\n      freq: )([0-9.]+)"
-    )
-    text, count = pattern.subn(rf"\g<1>{frequency}", text, count=1)
-    if count != 1:
-        raise SystemExit(f"Could not update analyzer band_{index}")
+lines = [
+    "devices:",
+    "  samplerate: 48000",
+    "  chunksize: 1024",
+    "  enable_rate_adjust: false",
+    "  capture:",
+    "    type: SignalGenerator",
+    "    channels: 2",
+    "    signal:",
+    "      type: WhiteNoise",
+    "      level: -30.0",
+    "  playback:",
+    "    type: File",
+    "    filename: /dev/null",
+    "    channels: 60",
+    "    format: S32LE",
+    "",
+    "filters:",
+]
+
+for index, frequency in enumerate(FREQUENCIES):
+    lines.extend([
+        f"  band_{index}:",
+        "    type: Biquad",
+        "    parameters:",
+        "      type: Bandpass",
+        f"      freq: {frequency}",
+        "      q: 12.0",
+    ])
+
+lines.extend([
+    "",
+    "mixers:",
+    "  spectrum_30band:",
+    "    channels:",
+    "      in: 2",
+    "      out: 60",
+    "    mapping:",
+])
+
+# Each frequency gets an L/R pair. The browser currently reads every other
+# playback meter (the L channel) for its 30-band trace, while retaining the
+# stereo layout used by the Raspberry analyzer.
+for band_index in range(len(FREQUENCIES)):
+    for side in range(2):
+        dest = band_index * 2 + side
+        lines.extend([
+            f"      - dest: {dest}",
+            "        sources:",
+            f"          - channel: {side}",
+            "            gain: 0.0",
+        ])
+
+lines.extend([
+    "",
+    "pipeline:",
+    "  - type: Mixer",
+    "    name: spectrum_30band",
+])
+
+for band_index in range(len(FREQUENCIES)):
+    for side in range(2):
+        channel = band_index * 2 + side
+        lines.extend([
+            "  - type: Filter",
+            f"    channel: {channel}",
+            "    names:",
+            f"      - band_{band_index}",
+        ])
 
 OUTPUT.parent.mkdir(parents=True, exist_ok=True)
-OUTPUT.write_text(text, encoding="utf-8")
+OUTPUT.write_text("\n".join(lines) + "\n", encoding="utf-8")
 print(OUTPUT)
