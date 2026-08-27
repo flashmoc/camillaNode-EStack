@@ -95,6 +95,9 @@ function syncLinkedPreview(channel, value) {
         if (!control) continue;
         control.fader.value = value;
         control.valueBox.textContent = `${Number(value).toFixed(1)} dB`;
+        if (typeof window.estackSyncControlFaderVisual === "function") {
+            window.estackSyncControlFaderVisual(control.fader);
+        }
     }
 }
 
@@ -144,18 +147,40 @@ async function updateLinkedGain(channel, gain) {
     return updateOutputChannels(linkedChannelsFor(channel), gain, null);
 }
 
-function makeMeter() {
-    const meter = document.createElement("div");
-    meter.className = "estack-level-meter";
-    meter.innerHTML = `
-        <div class="estack-meter-scale">
-            <span>0</span><span>-6</span><span>-12</span><span>-24</span><span>-40</span><span>-60</span>
-        </div>
-        <div class="estack-meter-track">
-            <div class="estack-meter-fill"></div>
-            <div class="estack-meter-peak"></div>
-        </div>`;
-    return meter;
+function makeMeterConsole() {
+    const consoleEl = document.createElement("div");
+    consoleEl.className = "estack-meter-console";
+
+    const dbfsScale = document.createElement("div");
+    dbfsScale.className = "estack-dbfs-scale";
+    for (const value of [0, -6, -12, -24, -40, -60]) {
+        const tick = document.createElement("span");
+        tick.dataset.value = String(value);
+        tick.textContent = String(value);
+        dbfsScale.appendChild(tick);
+    }
+
+    const core = document.createElement("div");
+    core.className = "estack-meter-core";
+
+    const track = document.createElement("div");
+    track.className = "estack-meter-track";
+    const fill = document.createElement("div");
+    fill.className = "estack-meter-fill";
+    const peak = document.createElement("div");
+    peak.className = "estack-meter-peak";
+    track.append(fill, peak);
+
+    const rail = document.createElement("div");
+    rail.className = "estack-gain-rail";
+
+    const gainScale = document.createElement("div");
+    gainScale.className = "estack-gain-scale";
+
+    core.append(track, rail);
+    consoleEl.append(dbfsScale, core, gainScale);
+
+    return { consoleEl, core, dbfsScale, gainScale, fill, peak };
 }
 
 function makeFader({ id, value, min, max, step, color, label, sublabel, onPreview, onCommit, onMute, muted = false, isMaster = false }) {
@@ -180,10 +205,8 @@ function makeFader({ id, value, min, max, step, color, label, sublabel, onPrevie
     meterValue.setAttribute("aria-label", `${label} playback level`);
     head.append(title, meterValue);
 
-    const meter = makeMeter();
+    const meter = makeMeterConsole();
 
-    const faderWrap = document.createElement("div");
-    faderWrap.className = "estack-fader-wrap";
     const fader = document.createElement("input");
     fader.id = id;
     fader.className = "estack-vertical-fader";
@@ -193,10 +216,10 @@ function makeFader({ id, value, min, max, step, color, label, sublabel, onPrevie
     fader.step = step;
     fader.value = Math.max(Number(min), Math.min(Number(max), Number(value)));
 
-    const unity = document.createElement("div");
-    unity.className = "estack-unity-mark";
-    unity.title = "0 dB gain";
-    faderWrap.append(fader, unity);
+    const handle = document.createElement("div");
+    handle.className = "estack-fader-handle";
+    handle.setAttribute("aria-hidden", "true");
+    meter.core.append(fader, handle);
 
     const valueBox = document.createElement("div");
     valueBox.className = "estack-fader-value";
@@ -205,6 +228,9 @@ function makeFader({ id, value, min, max, step, color, label, sublabel, onPrevie
     fader.addEventListener("input", () => {
         const next = Number(fader.value);
         valueBox.textContent = `${next.toFixed(1)} dB`;
+        if (typeof window.estackSyncControlFaderVisual === "function") {
+            window.estackSyncControlFaderVisual(fader);
+        }
         if (onPreview) onPreview(next);
     });
     fader.addEventListener("change", async () => {
@@ -234,18 +260,14 @@ function makeFader({ id, value, min, max, step, color, label, sublabel, onPrevie
         controls.appendChild(mute);
     }
 
-    const center = document.createElement("div");
-    center.className = "estack-strip-center";
-    center.append(meter, faderWrap);
-
-    strip.append(head, center, valueBox, controls);
+    strip.append(head, meter.consoleEl, valueBox, controls);
     return {
         strip,
         fader,
         valueBox,
         meterValue,
-        meterFill: meter.querySelector(".estack-meter-fill"),
-        meterPeak: meter.querySelector(".estack-meter-peak")
+        meterFill: meter.fill,
+        meterPeak: meter.peak
     };
 }
 
@@ -309,7 +331,7 @@ async function loadBasic() {
         step: .5,
         color: "hsl(var(--bck-hue), 65%, 60%)",
         label: "MASTER",
-        sublabel: "MAX OUT",
+        sublabel: "",
         isMaster: true,
         onCommit: async gain => {
             await DSP.sendDSPMessage({ SetVolume: gain });
@@ -350,6 +372,10 @@ async function loadBasic() {
         root.appendChild(parts.strip);
         meterStrips.set(channel, parts);
         faderControls.set(channel, parts);
+    }
+
+    if (typeof window.estackRefreshControlScales === "function") {
+        requestAnimationFrame(window.estackRefreshControlScales);
     }
 
     setMixerStatus("Connected", "ok");
