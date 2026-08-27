@@ -28,18 +28,144 @@ body.global-eq-v4 {
 }
 .venu-graph-legend::-webkit-scrollbar { display: none; }
 
-/* Output Processing layout: compact crossovers above the PEQ, analyzer at right. */
+/* -------------------------------------------------------------------------
+   OUTPUT PROCESSING — compact, flat, DAW-like structure
+   ------------------------------------------------------------------------- */
 .estack-eq-v4 .estack-peq-console.estack-eq8-console {
-    grid-template-columns: minmax(0, 1fr) 132px !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 126px !important;
     grid-template-areas:
         "xovers analyzer"
         "equalizer analyzer" !important;
     align-items: start !important;
-    gap: 5px !important;
+    gap: 6px 8px !important;
+    padding: 6px 4px 4px !important;
+    background: transparent !important;
 }
 .estack-eq-v4 .estack-peq-xovers { grid-area: xovers; }
 .estack-eq-v4 .estack-peq-equalizer { grid-area: equalizer; }
 .estack-eq-v4 .estack-eq8-analyzer { grid-area: analyzer; }
+
+/* Two small crossover modules instead of two large panels. */
+.estack-eq-v4 .estack-peq-xovers {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(220px, 264px)) !important;
+    grid-auto-rows: max-content !important;
+    align-items: start !important;
+    align-content: start !important;
+    justify-content: start !important;
+    gap: 7px !important;
+    width: fit-content !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+}
+
+.estack-eq-v4 .estack-peq-xover-card,
+.estack-eq-v4 .estack-v2-xover {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    align-self: start !important;
+    overflow: hidden !important;
+    border: 1px solid var(--eq-border) !important;
+    border-radius: 3px !important;
+    background: color-mix(in srgb, var(--eq-panel) 66%, transparent) !important;
+    box-shadow: none !important;
+}
+
+.estack-eq-v4 .estack-peq-xover-title {
+    min-height: 22px !important;
+    padding: 3px 6px !important;
+    flex-wrap: nowrap !important;
+    gap: 4px !important;
+    border-bottom: 1px solid var(--eq-border) !important;
+    background: transparent !important;
+}
+.estack-eq-v4 .estack-peq-xover-title strong {
+    font-size: 8px !important;
+    letter-spacing: .035em;
+}
+.estack-eq-v4 .estack-peq-xover-title span {
+    font-size: 6px !important;
+    opacity: .72;
+}
+
+.estack-v2-xover-body {
+    display: grid !important;
+    grid-template-columns: 58px minmax(0, 1fr) !important;
+    grid-template-rows: auto auto !important;
+    grid-template-areas:
+        "knob type"
+        "knob slope" !important;
+    align-items: center !important;
+    gap: 5px 7px !important;
+    min-height: 0 !important;
+    padding: 6px 7px 7px !important;
+}
+.estack-v2-xover-body > .estack-v2-knob {
+    grid-area: knob !important;
+    align-self: center !important;
+    justify-self: center !important;
+}
+.estack-v2-xover-body > .estack-v2-xover-options:nth-child(2) { grid-area: type !important; }
+.estack-v2-xover-body > .estack-v2-xover-options:nth-child(3) { grid-area: slope !important; }
+
+.estack-v2-xover .estack-eq8-knob {
+    width: 46px !important;
+    height: 46px !important;
+}
+.estack-v2-xover .estack-eq8-number {
+    width: 52px !important;
+    height: 19px !important;
+    font-size: 9px !important;
+}
+.estack-v2-xover .estack-eq8-number-row {
+    gap: 2px !important;
+}
+.estack-v2-xover-options {
+    min-width: 0 !important;
+    margin: 0 !important;
+    gap: 3px !important;
+}
+.estack-v2-xover-options > span {
+    line-height: 1 !important;
+    font-size: 6px !important;
+    color: var(--eq-dim) !important;
+}
+.estack-v2-segmented {
+    display: grid !important;
+    grid-auto-flow: row !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 2px !important;
+}
+.estack-v2-segmented button {
+    width: 100%;
+    min-width: 0 !important;
+    height: 20px !important;
+    padding: 0 3px !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 7px !important;
+}
+
+/* Parametric EQ is a flat rack, not another panel-inside-panel. */
+.estack-eq-v4 .estack-peq-equalizer {
+    border: 0 !important;
+    background: transparent !important;
+}
+.estack-eq-v4 .estack-peq-eq-head {
+    min-height: 28px !important;
+    padding: 4px 5px !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--eq-border) !important;
+    background: transparent !important;
+}
+.estack-eq-v4 .estack-peq-strips {
+    padding: 4px 0 0 !important;
+    background: transparent !important;
+}
 
 .estack-peq-strips,
 .global-v2-bands.estack-peq-strips {
@@ -50,11 +176,20 @@ body.global-eq-v4 {
     overflow: visible !important;
 }
 
-/* Per-output PEQ is dynamic: keep actual bands compact instead of stretching. */
+/* Per-output PEQ is dynamic: actual bands stay compact and aligned left. */
 .estack-peq-dynamic-strips {
-    grid-template-columns: repeat(auto-fill, minmax(112px, 146px)) !important;
+    grid-template-columns: repeat(auto-fill, minmax(116px, 142px)) !important;
     justify-content: start;
     align-content: start;
+    gap: 4px !important;
+}
+
+.estack-eq-v4 .estack-peq-dynamic-strips .estack-peq-strip {
+    min-width: 0 !important;
+    min-height: 226px !important;
+    border: 1px solid var(--eq-border) !important;
+    border-radius: 2px !important;
+    background: color-mix(in srgb, var(--eq-panel) 72%, transparent) !important;
 }
 
 .estack-peq-strip,
@@ -79,86 +214,14 @@ body.global-eq-v4 {
 .estack-peq-empty-state strong { color: var(--eq-text); font-size: 9px; }
 .estack-peq-empty-state span { font-size: 7px; }
 
-/* Crossover cards: two real compact modules, never giant empty panels. */
-.estack-eq-v4 .estack-peq-xovers {
-    display: grid !important;
-    grid-template-columns: repeat(2, minmax(230px, 292px)) !important;
-    grid-auto-rows: max-content !important;
-    align-items: start !important;
-    align-content: start !important;
-    justify-content: start !important;
-    gap: 6px !important;
-    width: min(100%, 590px) !important;
-    max-width: 590px !important;
-    min-width: 0 !important;
-    padding: 0 !important;
+/* Analyzer remains narrow and visually secondary. */
+.estack-eq-v4 .estack-eq8-analyzer {
+    border: 0 !important;
+    border-left: 1px solid var(--eq-border) !important;
+    background: transparent !important;
 }
-.estack-peq-xover-card,
-.estack-v2-xover {
-    min-width: 0 !important;
-    min-height: 0 !important;
-    height: auto !important;
-    align-self: start !important;
-    overflow: hidden !important;
-}
-.estack-peq-xover-title,
-.estack-v2-card > header {
-    min-height: 24px !important;
-    padding: 4px 6px !important;
-    flex-wrap: nowrap !important;
-    gap: 3px 6px;
-}
-.estack-v2-xover-body {
-    display: grid !important;
-    grid-template-columns: 52px minmax(0, 1fr) !important;
-    grid-template-rows: auto auto !important;
-    grid-template-areas:
-        "knob type"
-        "knob slope" !important;
-    align-items: center !important;
-    gap: 4px 6px !important;
-    min-height: 0 !important;
-    padding: 5px 6px 6px !important;
-}
-.estack-v2-xover-body > .estack-v2-knob {
-    grid-area: knob !important;
-    align-self: center !important;
-    justify-self: center !important;
-}
-.estack-v2-xover-body > .estack-v2-xover-options:nth-child(2) { grid-area: type !important; }
-.estack-v2-xover-body > .estack-v2-xover-options:nth-child(3) { grid-area: slope !important; }
-.estack-v2-xover .estack-eq8-knob {
-    width: 44px !important;
-    height: 44px !important;
-}
-.estack-v2-xover .estack-eq8-knob-marker {
-    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-15px) !important;
-}
-.estack-v2-xover .estack-eq8-number {
-    width: 48px !important;
-    height: 18px !important;
-}
-.estack-v2-xover-options {
-    min-width: 0 !important;
-    margin: 0 !important;
-    gap: 2px !important;
-}
-.estack-v2-xover-options > span {
-    line-height: 1 !important;
-}
-.estack-v2-segmented {
-    display: grid !important;
-    grid-auto-flow: row !important;
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-    gap: 2px !important;
-}
-.estack-v2-segmented button {
-    width: 100%;
-    min-width: 0 !important;
-    height: 20px !important;
-    padding: 0 3px !important;
-    overflow: hidden;
-    text-overflow: ellipsis;
+.estack-eq-v4 .estack-eq8-analyzer-head {
+    background: transparent !important;
 }
 
 /* Global EQ also wraps its ten bands instead of clipping them. */
@@ -218,9 +281,9 @@ body.global-eq-v4 {
     }
 
     .estack-eq-v4 .estack-peq-xovers {
-        grid-template-columns: repeat(2, minmax(220px, 280px)) !important;
-        width: min(100%, 566px) !important;
-        max-width: 566px !important;
+        grid-template-columns: repeat(2, minmax(210px, 260px)) !important;
+        width: fit-content !important;
+        max-width: 100% !important;
         justify-self: start !important;
     }
 
@@ -229,6 +292,8 @@ body.global-eq-v4 {
         grid-template-columns: auto repeat(4, minmax(72px, 1fr)) !important;
         align-items: center;
         gap: 4px !important;
+        border-left: 0 !important;
+        border-top: 1px solid var(--eq-border) !important;
     }
 
     .global-v2-analyzer {
@@ -244,8 +309,8 @@ body.global-eq-v4 {
 @media (max-width: 620px) {
     .estack-eq-v4 .estack-peq-xovers {
         grid-template-columns: minmax(0, 1fr) !important;
-        width: min(100%, 300px) !important;
-        max-width: 300px !important;
+        width: min(100%, 278px) !important;
+        max-width: 278px !important;
     }
 }
 
