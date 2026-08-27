@@ -1,0 +1,13 @@
+{
+  "name": "E-Stack CamillaNode",
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "forwardPorts": [8080],
+  "portsAttributes": {
+    "8080": {
+      "label": "E-Stack CamillaNode",
+      "onAutoForward": "openBrowser"
+    }
+  },
+  "postCreateCommand": "npm install --no-audit --no-fund",
+  "postStartCommand": "bash dev/start-demo.sh --background"
+}
