@@ -1,9 +1,14 @@
-// E-Stack Control — single mathematical axis for dBFS labels, GAIN labels and
-// the visible gain handle. No browser range geometry and no DOM measurements.
+// E-Stack Control — one mathematical axis for dBFS labels, GAIN labels,
+// custom visual handles and mouse/touch interaction.
+//
+// The native vertical range is kept only as the value/focus/keyboard source.
+// Pointer interaction is handled by .estack-meter-core so browser-specific
+// vertical range geometry can never force the value to the minimum.
 
 const ESTACK_AXIS_TOP = 4;
 const ESTACK_AXIS_BOTTOM = 242;
 const ESTACK_AXIS_TRAVEL = ESTACK_AXIS_BOTTOM - ESTACK_AXIS_TOP;
+const ESTACK_GAIN_ZERO_SNAP_DB = 0.8;
 
 function estackLinearY(value, min, max) {
     const lo = Number(min);
@@ -13,6 +18,29 @@ function estackLinearY(value, min, max) {
     const clamped = Math.max(lo, Math.min(hi, Number.isFinite(val) ? val : lo));
     const ratio = (hi - clamped) / (hi - lo);
     return ESTACK_AXIS_TOP + ratio * ESTACK_AXIS_TRAVEL;
+}
+
+function estackValueFromClientY(fader, core, clientY) {
+    const min = Number(fader.min);
+    const max = Number(fader.max);
+    const step = Math.max(0.000001, Number(fader.step) || 0.1);
+    if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) return min;
+
+    const rect = core.getBoundingClientRect();
+    // CSS and JS share the same 4..242 px axis inside the 246 px core.
+    const localY = Math.max(ESTACK_AXIS_TOP, Math.min(ESTACK_AXIS_BOTTOM, clientY - rect.top));
+    const ratio = (localY - ESTACK_AXIS_TOP) / ESTACK_AXIS_TRAVEL;
+    let value = max - ratio * (max - min);
+
+    value = Math.round(value / step) * step;
+    value = Math.max(min, Math.min(max, value));
+
+    // Soft detent around unity for gain controls.
+    if (min <= 0 && max >= 0 && Math.abs(value) <= ESTACK_GAIN_ZERO_SNAP_DB) value = 0;
+
+    // Avoid floating-point tails such as -8.799999999.
+    const decimals = Math.max(0, (String(step).split('.')[1] || '').length);
+    return Number(value.toFixed(Math.min(6, decimals)));
 }
 
 function estackFormatGainTick(value) {
@@ -77,6 +105,56 @@ function estackSyncControlFaderVisual(fader) {
     estackPositionHandle(fader);
 }
 
+function estackSetFaderFromPointer(fader, core, clientY, commit = false) {
+    const next = estackValueFromClientY(fader, core, clientY);
+    if (Number(fader.value) !== next) {
+        fader.value = String(next);
+        fader.dispatchEvent(new Event('input', { bubbles: true }));
+    } else {
+        estackPositionHandle(fader);
+    }
+    if (commit) fader.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function estackAttachPointerControl(fader) {
+    if (fader.dataset.estackPointerAttached === 'true') return;
+    const core = fader.closest('.estack-meter-core');
+    if (!core) return;
+
+    fader.dataset.estackPointerAttached = 'true';
+    let activePointer = null;
+
+    core.addEventListener('pointerdown', event => {
+        if (fader.disabled || event.button > 0) return;
+        event.preventDefault();
+        activePointer = event.pointerId;
+        core.setPointerCapture?.(event.pointerId);
+        fader.focus({ preventScroll: true });
+        estackSetFaderFromPointer(fader, core, event.clientY, false);
+    });
+
+    core.addEventListener('pointermove', event => {
+        if (activePointer !== event.pointerId || fader.disabled) return;
+        event.preventDefault();
+        estackSetFaderFromPointer(fader, core, event.clientY, false);
+    });
+
+    const finish = event => {
+        if (activePointer !== event.pointerId) return;
+        event.preventDefault();
+        estackSetFaderFromPointer(fader, core, event.clientY, true);
+        try { core.releasePointerCapture?.(event.pointerId); } catch (_) {}
+        activePointer = null;
+    };
+
+    core.addEventListener('pointerup', finish);
+    core.addEventListener('pointercancel', event => {
+        if (activePointer !== event.pointerId) return;
+        try { core.releasePointerCapture?.(event.pointerId); } catch (_) {}
+        activePointer = null;
+    });
+}
+
 function estackDecorateFader(fader) {
     if (!fader) return;
     const consoleEl = fader.closest('.estack-meter-console');
@@ -85,6 +163,7 @@ function estackDecorateFader(fader) {
     estackPositionDbfsScale(consoleEl);
     estackBuildGainScale(fader);
     estackPositionHandle(fader);
+    estackAttachPointerControl(fader);
 
     if (fader.dataset.estackUnifiedScaleAttached === 'true') return;
     fader.dataset.estackUnifiedScaleAttached = 'true';
