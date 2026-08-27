@@ -28,10 +28,18 @@ body.global-eq-v4 {
 }
 .venu-graph-legend::-webkit-scrollbar { display: none; }
 
-/* Kill the old 850/900px minimums that made the last bands disappear. */
-.estack-peq-console.estack-eq8-console {
-    grid-template-columns: minmax(128px, 154px) minmax(0, 1fr) minmax(118px, 138px) !important;
+/* Output Processing layout: compact crossovers above the PEQ, analyzer at right. */
+.estack-eq-v4 .estack-peq-console.estack-eq8-console {
+    grid-template-columns: minmax(0, 1fr) 132px !important;
+    grid-template-areas:
+        "xovers analyzer"
+        "equalizer analyzer" !important;
+    align-items: start !important;
+    gap: 5px !important;
 }
+.estack-eq-v4 .estack-peq-xovers { grid-area: xovers; }
+.estack-eq-v4 .estack-peq-equalizer { grid-area: equalizer; }
+.estack-eq-v4 .estack-eq8-analyzer { grid-area: analyzer; }
 
 .estack-peq-strips,
 .global-v2-bands.estack-peq-strips {
@@ -71,42 +79,84 @@ body.global-eq-v4 {
 .estack-peq-empty-state strong { color: var(--eq-text); font-size: 9px; }
 .estack-peq-empty-state span { font-size: 7px; }
 
-/* Crossover cards: compact and safe at narrow widths. */
-.estack-peq-xovers {
+/* Crossover cards: two real compact modules, never giant empty panels. */
+.estack-eq-v4 .estack-peq-xovers {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(230px, 292px)) !important;
+    grid-auto-rows: max-content !important;
+    align-items: start !important;
+    align-content: start !important;
+    justify-content: start !important;
+    gap: 6px !important;
+    width: min(100%, 590px) !important;
+    max-width: 590px !important;
     min-width: 0 !important;
+    padding: 0 !important;
 }
 .estack-peq-xover-card,
 .estack-v2-xover {
     min-width: 0 !important;
+    min-height: 0 !important;
+    height: auto !important;
+    align-self: start !important;
+    overflow: hidden !important;
 }
 .estack-peq-xover-title,
 .estack-v2-card > header {
-    flex-wrap: wrap;
+    min-height: 24px !important;
+    padding: 4px 6px !important;
+    flex-wrap: nowrap !important;
     gap: 3px 6px;
 }
 .estack-v2-xover-body {
-    grid-template-columns: 50px minmax(0, 1fr) !important;
-    gap: 4px !important;
-    padding: 4px !important;
+    display: grid !important;
+    grid-template-columns: 52px minmax(0, 1fr) !important;
+    grid-template-rows: auto auto !important;
+    grid-template-areas:
+        "knob type"
+        "knob slope" !important;
+    align-items: center !important;
+    gap: 4px 6px !important;
+    min-height: 0 !important;
+    padding: 5px 6px 6px !important;
 }
+.estack-v2-xover-body > .estack-v2-knob {
+    grid-area: knob !important;
+    align-self: center !important;
+    justify-self: center !important;
+}
+.estack-v2-xover-body > .estack-v2-xover-options:nth-child(2) { grid-area: type !important; }
+.estack-v2-xover-body > .estack-v2-xover-options:nth-child(3) { grid-area: slope !important; }
 .estack-v2-xover .estack-eq8-knob {
-    width: 42px !important;
-    height: 42px !important;
+    width: 44px !important;
+    height: 44px !important;
 }
 .estack-v2-xover .estack-eq8-knob-marker {
-    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-14px) !important;
+    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-15px) !important;
+}
+.estack-v2-xover .estack-eq8-number {
+    width: 48px !important;
+    height: 18px !important;
 }
 .estack-v2-xover-options {
-    min-width: 0;
+    min-width: 0 !important;
+    margin: 0 !important;
     gap: 2px !important;
 }
+.estack-v2-xover-options > span {
+    line-height: 1 !important;
+}
 .estack-v2-segmented {
+    display: grid !important;
     grid-auto-flow: row !important;
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 2px !important;
 }
 .estack-v2-segmented button {
     width: 100%;
     min-width: 0 !important;
+    height: 20px !important;
+    padding: 0 3px !important;
     overflow: hidden;
     text-overflow: ellipsis;
 }
@@ -156,14 +206,22 @@ body.global-eq-v4 {
     }
     .eq-v4-context { display: none !important; }
 
-    .estack-peq-console.estack-eq8-console,
+    .estack-eq-v4 .estack-peq-console.estack-eq8-console,
     .global-v2-console.estack-peq-console.estack-eq8-console {
         grid-template-columns: 1fr !important;
     }
+    .estack-eq-v4 .estack-peq-console.estack-eq8-console {
+        grid-template-areas:
+            "xovers"
+            "equalizer"
+            "analyzer" !important;
+    }
 
-    .estack-peq-xovers {
-        grid-template-columns: repeat(2, minmax(0,1fr)) !important;
-        grid-template-rows: auto !important;
+    .estack-eq-v4 .estack-peq-xovers {
+        grid-template-columns: repeat(2, minmax(220px, 280px)) !important;
+        width: min(100%, 566px) !important;
+        max-width: 566px !important;
+        justify-self: start !important;
     }
 
     .estack-eq8-analyzer {
@@ -180,6 +238,14 @@ body.global-eq-v4 {
     .venu-graph-wrap,
     .global-v2-canvas-wrap {
         height: 280px !important;
+    }
+}
+
+@media (max-width: 620px) {
+    .estack-eq-v4 .estack-peq-xovers {
+        grid-template-columns: minmax(0, 1fr) !important;
+        width: min(100%, 300px) !important;
+        max-width: 300px !important;
     }
 }
 
@@ -224,10 +290,6 @@ body.global-eq-v4 {
     .global-v2-canvas-wrap {
         height: 220px !important;
         margin: 2px !important;
-    }
-
-    .estack-peq-xovers {
-        grid-template-columns: 1fr !important;
     }
 
     .estack-peq-strips,
