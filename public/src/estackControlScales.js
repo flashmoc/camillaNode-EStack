@@ -1,13 +1,13 @@
-// Calibrated gain scales for the integrated E-Stack Control meter/faders.
-// The left scale belongs to the playback meter (dBFS). This module adds a
-// separate right-hand GAIN scale whose tick positions are derived from each
-// fader's actual min/max and from the real slider thumb travel geometry.
+// Calibrated gain scales + visual fader handles for E-Stack Control.
 //
-// IMPORTANT: do not observe mutations inside the scale itself. Rebuilding the
-// scale changes child nodes; observing those mutations caused a render loop and
-// froze the Control page after the meter-scale update.
+// IMPORTANT: the browser's native vertical range thumb is NOT used as a visual
+// reference. Chrome/Firefox can map vertical range thumbs with slightly
+// different internal geometry. We keep the range input for mouse/keyboard
+// interaction, but draw our own handle and every GAIN tick from this one shared
+// value->Y function. Therefore 0.0 dB and the 0 tick are always identical.
 
-const ESTACK_CONTROL_THUMB_PX = 5;
+const ESTACK_CONTROL_HANDLE_PX = 5;
+const ESTACK_CONTROL_FADER_HEIGHT_PX = 236;
 
 function estackGainScaleValues(min, max) {
     const candidates = [max, 0, -6, -12, -24, -40, min];
@@ -30,18 +30,48 @@ function estackFormatGainTick(value) {
     return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
+function estackFaderGeometry(fader, wrap) {
+    const wrapHeight = wrap?.clientHeight || 246;
+    const faderHeight = fader?.clientHeight || ESTACK_CONTROL_FADER_HEIGHT_PX;
+    const actualFaderHeight = Math.min(faderHeight, wrapHeight);
+    const inset = Math.max(0, (wrapHeight - actualFaderHeight) / 2);
+    const halfHandle = ESTACK_CONTROL_HANDLE_PX / 2;
+    const top = inset + halfHandle;
+    const bottom = wrapHeight - inset - halfHandle;
+    return {
+        top,
+        bottom,
+        travel: Math.max(0, bottom - top)
+    };
+}
+
 function estackFaderValueY(fader, wrap, value) {
     const min = Number(fader.min);
     const max = Number(fader.max);
     if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) return 0;
 
-    const wrapRect = wrap.getBoundingClientRect();
-    const faderRect = fader.getBoundingClientRect();
-    const insetTop = faderRect.top - wrapRect.top;
-    const thumb = Math.min(ESTACK_CONTROL_THUMB_PX, faderRect.height);
-    const travel = Math.max(0, faderRect.height - thumb);
-    const ratio = (max - Number(value)) / (max - min);
-    return insetTop + thumb / 2 + Math.max(0, Math.min(1, ratio)) * travel;
+    const geometry = estackFaderGeometry(fader, wrap);
+    const clamped = Math.max(min, Math.min(max, Number(value)));
+    const ratio = (max - clamped) / (max - min);
+    return geometry.top + ratio * geometry.travel;
+}
+
+function estackEnsureVisualHandle(fader, wrap) {
+    let handle = wrap.querySelector('.estack-fader-handle');
+    if (!handle) {
+        handle = document.createElement('div');
+        handle.className = 'estack-fader-handle';
+        handle.setAttribute('aria-hidden', 'true');
+        wrap.appendChild(handle);
+    }
+    return handle;
+}
+
+function estackPositionVisualHandle(fader) {
+    const wrap = fader.closest('.estack-fader-wrap');
+    if (!wrap) return;
+    const handle = estackEnsureVisualHandle(fader, wrap);
+    handle.style.top = `${estackFaderValueY(fader, wrap, Number(fader.value))}px`;
 }
 
 function estackBuildGainScale(fader) {
@@ -60,7 +90,6 @@ function estackBuildGainScale(fader) {
     const max = Number(fader.max);
     const values = estackGainScaleValues(min, max);
 
-    // Build off-DOM, then replace once. No observer watches this subtree.
     const fragment = document.createDocumentFragment();
     for (const value of values) {
         const tick = document.createElement('span');
@@ -73,25 +102,34 @@ function estackBuildGainScale(fader) {
     }
     scale.replaceChildren(fragment);
 
-    if (min <= 0 && max >= 0) {
-        wrap.style.setProperty('--estack-unity-px', `${estackFaderValueY(fader, wrap, 0)}px`);
-    }
-
+    estackPositionVisualHandle(fader);
     wrap.dataset.gainRange = `${estackFormatGainTick(max)}…${estackFormatGainTick(min)}`;
+}
+
+function estackAttachFaderVisualSync(fader) {
+    if (fader.dataset.estackVisualHandle === 'true') return;
+    fader.dataset.estackVisualHandle = 'true';
+
+    const sync = () => estackPositionVisualHandle(fader);
+    fader.addEventListener('input', sync);
+    fader.addEventListener('change', sync);
+    fader.addEventListener('keydown', () => requestAnimationFrame(sync));
 }
 
 function estackRefreshGainScales() {
     const faders = [...document.querySelectorAll('.estack-vertical-fader')];
-    faders.forEach(estackBuildGainScale);
+    for (const fader of faders) {
+        estackAttachFaderVisualSync(fader);
+        estackBuildGainScale(fader);
+    }
     return faders.length;
 }
 
 function estackInitGainScales() {
-    // estackBasic.js builds the strips asynchronously after downloading the DSP
-    // config. Use bounded retries instead of a MutationObserver so scale drawing
-    // can never recursively trigger itself.
+    // estackBasic.js creates the strips asynchronously after the DSP config is
+    // downloaded. Bounded retries avoid MutationObserver render loops.
     let attempts = 0;
-    const maxAttempts = 20;
+    const maxAttempts = 24;
 
     const tryBuild = () => {
         attempts += 1;
@@ -107,6 +145,15 @@ function estackInitGainScales() {
         cancelAnimationFrame(resizeFrame);
         resizeFrame = requestAnimationFrame(estackRefreshGainScales);
     }, { passive: true });
+
+    // Programmatic linked-gain previews change another range's value without a
+    // native pointer event. Re-sync the custom handle after any Control input.
+    document.addEventListener('input', event => {
+        if (!event.target?.classList?.contains('estack-vertical-fader')) return;
+        requestAnimationFrame(() => {
+            document.querySelectorAll('.estack-vertical-fader').forEach(estackPositionVisualHandle);
+        });
+    });
 }
 
 if (document.readyState === 'loading') {
