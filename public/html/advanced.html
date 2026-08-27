@@ -2,23 +2,23 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=100vw, initial-scale=1.0">
-    <link rel="stylesheet" href="css/main.css">
-    <link rel="stylesheet" href="/css/estackAdvancedScroll.css">
-    <link rel="stylesheet" href="/css/estackAdvancedResponsive.css">
-    <script src="src/advanced.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/estackTheme.css">
+    <link rel="stylesheet" href="/css/estackAdvanced.css">
+    <script src="/src/advanced.js"></script>
     <script src="/src/estackAdvancedScroll.js"></script>
-    <script src="src/estackProcessorVisibility.js" defer></script>
-    <script src="src/estackAdvancedDeviceLabels.js" defer></script>
+    <script src="/src/estackProcessorVisibility.js" defer></script>
+    <script src="/src/estackAdvancedDeviceLabels.js" defer></script>
 </head>
 <script type="module">
-    import filter from "/src/filter.js"
+    import filter from "/src/filter.js";
     window.filter = filter;
-
-    document.addEventListener("DOMContentLoaded",advancedOnLoad)
+    document.addEventListener("DOMContentLoaded", advancedOnLoad);
 </script>
 <body>
-    <div id="sectionMainTitle"><img src="img/icon/advanced.png" class="icon">Advanced</div>
+    <div id="sectionMainTitle"><img src="/img/icon/advanced.png" class="icon">Advanced</div>
 
     <div class="group" id="pipelineVisual" label="Pipeline">
         <div id="pipelineContainer">
