@@ -198,6 +198,7 @@ bind_address: "0.0.0.0"
 port: 5005
 ssl_certificate: null
 ssl_private_key: null
+gui_config_file: null
 config_dir: "$GUI_CONFIG_DIR"
 coeff_dir: "$GUI_COEFF_DIR"
 default_config: "$MAIN_CONFIG"
@@ -268,15 +269,34 @@ fi
 GUI_PID=$!
 echo "$GUI_PID" > "$RUN_DIR/camillagui.pid"
 
-if ! wait_for_port 5005 "CamillaGUI" 200; then
-    cat "$LOG_DIR/camillagui.log" >&2 || true
-    exit 1
-fi
-if ! kill -0 "$GUI_PID" >/dev/null 2>&1; then
-    echo "CamillaGUI exited unexpectedly:" >&2
-    cat "$LOG_DIR/camillagui.log" >&2 || true
-    exit 1
-fi
+# Fail fast if the backend exits, otherwise wait for its HTTP listener.
+for ((i=1; i<=200; i++)); do
+    if ! kill -0 "$GUI_PID" >/dev/null 2>&1; then
+        echo "CamillaGUI exited before opening port 5005:" >&2
+        cat "$LOG_DIR/camillagui.log" >&2 || true
+        exit 1
+    fi
+    if python3 - <<'PY' >/dev/null 2>&1
+import socket
+s = socket.socket()
+s.settimeout(0.1)
+try:
+    s.connect(("127.0.0.1", 5005))
+except OSError:
+    raise SystemExit(1)
+finally:
+    s.close()
+PY
+    then
+        break
+    fi
+    if [[ "$i" -eq 200 ]]; then
+        echo "CamillaGUI did not open port 5005 in time." >&2
+        cat "$LOG_DIR/camillagui.log" >&2 || true
+        exit 1
+    fi
+    sleep 0.1
+done
 
 export ESTACK_DEMO=1
 export CAMILLANODE_PORT=8080
