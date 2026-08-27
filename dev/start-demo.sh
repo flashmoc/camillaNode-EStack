@@ -2,15 +2,25 @@
 set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/estack-camillanode-demo"
+
+# Codespaces can have a very small /tmp/root filesystem. Keep every demo-owned
+# file on the persistent /workspaces volume instead. On normal Linux installs,
+# retain the conventional user cache location.
+if [[ "${CODESPACES:-false}" == "true" && -d /workspaces ]]; then
+    CACHE_DIR="/workspaces/.estack-camillanode-demo"
+else
+    CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/estack-camillanode-demo"
+fi
+
 BIN_DIR="$CACHE_DIR/bin"
 RUN_DIR="$CACHE_DIR/run"
 LOG_DIR="$CACHE_DIR/log"
+TMP_DIR="$CACHE_DIR/tmp"
 CAMILLA_VERSION="${CAMILLA_VERSION:-4.1.3}"
 MAIN_CONFIG="$ROOT_DIR/dev/estack-demo.yml"
 SPECTRUM_CONFIG="$RUN_DIR/spectrum-demo.yml"
 
-mkdir -p "$BIN_DIR" "$RUN_DIR" "$LOG_DIR"
+mkdir -p "$BIN_DIR" "$RUN_DIR" "$LOG_DIR" "$TMP_DIR"
 
 # Used by .devcontainer/postStartCommand. The normal `npm run demo` path stays
 # attached to the terminal so Ctrl+C stops the complete demo cleanly.
@@ -32,6 +42,31 @@ esac
 
 CAMILLA_BIN="$BIN_DIR/camilladsp-$CAMILLA_VERSION-$CAMILLA_ARCH"
 
+stop_previous_codespace_demo() {
+    # This deliberately only takes over ports/processes inside Codespaces. It
+    # must never kill the real Raspberry services when someone runs the script
+    # by mistake on the hardware.
+    if [[ "${CODESPACES:-false}" != "true" ]]; then
+        return
+    fi
+
+    # Stop both an earlier automated demo and the manual CamillaDSP instances
+    # used while bootstrapping the Codespace.
+    pkill -f '[n]odemon index.js' >/dev/null 2>&1 || true
+    pkill -f '[n]ode index.js' >/dev/null 2>&1 || true
+
+    if command -v fuser >/dev/null 2>&1; then
+        fuser -k 1234/tcp >/dev/null 2>&1 || true
+        fuser -k 6413/tcp >/dev/null 2>&1 || true
+        fuser -k 8080/tcp >/dev/null 2>&1 || true
+    fi
+
+    # The very first manual test wrote an unbounded raw stream here. Remove it
+    # so a previous test cannot keep /tmp full forever.
+    rm -f /tmp/estack-demo.raw /tmp/camilladsp-demo.raw 2>/dev/null || true
+    sleep 0.3
+}
+
 ensure_system_dependencies() {
     if ldconfig -p 2>/dev/null | grep -q 'libasound\.so\.2'; then
         return
@@ -51,38 +86,26 @@ download_camilladsp() {
 
     echo "Downloading CamillaDSP $CAMILLA_VERSION for linux-$CAMILLA_ARCH..."
     local temp_dir archive
-    temp_dir="$(mktemp -d)"
+    temp_dir="$(mktemp -d "$TMP_DIR/camilladsp.XXXXXXXXXX")"
     archive="$temp_dir/camilladsp.tar.gz"
-    trap 'rm -rf "$temp_dir"' RETURN
+
+    cleanup_download_tmp() {
+        rm -rf "$temp_dir"
+    }
+    trap cleanup_download_tmp RETURN
 
     curl -fL --retry 3 \
         "https://github.com/HEnquist/camilladsp/releases/download/v${CAMILLA_VERSION}/camilladsp-linux-${CAMILLA_ARCH}.tar.gz" \
         -o "$archive"
     tar -xzf "$archive" -C "$temp_dir"
     install -m 0755 "$temp_dir/camilladsp" "$CAMILLA_BIN"
-    rm -rf "$temp_dir"
+    cleanup_download_tmp
     trap - RETURN
 }
 
-stop_previous_codespace_demo() {
-    # This deliberately only takes over ports/processes inside Codespaces. It
-    # must never kill the real Raspberry services when someone runs the script
-    # by mistake on the hardware.
-    if [[ "${CODESPACES:-false}" != "true" ]]; then
-        return
-    fi
-
-    pkill -f '[n]odemon index.js' >/dev/null 2>&1 || true
-    pkill -f '[n]ode index.js' >/dev/null 2>&1 || true
-
-    if command -v fuser >/dev/null 2>&1; then
-        fuser -k 1234/tcp >/dev/null 2>&1 || true
-        fuser -k 6413/tcp >/dev/null 2>&1 || true
-        fuser -k 8080/tcp >/dev/null 2>&1 || true
-    fi
-    sleep 0.3
-}
-
+# Free any old manual test first. This is intentionally before downloading so
+# the launcher can recover even when /tmp was filled by the old raw-file test.
+stop_previous_codespace_demo
 ensure_system_dependencies
 download_camilladsp
 
@@ -99,8 +122,6 @@ if [[ ! -d node_modules ]]; then
     echo "Installing CamillaNode dependencies..."
     npm install --no-audit --no-fund
 fi
-
-stop_previous_codespace_demo
 
 MAIN_PID=""
 SPECTRUM_PID=""
@@ -148,6 +169,7 @@ printf '  CamillaNode:  http://localhost:8080\n'
 if [[ -n "${CODESPACE_NAME:-}" && -n "${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN:-}" ]]; then
     printf '  Browser:      https://%s-8080.%s\n' "$CODESPACE_NAME" "$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN"
 fi
-printf '\nKeep this command running while you work. Ctrl+C stops the demo.\n\n'
+printf '\nRuntime/cache: %s\n' "$CACHE_DIR"
+printf 'Keep this command running while you work. Ctrl+C stops the demo.\n\n'
 
 npm start
