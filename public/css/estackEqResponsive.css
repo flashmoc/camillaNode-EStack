@@ -42,11 +42,34 @@ body.global-eq-v4 {
     overflow: visible !important;
 }
 
+/* Per-output PEQ is dynamic: keep actual bands compact instead of stretching. */
+.estack-peq-dynamic-strips {
+    grid-template-columns: repeat(auto-fill, minmax(112px, 146px)) !important;
+    justify-content: start;
+    align-content: start;
+}
+
 .estack-peq-strip,
 .global-v2-band.estack-peq-strip {
     min-width: 0 !important;
     min-height: 238px !important;
 }
+
+.estack-peq-empty-state {
+    min-height: 90px;
+    min-width: min(260px, 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 4px;
+    padding: 12px;
+    border: 1px dashed var(--eq-border);
+    color: var(--eq-muted);
+    background: color-mix(in srgb, var(--eq-panel) 72%, transparent);
+}
+.estack-peq-empty-state strong { color: var(--eq-text); font-size: 9px; }
+.estack-peq-empty-state span { font-size: 7px; }
 
 /* Crossover cards: compact and safe at narrow widths. */
 .estack-peq-xovers {
@@ -93,27 +116,24 @@ body.global-eq-v4 {
     grid-template-columns: minmax(0, 1fr) 132px !important;
 }
 
-/* Dynamic per-output PEQ add card. */
-.estack-peq-add-card {
-    min-height: 238px;
-    display: grid;
-    place-items: center;
-    border: 1px dashed var(--eq-border-strong);
-    background: color-mix(in srgb, var(--eq-panel) 82%, transparent);
-}
 .estack-peq-add-button {
-    min-width: 86px;
-    min-height: 34px;
+    min-width: 82px;
+    min-height: 24px;
+    padding: 0 8px;
     border: 1px solid var(--eq-border-strong);
     background: var(--eq-control-dark);
     color: var(--eq-text);
     cursor: pointer;
-    font-size: 9px;
+    font-size: 8px;
     font-weight: 700;
 }
 .estack-peq-add-button:hover {
     border-color: var(--eq-accent);
     color: var(--eq-accent);
+}
+.estack-peq-add-button:disabled {
+    opacity: .35;
+    cursor: default;
 }
 .estack-peq-delete {
     height: 18px;
@@ -217,9 +237,12 @@ body.global-eq-v4 {
         gap: 2px !important;
     }
 
+    .estack-peq-dynamic-strips {
+        grid-template-columns: repeat(auto-fill, minmax(132px, 1fr)) !important;
+    }
+
     .estack-peq-strip,
-    .global-v2-band.estack-peq-strip,
-    .estack-peq-add-card {
+    .global-v2-band.estack-peq-strip {
         min-height: 220px !important;
     }
 
