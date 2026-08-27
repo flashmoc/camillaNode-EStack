@@ -5,55 +5,62 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Global EQ</title>
     <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/estackPeqRack.css">
+    <link rel="stylesheet" href="/css/estackEqEight.css">
+    <link rel="stylesheet" href="/css/estackEqEightV2.css">
     <link rel="stylesheet" href="/css/estackGlobalEq.css">
+    <link rel="stylesheet" href="/css/estackGlobalEqV2.css">
     <script src="/src/estackGlobalEq.js" defer></script>
     <script src="/src/estackGlobalEqCanvasFix.js" defer></script>
+    <script src="/src/estackGlobalEqV2.js" defer></script>
 </head>
-<body class="global-eq-page">
-    <header class="global-eq-head">
-        <div>
-            <span class="global-eq-eyebrow">E-STACK DSP</span>
-            <strong>Global / Input EQ</strong>
-            <span>INPUT L/R · pre-routing · affects all outputs</span>
+<body class="global-eq-page global-v2-page">
+    <header class="global-eq-head global-v2-head">
+        <div class="global-v2-title">
+            <strong>GLOBAL EQ</strong>
         </div>
-        <div class="global-eq-badges">
-            <span>10 PEQ</span>
+        <div class="global-eq-badges global-v2-badges">
+            <span>INPUT L/R</span>
+            <span>PRE-ROUTING</span>
             <span id="globalEqActiveCount">0 ACTIVE</span>
         </div>
     </header>
 
-    <section class="global-eq-graph-panel">
-        <div class="global-eq-graph-head">
-            <div>
-                <strong>Global response + live spectrum</strong>
-                <span>White = realtime · grey = infinite spectrum · teal = global EQ</span>
-            </div>
-            <div class="global-eq-spectrum-controls">
-                <button type="button" id="globalEqFast" class="active">FAST</button>
-                <button type="button" id="globalEqSlow">SLOW</button>
-                <button type="button" id="globalEqInfinite" class="active">INFINITE</button>
-                <button type="button" id="globalEqResetInfinite">RESET</button>
-            </div>
+    <section class="global-eq-graph-panel global-v2-graph-panel">
+        <div class="global-eq-graph-head global-v2-graph-head">
+            <div><strong>RESPONSE</strong></div>
         </div>
-        <div class="global-eq-canvas-wrap">
+        <div class="global-eq-canvas-wrap global-v2-canvas-wrap">
             <canvas id="globalEqCanvas"></canvas>
         </div>
     </section>
 
-    <section class="global-eq-console">
-        <div class="global-eq-console-head">
-            <div>
-                <strong>PARAMETRIC EQUALIZER</strong>
-                <span>Shared by INPUT L + INPUT R before the E-Stack mixer</span>
+    <section class="global-eq-console estack-peq-console estack-eq8-console global-v2-console">
+        <section class="estack-peq-equalizer global-v2-equalizer">
+            <header class="estack-peq-eq-head global-v2-eq-head">
+                <div><strong>PARAMETRIC EQ</strong><span>10 bands · shared L/R</span></div>
+                <button type="button" id="globalEqResetAll" class="global-v2-reset-all">RESET ALL</button>
+            </header>
+            <div id="globalEqBands" class="estack-peq-strips global-eq-bands global-v2-bands"></div>
+        </section>
+
+        <aside class="estack-eq8-analyzer global-v2-analyzer">
+            <div class="estack-eq8-analyzer-head">
+                <strong>ANALYZER</strong><i class="estack-eq8-analyzer-led"></i>
             </div>
-            <button type="button" id="globalEqResetAll">RESET ALL</button>
-        </div>
-        <div id="globalEqBands" class="global-eq-bands"></div>
+            <div class="global-v2-analyzer-label">SPEED</div>
+            <div class="estack-eq8-analyzer-modes global-v2-analyzer-modes">
+                <button type="button" id="globalEqFast" class="active">FAST</button>
+                <button type="button" id="globalEqSlow">SLOW</button>
+            </div>
+            <div class="global-v2-analyzer-label">HOLD</div>
+            <button type="button" id="globalEqInfinite" class="global-v2-analyzer-button active">INFINITE</button>
+            <button type="button" id="globalEqResetInfinite" class="global-v2-analyzer-button">RESET</button>
+        </aside>
     </section>
 
-    <footer class="global-eq-statusbar">
+    <footer class="global-eq-statusbar global-v2-statusbar">
         <span id="globalEqStatus">Connecting to CamillaDSP…</span>
-        <span>0 dB bands are kept out of the DSP pipeline automatically.</span>
     </footer>
 </body>
 </html>
