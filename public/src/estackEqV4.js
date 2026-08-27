@@ -62,52 +62,76 @@ if (typeof estackChannelColor === "function") {
     estackChannelColor = function(channel) { return estackV4ChannelColor(channel); };
 }
 
-// The graph legend is now the only visible output selector. It is deliberately
-// compact and uses one stable colour per physical output.
+async function estackV4SelectChannel(channel) {
+    const next = Number(channel);
+    if (!Number.isInteger(next) || next === selectedChannel) return;
+
+    selectedChannel = next;
+    selectedCrossover = getCrossover("hpf") ? "hpf" : "lpf";
+    selectedPeqSlot = 0;
+    estackV4ApplyChannelAccent(next);
+
+    // Give immediate visual feedback before the DSP round-trip.
+    if (typeof estackRenderLegend === "function") estackRenderLegend();
+    if (typeof drawGraph === "function") drawGraph();
+
+    try {
+        await DSP.downloadConfig();
+        renderAll(false);
+    } catch (error) {
+        console.error("E-Stack output selection failed", error);
+        if (typeof setStatus === "function") {
+            setStatus(`Output selection failed: ${error?.message || error}`, "error");
+        }
+    }
+}
+
+// The graph legend is the only visible output selector. Important: the analyzer
+// redraws the graph many times per second, so the legend DOM MUST stay stable.
+// Replacing the buttons on every redraw used to destroy the element between
+// pointerdown and click, making channel selection appear non-clickable.
 if (typeof estackRenderLegend === "function") {
     estackRenderLegend = function() {
         const root = document.querySelector(".venu-graph-legend");
-        if (!root || !window.DSP) return;
-        root.replaceChildren();
+        if (!root || typeof DSP === "undefined" || !DSP) return;
 
-        for (const channel of activeChannels()) {
-            const selected = channel === selectedChannel;
-            const color = estackV4ChannelColor(channel);
-            const item = document.createElement("button");
-            item.type = "button";
-            item.className = "estack-channel-legend";
-            item.classList.toggle("active", selected);
-            item.style.setProperty("--channel-color", color);
-            item.setAttribute("aria-pressed", String(selected));
-            item.title = `Edit ${channelName(channel)}`;
+        const channels = activeChannels();
+        const signature = channels.join(",");
 
-            const swatch = document.createElement("i");
-            const label = document.createElement("b");
-            label.textContent = channelName(channel);
-            item.append(swatch, label);
+        if (root.dataset.channels !== signature) {
+            root.replaceChildren();
+            root.dataset.channels = signature;
 
-            item.addEventListener("click", async () => {
-                if (channel === selectedChannel || item.dataset.busy === "true") return;
-                item.dataset.busy = "true";
-                item.disabled = true;
-                try {
-                    selectedChannel = channel;
-                    selectedCrossover = getCrossover("hpf") ? "hpf" : "lpf";
-                    selectedPeqSlot = 0;
-                    estackV4ApplyChannelAccent(channel);
-                    await DSP.downloadConfig();
-                    renderAll(false);
-                } catch (error) {
-                    console.error("E-Stack output selection failed", error);
-                    if (typeof setStatus === "function") setStatus(`Output selection failed: ${error?.message || error}`, "error");
-                } finally {
-                    item.disabled = false;
-                    delete item.dataset.busy;
-                }
-            });
+            for (const channel of channels) {
+                const item = document.createElement("button");
+                item.type = "button";
+                item.className = "estack-channel-legend";
+                item.dataset.channel = String(channel);
+                item.style.setProperty("--channel-color", estackV4ChannelColor(channel));
+                item.title = `Edit ${channelName(channel)}`;
 
-            root.appendChild(item);
+                const swatch = document.createElement("i");
+                const label = document.createElement("b");
+                label.textContent = channelName(channel);
+                item.append(swatch, label);
+
+                item.addEventListener("click", event => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    estackV4SelectChannel(channel);
+                });
+
+                root.appendChild(item);
+            }
         }
+
+        root.querySelectorAll(".estack-channel-legend[data-channel]").forEach(item => {
+            const channel = Number(item.dataset.channel);
+            const selected = channel === selectedChannel;
+            item.classList.toggle("active", selected);
+            item.setAttribute("aria-pressed", String(selected));
+            item.style.setProperty("--channel-color", estackV4ChannelColor(channel));
+        });
     };
 }
 
@@ -147,7 +171,7 @@ if (typeof estackDrawResponseCurve === "function") {
 // output is stronger and always drawn last. PEQ points inherit that same colour.
 if (typeof canvasSetup === "function" && typeof activeChannels === "function") {
     drawGraph = function() {
-        if (!window.DSP) return;
+        if (typeof DSP === "undefined" || !DSP) return;
         const { ctx, width, height } = canvasSetup();
         const margin = { left: 50, right: 18, top: 18, bottom: 31 };
         const innerW = width - margin.left - margin.right;
@@ -234,6 +258,7 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             if (document.body.classList.contains("estack-eq-v4")) {
                 estackV4ApplyChannelAccent(typeof selectedChannel !== "undefined" ? selectedChannel : 0);
+                if (typeof estackRenderLegend === "function") estackRenderLegend();
                 if (typeof drawGraph === "function") drawGraph();
             }
             if (document.body.classList.contains("global-eq-v4") && typeof globalEqDraw === "function") globalEqDraw();
