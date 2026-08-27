@@ -39,21 +39,21 @@ body {
 #sectionMainTitle {
     display: flex;
     align-items: center;
-    min-height: 34px;
-    margin: 4px 1% 10px;
+    min-height: 32px;
+    margin: 3px 1% 9px;
     color: var(--estack-text);
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 400;
     line-height: 1.15;
 }
 
 #sectionMainTitle img {
-    width: 24px;
-    height: 24px;
-    margin: 0 11px 0 0;
+    width: 22px;
+    height: 22px;
+    margin: 0 10px 0 0;
     padding: 0;
     transform: none;
-    opacity: .86;
+    opacity: .82;
 }
 
 /* ---------- Generic panels ---------- */
@@ -69,7 +69,7 @@ body {
 
 .group::before {
     height: auto;
-    min-height: 30px;
+    min-height: 29px;
     padding: 7px 10px 6px;
     border: 0;
     border-bottom: 1px solid var(--estack-border-soft);
@@ -99,7 +99,7 @@ input[type="number"] {
     border: 1px solid var(--estack-border);
     border-radius: var(--estack-radius-small);
     color: var(--estack-text);
-    background: hsla(var(--bck-hue), 26%, 10%, .78);
+    background: hsla(var(--bck-hue), 26%, 10%, .72);
     box-shadow: none;
     outline: none;
 }
@@ -204,6 +204,16 @@ select {
 body.estack-eq-v4,
 body.global-eq-v4 {
     background: var(--estack-bg) !important;
+    font-family: "Abel", sans-serif !important;
+}
+
+body.estack-eq-v4 button,
+body.estack-eq-v4 input,
+body.estack-eq-v4 select,
+body.global-eq-v4 button,
+body.global-eq-v4 input,
+body.global-eq-v4 select {
+    font-family: "Abel", sans-serif !important;
 }
 
 .eq-v4-shell,
@@ -215,6 +225,8 @@ body.global-eq-v4 {
 .venu-workspace,
 .global-v2-head,
 .global-v2-graph-panel,
+.estack-peq-console,
+.global-v2-console,
 .estack-peq-equalizer,
 .estack-eq8-analyzer,
 .estack-peq-xover-card,
@@ -234,7 +246,9 @@ body.global-eq-v4 {
 }
 
 .venu-workspace,
-.global-v2-graph-panel {
+.global-v2-graph-panel,
+.estack-peq-console,
+.global-v2-console {
     border-width: 0 !important;
 }
 
@@ -264,6 +278,12 @@ body.global-eq-v4 {
 .global-v2-graph-head strong {
     color: var(--estack-text) !important;
     font-weight: 600 !important;
+    letter-spacing: .015em !important;
+}
+
+.estack-peq-strips,
+.global-v2-bands.estack-peq-strips {
+    background: transparent !important;
 }
 
 .estack-peq-strip,
@@ -281,6 +301,19 @@ body.global-eq-v4 {
     border-color: var(--estack-border-soft) !important;
 }
 
+.estack-v2-xover-body,
+.estack-v2-xover-options,
+.estack-eq8-controls {
+    background: transparent !important;
+}
+
+.estack-v2-xover-options > span,
+.estack-eq8-knob-label,
+.estack-eq8-q-label,
+.global-v2-analyzer-label {
+    color: var(--estack-muted) !important;
+}
+
 .venu-module-tabs button,
 .venu-system-edit,
 .estack-v2-segmented button,
@@ -293,12 +326,36 @@ body.global-eq-v4 {
 .global-v2-analyzer-button {
     border-radius: var(--estack-radius-small) !important;
     box-shadow: none !important;
+    background-image: none !important;
+}
+
+.estack-v2-segmented button,
+.estack-eq8-type button,
+.global-v2-analyzer-modes button,
+.global-v2-analyzer-button {
+    background: hsla(var(--bck-hue), 22%, 24%, .48) !important;
+}
+
+.estack-v2-segmented button.active,
+.estack-eq8-type button.active,
+.global-v2-analyzer-modes button.active,
+.global-v2-analyzer-button.active {
+    border-color: var(--eq-accent, var(--estack-accent)) !important;
+    background: var(--eq-accent, var(--estack-accent)) !important;
+    color: hsl(var(--bck-hue), 28%, 10%) !important;
 }
 
 .venu-statusbar,
 .global-v2-statusbar {
     border-color: var(--estack-border-soft) !important;
     background: transparent !important;
+}
+
+.global-v2-badges span {
+    border-color: var(--estack-border-soft) !important;
+    border-radius: var(--estack-radius-small) !important;
+    background: transparent !important;
+    color: var(--estack-muted) !important;
 }
 
 /* ---------- Advanced ---------- */
