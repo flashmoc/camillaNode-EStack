@@ -5,46 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Global EQ</title>
     <link rel="stylesheet" href="/css/main.css">
-    <link rel="stylesheet" href="/css/estackPeqRack.css">
-    <link rel="stylesheet" href="/css/estackEqEight.css">
-    <link rel="stylesheet" href="/css/estackEqEightV2.css">
-    <link rel="stylesheet" href="/css/estackGlobalEq.css">
-    <link rel="stylesheet" href="/css/estackGlobalEqV2.css">
-    <link rel="stylesheet" href="/css/estackAbletonEq.css">
-    <link rel="stylesheet" href="/css/estackEqStudioV3.css">
+    <link rel="stylesheet" href="/css/estackEqV4.css">
+
     <script src="/src/estackGlobalEq.js" defer></script>
     <script src="/src/estackGlobalEqCanvasFix.js" defer></script>
     <script src="/src/estackGlobalEqV2.js" defer></script>
-    <script src="/src/estackAbletonEq.js" defer></script>
+    <script src="/src/estackEqV4.js" defer></script>
 </head>
-<body class="global-eq-page global-v2-page">
-    <header class="global-eq-head global-v2-head">
-        <div class="global-v2-title">
-            <strong>GLOBAL EQ</strong>
-        </div>
-        <div class="global-eq-badges global-v2-badges">
+<body class="global-eq-v4 global-v2-page">
+    <header class="global-v2-head">
+        <div class="global-v2-title"><strong>GLOBAL EQ</strong></div>
+        <div class="global-v2-badges">
             <span>INPUT L/R</span>
             <span>PRE-ROUTING</span>
             <span id="globalEqActiveCount">0 ACTIVE</span>
         </div>
     </header>
 
-    <section class="global-eq-graph-panel global-v2-graph-panel">
-        <div class="global-eq-graph-head global-v2-graph-head">
-            <div><strong>RESPONSE</strong></div>
-        </div>
-        <div class="global-eq-canvas-wrap global-v2-canvas-wrap">
+    <section class="global-v2-graph-panel">
+        <div class="global-v2-graph-head"><strong>RESPONSE / ANALYZER</strong></div>
+        <div class="global-v2-canvas-wrap">
             <canvas id="globalEqCanvas"></canvas>
         </div>
     </section>
 
-    <section class="global-eq-console estack-peq-console estack-eq8-console global-v2-console">
+    <section class="global-v2-console estack-peq-console estack-eq8-console">
         <section class="estack-peq-equalizer global-v2-equalizer">
             <header class="estack-peq-eq-head global-v2-eq-head">
                 <div><strong>PARAMETRIC EQ</strong><span>10 bands · shared L/R</span></div>
                 <button type="button" id="globalEqResetAll" class="global-v2-reset-all">RESET ALL</button>
             </header>
-            <div id="globalEqBands" class="estack-peq-strips global-eq-bands global-v2-bands"></div>
+            <div id="globalEqBands" class="estack-peq-strips global-v2-bands"></div>
         </section>
 
         <aside class="estack-eq8-analyzer global-v2-analyzer">
@@ -52,7 +43,7 @@
                 <strong>ANALYZER</strong><i class="estack-eq8-analyzer-led"></i>
             </div>
             <div class="global-v2-analyzer-label">SPEED</div>
-            <div class="estack-eq8-analyzer-modes global-v2-analyzer-modes">
+            <div class="global-v2-analyzer-modes">
                 <button type="button" id="globalEqFast" class="active">FAST</button>
                 <button type="button" id="globalEqSlow">SLOW</button>
             </div>
@@ -62,7 +53,7 @@
         </aside>
     </section>
 
-    <footer class="global-eq-statusbar global-v2-statusbar">
+    <footer class="global-v2-statusbar">
         <span id="globalEqStatus">Connecting to CamillaDSP…</span>
     </footer>
 </body>
