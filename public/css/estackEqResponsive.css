@@ -1,0 +1,244 @@
+/* Responsive layout for Global EQ + Output Processing. No horizontal loss at zoom/mobile. */
+
+.eq-v4-shell,
+.venu-workspace,
+.venu-controls,
+.estack-peq-console,
+.estack-peq-equalizer,
+.global-v2-console,
+.global-v2-equalizer {
+    min-width: 0 !important;
+    max-width: 100% !important;
+}
+
+body.estack-eq-v4,
+body.global-eq-v4 {
+    overflow-x: hidden !important;
+}
+
+.eq-v4-topbar {
+    grid-template-columns: auto auto minmax(0, 1fr) auto !important;
+}
+
+.venu-graph-legend {
+    min-width: 0 !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    scrollbar-width: none;
+}
+.venu-graph-legend::-webkit-scrollbar { display: none; }
+
+/* Kill the old 850/900px minimums that made the last bands disappear. */
+.estack-peq-console.estack-eq8-console {
+    grid-template-columns: minmax(128px, 154px) minmax(0, 1fr) minmax(118px, 138px) !important;
+}
+
+.estack-peq-strips,
+.global-v2-bands.estack-peq-strips {
+    min-width: 0 !important;
+    width: 100% !important;
+    grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)) !important;
+    align-items: stretch;
+    overflow: visible !important;
+}
+
+.estack-peq-strip,
+.global-v2-band.estack-peq-strip {
+    min-width: 0 !important;
+    min-height: 238px !important;
+}
+
+/* Crossover cards: compact and safe at narrow widths. */
+.estack-peq-xovers {
+    min-width: 0 !important;
+}
+.estack-peq-xover-card,
+.estack-v2-xover {
+    min-width: 0 !important;
+}
+.estack-peq-xover-title,
+.estack-v2-card > header {
+    flex-wrap: wrap;
+    gap: 3px 6px;
+}
+.estack-v2-xover-body {
+    grid-template-columns: 50px minmax(0, 1fr) !important;
+    gap: 4px !important;
+    padding: 4px !important;
+}
+.estack-v2-xover .estack-eq8-knob {
+    width: 42px !important;
+    height: 42px !important;
+}
+.estack-v2-xover .estack-eq8-knob-marker {
+    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-14px) !important;
+}
+.estack-v2-xover-options {
+    min-width: 0;
+    gap: 2px !important;
+}
+.estack-v2-segmented {
+    grid-auto-flow: row !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+.estack-v2-segmented button {
+    width: 100%;
+    min-width: 0 !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Global EQ also wraps its ten bands instead of clipping them. */
+.global-v2-console.estack-peq-console.estack-eq8-console {
+    grid-template-columns: minmax(0, 1fr) 132px !important;
+}
+
+/* Dynamic per-output PEQ add card. */
+.estack-peq-add-card {
+    min-height: 238px;
+    display: grid;
+    place-items: center;
+    border: 1px dashed var(--eq-border-strong);
+    background: color-mix(in srgb, var(--eq-panel) 82%, transparent);
+}
+.estack-peq-add-button {
+    min-width: 86px;
+    min-height: 34px;
+    border: 1px solid var(--eq-border-strong);
+    background: var(--eq-control-dark);
+    color: var(--eq-text);
+    cursor: pointer;
+    font-size: 9px;
+    font-weight: 700;
+}
+.estack-peq-add-button:hover {
+    border-color: var(--eq-accent);
+    color: var(--eq-accent);
+}
+.estack-peq-delete {
+    height: 18px;
+    margin-top: 2px;
+    border: 1px solid rgba(220,110,110,.35);
+    background: transparent;
+    color: rgba(245,190,190,.75);
+    font-size: 6px;
+    cursor: pointer;
+}
+.estack-peq-delete:hover {
+    border-color: var(--eq-danger);
+    color: #fff;
+    background: rgba(140,45,52,.42);
+}
+
+@media (max-width: 1120px) {
+    .eq-v4-topbar {
+        grid-template-columns: auto minmax(0,1fr) auto !important;
+    }
+    .eq-v4-context { display: none !important; }
+
+    .estack-peq-console.estack-eq8-console,
+    .global-v2-console.estack-peq-console.estack-eq8-console {
+        grid-template-columns: 1fr !important;
+    }
+
+    .estack-peq-xovers {
+        grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+        grid-template-rows: auto !important;
+    }
+
+    .estack-eq8-analyzer {
+        display: grid !important;
+        grid-template-columns: auto repeat(4, minmax(72px, 1fr)) !important;
+        align-items: center;
+        gap: 4px !important;
+    }
+
+    .global-v2-analyzer {
+        grid-template-columns: auto repeat(4, minmax(72px,1fr)) !important;
+    }
+
+    .venu-graph-wrap,
+    .global-v2-canvas-wrap {
+        height: 280px !important;
+    }
+}
+
+@media (max-width: 720px) {
+    body.estack-eq-v4,
+    body.global-eq-v4 {
+        padding: 0 !important;
+    }
+
+    .eq-v4-shell {
+        width: 100% !important;
+        margin: 0 !important;
+        gap: 3px !important;
+    }
+
+    .eq-v4-topbar {
+        grid-template-columns: 1fr auto !important;
+        gap: 3px !important;
+    }
+
+    .venu-module-tabs {
+        min-width: 0;
+    }
+    .venu-module-tabs button {
+        min-width: 56px !important;
+        padding-inline: 5px !important;
+    }
+    .venu-module-tabs button[data-module="outputProtection"] {
+        min-width: 104px !important;
+    }
+
+    .venu-graph-legend {
+        grid-column: 1 / -1;
+        justify-content: flex-start !important;
+        order: 3;
+    }
+    .venu-system-edit {
+        min-width: 72px !important;
+    }
+
+    .venu-graph-wrap,
+    .global-v2-canvas-wrap {
+        height: 220px !important;
+        margin: 2px !important;
+    }
+
+    .estack-peq-xovers {
+        grid-template-columns: 1fr !important;
+    }
+
+    .estack-peq-strips,
+    .global-v2-bands.estack-peq-strips {
+        grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)) !important;
+        padding: 2px !important;
+        gap: 2px !important;
+    }
+
+    .estack-peq-strip,
+    .global-v2-band.estack-peq-strip,
+    .estack-peq-add-card {
+        min-height: 220px !important;
+    }
+
+    .estack-eq8-analyzer,
+    .global-v2-analyzer {
+        display: grid !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 3px !important;
+    }
+    .estack-eq8-analyzer-head {
+        grid-column: 1 / -1;
+    }
+
+    .global-v2-head {
+        align-items: flex-start !important;
+        gap: 4px;
+        flex-wrap: wrap;
+    }
+    .global-v2-badges {
+        flex-wrap: wrap;
+    }
+}
