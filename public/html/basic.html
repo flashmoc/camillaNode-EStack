@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="/css/estackControlNumeric.css">
     <link rel="stylesheet" href="/css/estackControlV2.css">
     <script src="/src/estackBasic.js" defer></script>
+    <script src="/src/estackControlLinksRestore.js" defer></script>
     <script src="/src/estackControlInputCompat.js" defer></script>
     <script src="/src/estackInputMeters.js" defer></script>
     <script src="/src/estackControlNumeric.js" defer></script>
@@ -35,7 +36,8 @@
         <div class="estack-control-head">
             <div><strong>Output Mixer</strong></div>
             <div class="estack-control-actions">
-                <div id="mixerStatus" class="estack-mixer-status">Loading DSP…</div>
+                <div id="linkControls" class="estack-link-controls" aria-label="Stereo gain links"></div>
+                <div id="mixerStatus" hidden aria-live="polite"></div>
             </div>
         </div>
 
