@@ -6,6 +6,35 @@
     <title>E-Stack EQ</title>
     <link rel="stylesheet" href="/css/main.css">
     <link rel="stylesheet" href="/css/estackEqV4.css">
+    <style>
+        /* V4 interaction geometry: keep the legend above redraw surfaces and
+           rotate every knob marker around the real geometric centre. */
+        .venu-graph-legend { position: relative; z-index: 5; pointer-events: auto; }
+        .estack-channel-legend { pointer-events: auto !important; }
+
+        .estack-eq-v4 .estack-eq8-knob-marker,
+        .global-eq-v4 .estack-eq8-knob-marker {
+            left: 50% !important;
+            top: 4px !important;
+            width: 2px !important;
+            height: 10px !important;
+            transform: translateX(-50%) rotate(var(--angle)) !important;
+            transform-origin: 50% 17.5px !important;
+        }
+
+        .estack-eq-v4 .estack-v2-xover .estack-eq8-knob-marker {
+            top: 5px !important;
+            height: 11px !important;
+            transform-origin: 50% 19px !important;
+        }
+
+        .estack-eq-v4 .estack-v2-output-body .estack-eq8-knob-marker,
+        .estack-eq-v4 .estack-v2-protection-module .estack-eq8-knob-marker {
+            top: 6px !important;
+            height: 12px !important;
+            transform-origin: 50% 23px !important;
+        }
+    </style>
 
     <script src="/src/estackEqualizer.js" defer></script>
     <script src="/src/estackProcessorVisibility.js" defer></script>
