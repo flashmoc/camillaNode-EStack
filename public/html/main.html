@@ -32,13 +32,9 @@
 
         window.openCamillaGui = function() {
             const current = new URL(window.location.href);
-            let target;
-            if (current.hostname.endsWith('.app.github.dev')) {
-                const guiHost = current.hostname.replace(/-8080(?=\.app\.github\.dev$)/, '-5005');
-                target = `https://${guiHost}/gui/index.html`;
-            } else {
-                target = `http://${current.hostname}:5005/gui/index.html`;
-            }
+            const target = current.hostname.endsWith('.app.github.dev')
+                ? '/camillagui/gui/index.html'
+                : `http://${current.hostname}:5005/gui/index.html`;
             window.open(target, '_blank', 'noopener,noreferrer');
         };
 
