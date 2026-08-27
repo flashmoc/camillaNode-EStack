@@ -9,7 +9,6 @@
     border-radius: 8px;
     background: #0d1112;
 }
-
 .estack-mixer.group::before { display: none; }
 
 .estack-control-head {
@@ -23,7 +22,6 @@
     border-bottom: 1px solid #3c4649;
     background: #101516;
 }
-
 .estack-control-head strong {
     color: #f0f3f4;
     font-size: 14px;
@@ -56,7 +54,6 @@
     background: #14191b;
     box-shadow: inset 0 1px rgba(255,255,255,.02), 0 2px 7px rgba(0,0,0,.28);
 }
-
 .estack-mixer-strip::before {
     content: "";
     position: absolute;
@@ -67,12 +64,7 @@
     background: var(--channel-color);
     opacity: .95;
 }
-
-.estack-mixer-strip.master {
-    border-color: #536064;
-    background: #171d1f;
-}
-
+.estack-mixer-strip.master { border-color: #536064; background: #171d1f; }
 .estack-mixer-strip.disabled { opacity: .5; }
 
 .estack-strip-head {
@@ -86,29 +78,20 @@
     box-sizing: border-box;
     border-bottom: 1px solid #343d40;
 }
-
 .estack-strip-title {
     min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 1px;
 }
-
 .estack-strip-head strong {
     color: #f1f4f5;
     font-size: 12px;
     font-weight: 700;
     letter-spacing: .025em;
 }
-
-.estack-strip-title span {
-    color: #6f7b7f;
-    font-size: 7px;
-    line-height: 1.1;
-}
-
+.estack-strip-title span { color: #6f7b7f; font-size: 7px; line-height: 1.1; }
 .estack-mixer-strip.master .estack-strip-title span { display: none; }
-
 .estack-output-value {
     min-width: 61px;
     color: color-mix(in srgb, var(--channel-color) 78%, white 13%);
@@ -140,7 +123,6 @@
     font-variant-numeric: tabular-nums;
     pointer-events: none;
 }
-
 .estack-dbfs-scale::before {
     content: "dBFS";
     position: absolute;
@@ -151,7 +133,6 @@
     font-weight: 700;
     letter-spacing: .03em;
 }
-
 .estack-dbfs-scale span {
     position: absolute;
     right: 0;
@@ -172,7 +153,6 @@
     touch-action: none;
     cursor: ns-resize;
 }
-
 .estack-meter-track {
     position: absolute;
     left: 2px;
@@ -184,15 +164,10 @@
     border: 1px solid #4b565a;
     border-radius: 3px;
     background:
-        repeating-linear-gradient(to top,
-            rgba(255,255,255,.045) 0,
-            rgba(255,255,255,.045) 2px,
-            transparent 2px,
-            transparent 5px),
+        repeating-linear-gradient(to top, rgba(255,255,255,.045) 0, rgba(255,255,255,.045) 2px, transparent 2px, transparent 5px),
         #090c0d;
     box-shadow: inset 0 0 9px rgba(0,0,0,.9);
 }
-
 .estack-meter-fill {
     position: absolute;
     left: 4px;
@@ -201,14 +176,9 @@
     height: 0;
     border-radius: 1px;
     opacity: .92;
-    background: linear-gradient(to top,
-        hsl(118,78%,48%) 0%,
-        hsl(92,88%,50%) 76%,
-        hsl(52,92%,55%) 88%,
-        hsl(5,82%,55%) 100%);
+    background: linear-gradient(to top, hsl(118,78%,48%) 0%, hsl(92,88%,50%) 76%, hsl(52,92%,55%) 88%, hsl(5,82%,55%) 100%);
     transition: height 90ms linear;
 }
-
 .estack-meter-peak {
     position: absolute;
     left: 3px;
@@ -218,7 +188,6 @@
     background: rgba(255,255,255,.88);
     transition: bottom 90ms linear;
 }
-
 .estack-gain-rail {
     position: absolute;
     left: 50%;
@@ -228,7 +197,7 @@
     transform: translateX(-50%);
     border-radius: 2px;
     background: color-mix(in srgb, var(--channel-color) 78%, #6d777a 22%);
-    box-shadow: none;
+    box-shadow: 0 0 0 1px rgba(0,0,0,.45);
     z-index: 3;
     pointer-events: none;
 }
@@ -247,7 +216,6 @@
     pointer-events: none;
     z-index: 8;
 }
-
 .estack-gain-scale::before {
     content: "GAIN";
     position: absolute;
@@ -258,7 +226,6 @@
     font-weight: 700;
     letter-spacing: .03em;
 }
-
 .estack-gain-scale span {
     position: absolute;
     left: calc(100% + 8px);
@@ -269,7 +236,6 @@
     text-align: left;
     white-space: nowrap;
 }
-
 .estack-gain-scale span::before {
     content: "";
     position: absolute;
@@ -280,20 +246,25 @@
     transform: translateY(-50%);
     background: #59666a;
 }
-
 .estack-gain-scale span.maximum,
 .estack-gain-scale span.unity {
     color: color-mix(in srgb, var(--channel-color) 82%, white 14%);
     font-weight: 700;
 }
+/* The unity reference is a dedicated DOM element; no pseudo-line on the label. */
+.estack-gain-scale span.unity::before { display: none; }
 
-.estack-gain-scale span.unity::before {
-    left: -31px;
-    width: 29px;
+.estack-unity-marker {
+    position: absolute;
+    left: 50%;
+    width: 30px;
     height: 2px;
+    transform: translateY(-50%);
     background: var(--channel-color);
-    box-shadow: none;
+    pointer-events: none;
+    z-index: 8;
 }
+.estack-unity-marker[hidden] { display: none; }
 
 .estack-vertical-fader {
     -webkit-appearance: none;
@@ -307,7 +278,6 @@
     pointer-events: none;
     z-index: 1;
 }
-
 .estack-vertical-fader::-webkit-slider-runnable-track,
 .estack-vertical-fader::-webkit-slider-thumb {
     -webkit-appearance: none;
@@ -316,7 +286,6 @@
     border: 0;
     box-shadow: none;
 }
-
 .estack-fader-handle {
     position: absolute;
     left: 50%;
@@ -331,12 +300,7 @@
     pointer-events: none;
     z-index: 9;
 }
-
-.estack-fader-handle::after {
-    content: none;
-    display: none;
-}
-
+.estack-fader-handle::after { content: none; display: none; }
 .estack-fader-value { display: none; }
 
 .estack-fader-number-wrap {
@@ -348,7 +312,6 @@
     align-items: center;
     justify-content: center;
 }
-
 .estack-fader-number {
     width: 62px;
     height: 24px;
@@ -364,13 +327,11 @@
     font-variant-numeric: tabular-nums;
     text-align: center;
 }
-
 .estack-fader-number:focus {
     outline: none;
     border-color: var(--channel-color);
     box-shadow: 0 0 0 1px color-mix(in srgb, var(--channel-color) 35%, transparent);
 }
-
 .estack-fader-number-wrap span {
     position: absolute;
     left: calc(100% + 5px);
@@ -379,7 +340,6 @@
     color: #7f898c;
     font-size: 7px;
 }
-
 .estack-strip-actions {
     width: 62px;
     min-height: 25px;
@@ -388,7 +348,6 @@
     align-items: center;
     justify-content: center;
 }
-
 .estack-mute-button {
     width: 62px;
     height: 23px;
@@ -401,7 +360,6 @@
     letter-spacing: .04em;
     cursor: pointer;
 }
-
 .estack-mute-button:hover { border-color: #667276; color: #f3f5f5; }
 .estack-mute-button.active { border-color: #e96868; color: #fff; background: #74272b; }
 
