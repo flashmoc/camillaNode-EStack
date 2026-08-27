@@ -28,6 +28,62 @@ function insertBeforeLimiter(config, step, filterName) {
     else step.names.push(filterName);
 }
 
+function firstMixerContext(config) {
+    const pipeline = config?.pipeline || [];
+    const index = pipeline.findIndex(step => step?.type === "Mixer");
+    if (index < 0) return null;
+    const step = pipeline[index];
+    const mixer = config?.mixers?.[step.name];
+    if (!mixer) return null;
+    return { index, step, mixer };
+}
+
+function sourceChannelsForOutput(config, outputChannel) {
+    const context = firstMixerContext(config);
+    if (!context) return [];
+    const mapping = (context.mixer?.mapping || []).find(map => Number(map?.dest) === Number(outputChannel));
+    if (!mapping) return [];
+    return [...new Set((mapping.sources || [])
+        .map(source => Number(source?.channel))
+        .filter(Number.isFinite))];
+}
+
+// A pre-mixer filter belongs to the effective output chain when that output is
+// fed from one of the filtered input channels. This is important for E-Stack's
+// Global EQ: it lives on INPUT L/R before routing, but acoustically affects all
+// six routed outputs. Post-mixer steps still use normal output-channel matching.
+function effectiveFilterStepsForOutput(config, outputChannel) {
+    const pipeline = config?.pipeline || [];
+    const context = firstMixerContext(config);
+    if (!context) return pipeline.filter(step => stepHasChannel(step, outputChannel));
+
+    const sources = new Set(sourceChannelsForOutput(config, outputChannel));
+    const result = [];
+
+    pipeline.forEach((step, index) => {
+        if (step?.type !== "Filter") return;
+        const stepChannels = channelsForStep(step);
+        if (index < context.index) {
+            if (stepChannels.some(channel => sources.has(channel))) result.push(step);
+            return;
+        }
+        if (index > context.index && stepChannels.includes(Number(outputChannel))) result.push(step);
+    });
+
+    return result;
+}
+
+function pathItemKey(item) {
+    if (!item) return "unknown";
+    if (item.type === "filter") {
+        const name = Object.keys(item).find(key => key !== "type") || "filter";
+        return `filter:${name}`;
+    }
+    if (item.type === "processor") return `processor:${item.name || "processor"}`;
+    if (item.type === "mixer") return `mixer:${JSON.stringify(item.sources || [])}`;
+    return item.type || "item";
+}
+
 export default function installEStackCompatibility(camillaDSP) {
     if (!camillaDSP || camillaDSP.__estackCompatInstalled) return camillaDSP;
     camillaDSP.__estackCompatInstalled = true;
@@ -37,6 +93,8 @@ export default function installEStackCompatibility(camillaDSP) {
     p._channelsForStep = channelsForStep;
     p._stepHasChannel = stepHasChannel;
 
+    // Direct channel steps only. Mutation helpers intentionally use this direct
+    // view so an output edit can never rewrite a pre-mixer input/global step.
     p.getFilterStepsForChannel = function(channelNo) {
         if (!Array.isArray(this.config?.pipeline)) return [];
         return this.config.pipeline.filter(step => stepHasChannel(step, channelNo));
@@ -88,9 +146,11 @@ export default function installEStackCompatibility(camillaDSP) {
         return maxChannel + 1;
     };
 
+    // Effective output-chain view. It includes pre-mixer filters inherited from
+    // the routed input channels, then the direct post-mixer output filters.
     p.getChannelFiltersList = function(channelNo) {
         const names = [];
-        for (const step of this.getFilterStepsForChannel(channelNo)) {
+        for (const step of effectiveFilterStepsForOutput(this.config, channelNo)) {
             for (const name of (step.names || [])) {
                 if (!names.includes(name)) names.push(name);
             }
@@ -291,6 +351,10 @@ export default function installEStackCompatibility(camillaDSP) {
         return source.mute ? -15 : Number(source.gain || 0);
     };
 
+    // Linearized/visual chain with routing inheritance. Snapshot source paths at
+    // each Mixer, then propagate their pre-mixer filters to every destination.
+    // This fixes the old visualization where INPUT L/R Global EQ appeared only
+    // on SUB/KICK simply because those output numbers are also 0/1.
     p.linearizeConfig = function() {
         const channelCount = this.getChannelCount();
         const channels = Array.from({ length: channelCount }, () => []);
@@ -301,9 +365,30 @@ export default function installEStackCompatibility(camillaDSP) {
         for (const pipe of (this.config?.pipeline || [])) {
             if (pipe.type === "Mixer") {
                 const mixer = this.config?.mixers?.[pipe.name];
+                const beforeMixer = channels.map(path => [...(path || [])]);
+
                 for (const map of (mixer?.mapping || [])) {
-                    if (!channels[map.dest]) channels[map.dest] = [];
-                    channels[map.dest].push({ type: "mixer", sources: map.sources || [] });
+                    const dest = Number(map.dest);
+                    if (!Number.isFinite(dest)) continue;
+
+                    const inherited = [];
+                    const seen = new Set();
+                    for (const source of (map.sources || [])) {
+                        const sourcePath = beforeMixer[Number(source?.channel)] || [];
+                        for (const item of sourcePath) {
+                            if (item?.type === "input" || item?.type === "output") continue;
+                            const key = pathItemKey(item);
+                            if (seen.has(key)) continue;
+                            seen.add(key);
+                            inherited.push(item);
+                        }
+                    }
+
+                    channels[dest] = [
+                        { type: "input", device: this.config?.devices?.capture },
+                        ...inherited,
+                        { type: "mixer", sources: map.sources || [] }
+                    ];
                 }
             } else if (pipe.type === "Filter") {
                 for (const channel of channelsForStep(pipe)) {
@@ -316,12 +401,17 @@ export default function installEStackCompatibility(camillaDSP) {
                     }
                 }
             } else if (pipe.type === "Processor") {
-                for (const channel of (pipe.channels || [])) {
+                const processor = this.config?.processors?.[pipe.name];
+                let processorChannels = channelsForStep(pipe);
+                if (!processorChannels.length && Array.isArray(processor?.parameters?.process_channels)) {
+                    processorChannels = processor.parameters.process_channels.map(Number);
+                }
+                for (const channel of processorChannels) {
                     if (!channels[channel]) channels[channel] = [];
                     channels[channel].push({
                         type: "processor",
                         name: pipe.name,
-                        processor: this.config?.processors?.[pipe.name]
+                        processor
                     });
                 }
             }
