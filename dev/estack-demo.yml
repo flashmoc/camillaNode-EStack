@@ -14,7 +14,7 @@ devices:
     type: File
     channels: 8
     filename: "/dev/null"
-    format: S32LE
+    format: S32_LE
 
 filters: {}
 
