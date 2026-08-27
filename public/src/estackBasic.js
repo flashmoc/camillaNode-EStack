@@ -329,7 +329,7 @@ async function loadBasic() {
             id: `outputGain${channel}`,
             value: gain,
             min: -60,
-            max: 0,
+            max: 6,
             step: .1,
             color: meta.color,
             label: meta.name,
@@ -337,7 +337,6 @@ async function loadBasic() {
             muted,
             onPreview: value => syncLinkedPreview(channel, value),
             onCommit: value => updateLinkedGain(channel, value),
-            // Mutes intentionally remain independent even when gain linking is active.
             onMute: (mute, currentGain) => updateOutputGain(channel, currentGain, mute)
         });
 
