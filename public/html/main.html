@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>CamillaNode</title>
+    <title>E-Stack</title>
     <script src="/src/main.js" defer></script>
     <script src="/src/estackFramePolish.js" defer></script>
     <link rel="stylesheet" href="/css/main.css">
@@ -45,7 +45,7 @@
                 defaultPage.options = {
                     'Control': 'basic',
                     'Global EQ': 'html/global-eq.html',
-                    'E-Stack EQ': 'equalizer',
+                    'Output Processing': 'equalizer',
                     'Advanced': 'advanced',
                     'Room EQ': 'room',
                     'Preferences': 'preferences',
@@ -62,7 +62,7 @@
             pref.sections.general = 'E-Stack Preferences';
             pref.sections.ui = 'User Interface Preferences';
             pref.sections.basic = 'Control Preferences';
-            pref.sections.equalizer = 'E-Stack EQ Preferences';
+            pref.sections.equalizer = 'Output Processing Preferences';
         }
 
         const dcProtection = pref?.general?.find(item => item.id === 'DCProtection');
@@ -81,7 +81,7 @@
         if (Array.isArray(pref?.equalizer)) {
             pref.equalizer = pref.equalizer.filter(item => item.id === 'showEqualizerSpectrum');
             const spectrumItem = pref.equalizer.find(item => item.id === 'showEqualizerSpectrum');
-            if (spectrumItem) spectrumItem.name = 'Show spectrum analyzer in E-Stack EQ';
+            if (spectrumItem) spectrumItem.name = 'Show spectrum analyzer in Output Processing';
         }
 
         window.preferences.saveSettings();
@@ -92,7 +92,7 @@
         <div id="header" class="section">
             <div id="title">
                 <img id="logo" src="/img/icon.jpg" alt="" style="height: 50px; margin:10px;">
-                <span>CamillaNode · E-Stack</span>
+                <span>E-Stack</span>
             </div>
         </div>
         <div id="indicators">
@@ -115,7 +115,7 @@
             <span class="leftTitle">Navigation</span>
             <div class="navigate" target="/basic"><img src="/img/icon/basic.png" class="icon">Control</div>
             <div class="navigate" target="/html/global-eq.html"><img src="/img/icon/equalizer.png" class="icon">Global EQ</div>
-            <div class="navigate" target="/equalizer"><img src="/img/icon/equalizer.png" class="icon">E-Stack EQ</div>
+            <div class="navigate" target="/equalizer"><img src="/img/icon/merge.png" class="icon">Output Processing</div>
             <div class="navigate" target="/advanced"><img src="/img/icon/advanced.png" class="icon">Advanced</div>
             <div class="navigate" target="/room"><img src="/img/icon/room.png" class="icon">Room EQ</div>
             <div class="navigate" target="/preferences"><img src="/img/icon/preferences.png" class="icon">Preferences</div>
