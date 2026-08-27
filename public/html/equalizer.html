@@ -24,30 +24,29 @@
 </head>
 <body class="estack-eq-v4">
     <div class="eq-v4-shell">
-        <header class="venu-page-head">
+        <div class="venu-page-head">
             <div class="venu-page-identity">
                 <span class="venu-eyebrow">E-STACK DSP</span>
                 <strong id="selectedChannelTitle">Output</strong>
                 <span id="selectedChannelMeta"></span>
             </div>
             <button id="systemEditToggle" class="venu-system-edit" aria-pressed="false">EDIT SYSTEM</button>
-        </header>
+        </div>
 
         <nav id="channelTabs" class="venu-output-tabs" aria-label="E-Stack outputs"></nav>
 
-        <!-- Kept as a functional mount point for the spectrum engine; V4 folds the
-             live analyzer into the main response graph and hides this legacy strip. -->
-        <section class="venu-rta-strip" aria-hidden="true">
+        <!-- Functional spectrum mount point; V4 folds its data into the main graph. -->
+        <div class="venu-rta-strip" aria-hidden="true">
             <div class="venu-rta-label"><strong>LIVE SPECTRUM</strong><span>Analyzer</span></div>
             <div class="venu-rta-canvas-wrap"><canvas id="rtaCanvas"></canvas></div>
-        </section>
+        </div>
 
         <nav id="moduleTabs" class="venu-module-tabs" aria-label="DSP modules">
             <button data-module="peq" class="active">EQ</button>
             <button data-module="outputProtection">OUTPUT / PROTECTION</button>
         </nav>
 
-        <main class="venu-workspace">
+        <div class="venu-workspace">
             <div class="venu-module-title">
                 <div>
                     <strong id="moduleTitle">Parametric EQ</strong>
@@ -56,18 +55,18 @@
                 <div class="venu-graph-legend" aria-label="Output response legend"></div>
             </div>
 
-            <section class="venu-graph-wrap" aria-label="System response and live analyzer">
+            <div class="venu-graph-wrap" aria-label="System response and live analyzer">
                 <canvas id="responseCanvas"></canvas>
-            </section>
+            </div>
 
             <div id="bandSelector" class="venu-band-selector"></div>
-            <section id="moduleControls" class="venu-controls"></section>
+            <div id="moduleControls" class="venu-controls"></div>
 
-            <footer class="venu-statusbar">
+            <div class="venu-statusbar">
                 <span id="estackEqStatus">Loading DSP…</span>
                 <span id="estackEqCount"></span>
-            </footer>
-        </main>
+            </div>
+        </div>
     </div>
 </body>
 </html>
