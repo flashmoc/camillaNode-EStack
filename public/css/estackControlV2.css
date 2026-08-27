@@ -70,7 +70,6 @@
     letter-spacing: .025em;
 }
 
-/* Meter + fader use the same physical column. */
 .estack-strip-center {
     position: relative !important;
     min-height: 258px !important;
@@ -136,7 +135,7 @@
     align-items: center !important;
     justify-content: center !important;
     z-index: 3;
-    pointer-events: none;
+    pointer-events: auto;
 }
 
 .estack-vertical-fader,
@@ -170,14 +169,13 @@
     box-shadow: 0 0 0 1px rgba(0,0,0,.65), 0 2px 5px rgba(0,0,0,.75), 0 0 6px color-mix(in srgb, var(--channel-color) 22%, transparent) !important;
 }
 
-/* 0 dB fader-gain detent. It is deliberately a short side tick so it cannot
-   be confused with the meter's own 0 dBFS scale at the top. */
 .estack-unity-mark {
     left: auto !important;
     right: -7px !important;
     top: var(--estack-unity-pos, 16.667%) !important;
     width: 11px !important;
     height: 2px !important;
+    pointer-events: none !important;
     background: var(--channel-color) !important;
     box-shadow: 0 0 5px color-mix(in srgb, var(--channel-color) 38%, transparent);
     transform: translateY(-1px);
@@ -185,6 +183,7 @@
 
 .estack-unity-mark::after {
     content: "0" !important;
+    position: absolute;
     right: -10px !important;
     top: -5px !important;
     color: color-mix(in srgb, var(--channel-color) 72%, white 18%) !important;
@@ -196,8 +195,6 @@
     display: none !important;
 }
 
-/* Remove the duplicate text readout; the numeric field below is both display
-   and direct entry. */
 .estack-fader-value {
     display: none !important;
 }
