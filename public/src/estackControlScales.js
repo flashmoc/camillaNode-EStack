@@ -7,7 +7,7 @@
 // scale changes child nodes; observing those mutations caused a render loop and
 // froze the Control page after the meter-scale update.
 
-const ESTACK_CONTROL_THUMB_PX = 12;
+const ESTACK_CONTROL_THUMB_PX = 5;
 
 function estackGainScaleValues(min, max) {
     const candidates = [max, 0, -6, -12, -24, -40, min];
