@@ -66,9 +66,71 @@ app.get('/api/runtime',(req,res)=>{
         mode: process.env.ESTACK_DEMO === '1' ? 'demo' : 'hardware',
         httpPort: PORT,
         dspPort: Number.parseInt(process.env.CAMILLADSP_PORT || '1234', 10),
-        spectrumPort: Number.parseInt(process.env.CAMILLA_SPECTRUM_PORT || '6413', 10)
+        spectrumPort: Number.parseInt(process.env.CAMILLA_SPECTRUM_PORT || '6413', 10),
+        camillaGuiProxy: process.env.ESTACK_DEMO === '1' ? '/camillagui/gui/index.html' : null
     });
 });
+
+// In Codespaces, opening port 5005 directly creates a second github.dev origin
+// and a second forwarding/auth lifecycle. CamillaGUI then becomes vulnerable to
+// tab suspension/reconnect glitches. Keep the browser on CamillaNode's 8080
+// origin instead and reverse-proxy the official CamillaGUI backend over loopback.
+// This is DEMO ONLY; Raspberry deployments keep using CamillaGUI directly on
+// port 5005 and are not affected by this proxy.
+const camillaGuiProxyEnabled = process.env.ESTACK_DEMO === '1';
+const camillaGuiProxyHost = process.env.CAMILLAGUI_PROXY_HOST || '127.0.0.1';
+const camillaGuiProxyPort = Number.parseInt(process.env.CAMILLAGUI_PORT || '5005', 10);
+
+function proxyCamillaGuiHttp(req, res, upstreamPath) {
+    const headers = { ...req.headers };
+    headers.host = `${camillaGuiProxyHost}:${camillaGuiProxyPort}`;
+    delete headers['content-length'];
+
+    const upstream = http.request({
+        hostname: camillaGuiProxyHost,
+        port: camillaGuiProxyPort,
+        method: req.method,
+        path: upstreamPath,
+        headers
+    }, upstreamRes => {
+        const responseHeaders = { ...upstreamRes.headers };
+
+        // Keep redirects on the CamillaNode origin instead of leaking :5005.
+        if (responseHeaders.location) {
+            try {
+                const location = new URL(responseHeaders.location, `http://${camillaGuiProxyHost}:${camillaGuiProxyPort}`);
+                if (location.hostname === camillaGuiProxyHost && Number(location.port || 80) === camillaGuiProxyPort) {
+                    responseHeaders.location = `/camillagui${location.pathname}${location.search}${location.hash}`;
+                }
+            } catch (_) {}
+        }
+
+        res.writeHead(upstreamRes.statusCode || 502, responseHeaders);
+        upstreamRes.pipe(res);
+    });
+
+    upstream.on('error', error => {
+        console.error(`CamillaGUI HTTP proxy error for ${upstreamPath}:`, error.message);
+        if (!res.headersSent) res.status(502).send('CamillaGUI backend unavailable');
+        else res.end();
+    });
+
+    req.pipe(upstream);
+}
+
+if (camillaGuiProxyEnabled) {
+    app.use('/camillagui', (req, res) => {
+        const upstreamPath = req.originalUrl.replace(/^\/camillagui/, '') || '/';
+        proxyCamillaGuiHttp(req, res, upstreamPath);
+    });
+
+    // CamillaGUI's production frontend intentionally calls /api on the current
+    // origin. /api/runtime above remains CamillaNode-owned because exact routes
+    // are matched before this middleware; every other /api request goes to 5005.
+    app.use('/api', (req, res) => {
+        proxyCamillaGuiHttp(req, res, req.originalUrl);
+    });
+}
 
 app.post('/saveConfigName',(req,res)=>{
     let queryResponse="";
@@ -187,12 +249,67 @@ const proxyTargets = {
     '/ws/spectrum': Number.parseInt(process.env.CAMILLA_SPECTRUM_PORT || '6413', 10)
 };
 
+function bridgeWebSocket(client, upstream) {
+    const pendingClientMessages = [];
+    let closed = false;
+
+    const closeBoth = () => {
+        if (closed) return;
+        closed = true;
+        try { if (client.readyState === WebSocket.OPEN || client.readyState === WebSocket.CONNECTING) client.close(); } catch (_) {}
+        try { if (upstream.readyState === WebSocket.OPEN || upstream.readyState === WebSocket.CONNECTING) upstream.close(); } catch (_) {}
+    };
+
+    client.on('message', (data, isBinary) => {
+        if (upstream.readyState === WebSocket.OPEN) {
+            upstream.send(data, { binary: isBinary });
+        } else if (upstream.readyState === WebSocket.CONNECTING) {
+            pendingClientMessages.push({ data, isBinary });
+        }
+    });
+
+    upstream.on('open', () => {
+        for (const message of pendingClientMessages.splice(0)) {
+            upstream.send(message.data, { binary: message.isBinary });
+        }
+    });
+
+    upstream.on('message', (data, isBinary) => {
+        if (client.readyState === WebSocket.OPEN) client.send(data, { binary: isBinary });
+    });
+
+    upstream.on('error', error => {
+        console.error('WebSocket proxy upstream error:', error.message);
+        closeBoth();
+    });
+    upstream.on('close', closeBoth);
+    client.on('error', closeBoth);
+    client.on('close', closeBoth);
+}
+
 server.on('upgrade', (request, socket, head) => {
     let pathname;
     try {
         pathname = new URL(request.url, `http://${request.headers.host || 'localhost'}`).pathname;
     } catch (_) {
         socket.destroy();
+        return;
+    }
+
+    // CamillaGUI may use WebSockets under its absolute /api namespace. Keep
+    // those on the same 8080 origin in Codespaces as well.
+    if (camillaGuiProxyEnabled && pathname.startsWith('/api/')) {
+        proxyWss.handleUpgrade(request, socket, head, client => {
+            const protocolHeader = request.headers['sec-websocket-protocol'];
+            const protocols = protocolHeader
+                ? String(protocolHeader).split(',').map(value => value.trim()).filter(Boolean)
+                : undefined;
+            const upstreamUrl = `ws://${camillaGuiProxyHost}:${camillaGuiProxyPort}${request.url}`;
+            const upstream = protocols?.length
+                ? new WebSocket(upstreamUrl, protocols)
+                : new WebSocket(upstreamUrl);
+            bridgeWebSocket(client, upstream);
+        });
         return;
     }
 
@@ -204,44 +321,7 @@ server.on('upgrade', (request, socket, head) => {
 
     proxyWss.handleUpgrade(request, socket, head, (client) => {
         const upstream = new WebSocket(`ws://${proxyHost}:${targetPort}`);
-        const pendingClientMessages = [];
-        let closed = false;
-
-        const closeBoth = () => {
-            if (closed) return;
-            closed = true;
-            try { if (client.readyState === WebSocket.OPEN || client.readyState === WebSocket.CONNECTING) client.close(); } catch (_) {}
-            try { if (upstream.readyState === WebSocket.OPEN || upstream.readyState === WebSocket.CONNECTING) upstream.close(); } catch (_) {}
-        };
-
-        // The browser-side WebSocket can become OPEN a few milliseconds before
-        // the local upstream is ready. Queue those first API commands instead of
-        // dropping GetVersion/GetConfigJson during startup.
-        client.on('message', (data, isBinary) => {
-            if (upstream.readyState === WebSocket.OPEN) {
-                upstream.send(data, { binary: isBinary });
-            } else if (upstream.readyState === WebSocket.CONNECTING) {
-                pendingClientMessages.push({ data, isBinary });
-            }
-        });
-
-        upstream.on('open', () => {
-            for (const message of pendingClientMessages.splice(0)) {
-                upstream.send(message.data, { binary: message.isBinary });
-            }
-        });
-
-        upstream.on('message', (data, isBinary) => {
-            if (client.readyState === WebSocket.OPEN) client.send(data, { binary: isBinary });
-        });
-
-        upstream.on('error', (error) => {
-            console.error(`WebSocket proxy upstream error on ${pathname}:`, error.message);
-            closeBoth();
-        });
-        upstream.on('close', closeBoth);
-        client.on('error', closeBoth);
-        client.on('close', closeBoth);
+        bridgeWebSocket(client, upstream);
     });
 });
 
