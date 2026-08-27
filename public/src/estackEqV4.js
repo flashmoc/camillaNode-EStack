@@ -1,14 +1,46 @@
-// E-Stack EQ V4 visual adapter.
-// Keeps the existing CamillaDSP editing engine and replaces only presentation
-// helpers shared by the per-output and Global EQ pages.
+// E-Stack EQ V4 adapter.
+// Keeps the existing CamillaDSP editing engine while owning the V4 visual
+// hierarchy, channel identity and response-graph navigation.
 
-const ESTACK_V4_ACCENT = "#73dce4";
-const ESTACK_V4_MUTED_CURVES = ["#758084", "#697478", "#7b8589", "#606b6f", "#818b8e", "#6c777a"];
+const ESTACK_V4_CHANNEL_COLORS = [
+    "#59d5e3", // SUB — cyan
+    "#f2a44b", // KICK — amber
+    "#66cf9b", // MID L — green
+    "#5d9fea", // MID R — blue
+    "#a586ee", // HIGH L — violet
+    "#e574ac"  // HIGH R — pink
+];
+const ESTACK_V4_GLOBAL_ACCENT = "#68d4de";
 
 function estackV4Hue() {
     const raw = getComputedStyle(document.documentElement).getPropertyValue("--bck-hue").trim();
     const value = Number(raw);
     return Number.isFinite(value) ? value : 180;
+}
+
+function estackV4ChannelColor(channel) {
+    return ESTACK_V4_CHANNEL_COLORS[Number(channel)] || ESTACK_V4_GLOBAL_ACCENT;
+}
+
+function estackV4SelectedColor() {
+    return typeof selectedChannel !== "undefined"
+        ? estackV4ChannelColor(selectedChannel)
+        : ESTACK_V4_GLOBAL_ACCENT;
+}
+
+function estackV4HexToRgba(hex, alpha) {
+    const clean = String(hex).replace("#", "");
+    const value = Number.parseInt(clean, 16);
+    if (!Number.isFinite(value)) return `rgba(104,212,222,${alpha})`;
+    return `rgba(${(value >> 16) & 255},${(value >> 8) & 255},${value & 255},${alpha})`;
+}
+
+function estackV4ApplyChannelAccent(channel = (typeof selectedChannel !== "undefined" ? selectedChannel : 0)) {
+    const color = estackV4ChannelColor(channel);
+    document.documentElement.style.setProperty("--eq-accent", color);
+    document.documentElement.style.setProperty("--eq-accent-soft", estackV4HexToRgba(color, .14));
+    document.body?.style.setProperty("--eq-accent", color);
+    document.body?.style.setProperty("--eq-accent-soft", estackV4HexToRgba(color, .14));
 }
 
 function estackV4GraphBackground(ctx, width, height) {
@@ -17,41 +49,82 @@ function estackV4GraphBackground(ctx, width, height) {
     ctx.fillRect(0, 0, width, height);
 }
 
+// PEQ controls/markers inherit the identity colour of the output currently in focus.
 if (typeof estackPeqBandColor === "function") {
-    estackPeqBandColor = function() { return ESTACK_V4_ACCENT; };
+    estackPeqBandColor = function() { return estackV4SelectedColor(); };
 }
 
 if (typeof globalEqColor === "function") {
-    globalEqColor = function() { return ESTACK_V4_ACCENT; };
+    globalEqColor = function() { return ESTACK_V4_GLOBAL_ACCENT; };
 }
 
 if (typeof estackChannelColor === "function") {
-    estackChannelColor = function(channel) {
-        return ESTACK_V4_MUTED_CURVES[Number(channel)] || "#737d80";
-    };
+    estackChannelColor = function(channel) { return estackV4ChannelColor(channel); };
 }
 
+// The graph legend is now the only visible output selector. It is deliberately
+// compact and uses one stable colour per physical output.
 if (typeof estackRenderLegend === "function") {
     estackRenderLegend = function() {
         const root = document.querySelector(".venu-graph-legend");
         if (!root || !window.DSP) return;
         root.replaceChildren();
+
         for (const channel of activeChannels()) {
             const selected = channel === selectedChannel;
-            const item = document.createElement("span");
+            const color = estackV4ChannelColor(channel);
+            const item = document.createElement("button");
+            item.type = "button";
             item.className = "estack-channel-legend";
             item.classList.toggle("active", selected);
+            item.style.setProperty("--channel-color", color);
+            item.setAttribute("aria-pressed", String(selected));
+            item.title = `Edit ${channelName(channel)}`;
+
             const swatch = document.createElement("i");
             const label = document.createElement("b");
             label.textContent = channelName(channel);
             item.append(swatch, label);
+
+            item.addEventListener("click", async () => {
+                if (channel === selectedChannel || item.dataset.busy === "true") return;
+                item.dataset.busy = "true";
+                item.disabled = true;
+                try {
+                    selectedChannel = channel;
+                    selectedCrossover = getCrossover("hpf") ? "hpf" : "lpf";
+                    selectedPeqSlot = 0;
+                    estackV4ApplyChannelAccent(channel);
+                    await DSP.downloadConfig();
+                    renderAll(false);
+                } catch (error) {
+                    console.error("E-Stack output selection failed", error);
+                    if (typeof setStatus === "function") setStatus(`Output selection failed: ${error?.message || error}`, "error");
+                } finally {
+                    item.disabled = false;
+                    delete item.dataset.busy;
+                }
+            });
+
             root.appendChild(item);
         }
     };
 }
 
+// Keep the title compact; the active output is already explicit in the coloured legend.
+if (typeof renderHeader === "function") {
+    const estackV4BaseRenderHeader = renderHeader;
+    renderHeader = function() {
+        estackV4BaseRenderHeader();
+        if (typeof selectedChannel !== "undefined") estackV4ApplyChannelAccent(selectedChannel);
+        const title = document.getElementById("moduleTitle");
+        if (title) title.textContent = activeModule === "peq" ? "PARAMETRIC EQ" : "OUTPUT / PROTECTION";
+    };
+}
+
 if (typeof estackDrawResponseCurve === "function") {
     estackDrawResponseCurve = function(ctx, freqs, values, margin, innerW, innerH, range, channel, selected) {
+        const color = estackV4ChannelColor(channel);
         ctx.save();
         ctx.beginPath();
         values.forEach((db, index) => {
@@ -60,9 +133,9 @@ if (typeof estackDrawResponseCurve === "function") {
             const y = margin.top + dbToY(clipped, innerH, range);
             if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         });
-        ctx.strokeStyle = selected ? ESTACK_V4_ACCENT : (ESTACK_V4_MUTED_CURVES[Number(channel)] || "#717b7e");
-        ctx.globalAlpha = selected ? 1 : .50;
-        ctx.lineWidth = selected ? 2.5 : 1.25;
+        ctx.strokeStyle = color;
+        ctx.globalAlpha = selected ? 1 : .34;
+        ctx.lineWidth = selected ? 2.8 : 1.35;
         ctx.lineJoin = "round";
         ctx.lineCap = "round";
         ctx.stroke();
@@ -70,8 +143,8 @@ if (typeof estackDrawResponseCurve === "function") {
     };
 }
 
-// System response canvas: theme background, neutral context curves, cyan selected
-// output and cyan PEQ points. No gradients/glow/shadows.
+// System response graph: every output keeps its own colour, while the selected
+// output is stronger and always drawn last. PEQ points inherit that same colour.
 if (typeof canvasSetup === "function" && typeof activeChannels === "function") {
     drawGraph = function() {
         if (!window.DSP) return;
@@ -102,7 +175,7 @@ if (typeof canvasSetup === "function" && typeof activeChannels === "function") {
 
         const zeroY = margin.top + dbToY(0, innerH, range);
         ctx.save();
-        ctx.strokeStyle = "rgba(255,255,255,.24)";
+        ctx.strokeStyle = "rgba(255,255,255,.22)";
         ctx.lineWidth = 1;
         ctx.beginPath();
         ctx.moveTo(margin.left, zeroY);
@@ -115,7 +188,8 @@ if (typeof canvasSetup === "function" && typeof activeChannels === "function") {
     };
 }
 
-// Global EQ curve/points use the same hierarchy as the per-output editor.
+// Global EQ remains global, so it uses the shared cyan accent rather than a
+// loudspeaker-output colour.
 if (typeof globalEqDrawResponse === "function") {
     globalEqDrawResponse = function(ctx, width, height, margin) {
         const innerW = width - margin.left - margin.right;
@@ -127,7 +201,7 @@ if (typeof globalEqDrawResponse === "function") {
             const y = globalEqResponseY(globalEqTotalDb(freq), height, margin.top, margin.bottom);
             if (index === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         });
-        ctx.strokeStyle = ESTACK_V4_ACCENT;
+        ctx.strokeStyle = ESTACK_V4_GLOBAL_ACCENT;
         ctx.lineWidth = 2.25;
         ctx.stroke();
 
@@ -137,15 +211,14 @@ if (typeof globalEqDrawResponse === "function") {
             const x = margin.left + globalEqFreqToX(freq, innerW);
             const y = globalEqResponseY(globalEqTotalDb(freq), height, margin.top, margin.bottom);
             const selected = slot === globalEqSelected;
-            const state = globalEqBandState(slot);
-            const active = state === "active";
+            const active = globalEqBandState(slot) === "active";
 
             ctx.beginPath();
             ctx.arc(x, y, selected ? 9.5 : 7.5, 0, Math.PI * 2);
-            ctx.fillStyle = selected ? ESTACK_V4_ACCENT : "#172022";
+            ctx.fillStyle = selected ? ESTACK_V4_GLOBAL_ACCENT : "#172022";
             ctx.fill();
             ctx.lineWidth = selected ? 2 : 1.25;
-            ctx.strokeStyle = active ? ESTACK_V4_ACCENT : "rgba(220,228,230,.28)";
+            ctx.strokeStyle = active ? ESTACK_V4_GLOBAL_ACCENT : "rgba(220,228,230,.28)";
             ctx.stroke();
             ctx.fillStyle = selected ? "#102124" : active ? "#eef4f5" : "rgba(235,240,241,.48)";
             ctx.font = `${selected ? "700 " : ""}10px Open Sans, Arial`;
@@ -156,20 +229,13 @@ if (typeof globalEqDrawResponse === "function") {
     };
 }
 
-if (typeof globalEqDraw === "function") {
-    const estackV4BaseGlobalDraw = globalEqDraw;
-    globalEqDraw = function() {
-        estackV4BaseGlobalDraw();
-        // Base renderer is transparent; CSS provides the theme background.
-    };
-}
-
-// After the old functional modules have completed their first render, redraw
-// once with the V4 palette.
 document.addEventListener("DOMContentLoaded", () => {
     requestAnimationFrame(() => {
         try {
-            if (document.body.classList.contains("estack-eq-v4") && typeof drawGraph === "function") drawGraph();
+            if (document.body.classList.contains("estack-eq-v4")) {
+                estackV4ApplyChannelAccent(typeof selectedChannel !== "undefined" ? selectedChannel : 0);
+                if (typeof drawGraph === "function") drawGraph();
+            }
             if (document.body.classList.contains("global-eq-v4") && typeof globalEqDraw === "function") globalEqDraw();
         } catch (_) {}
     });
