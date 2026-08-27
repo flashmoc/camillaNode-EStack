@@ -33,18 +33,18 @@
     font-size: 9px !important;
 }
 
-/* Do not stretch seven channels across the whole page. Keep them console-strip
-   sized and centre the bank inside the available Control area. */
+/* Keep console strips compact and aligned instead of stretching across the page. */
 .estack-mixer-strips {
-    grid-template-columns: repeat(7, minmax(118px, 152px)) !important;
+    grid-template-columns: repeat(7, minmax(118px, 148px)) !important;
     justify-content: center !important;
+    align-items: start !important;
     gap: 6px !important;
 }
 
 .estack-mixer-strip {
     min-width: 0 !important;
     width: 100% !important;
-    max-width: 152px !important;
+    max-width: 148px !important;
     min-height: 374px !important;
     padding: 0 7px 8px !important;
     border-color: #414b4e !important;
@@ -64,7 +64,9 @@
 }
 
 .estack-strip-head {
+    height: 42px !important;
     min-height: 42px !important;
+    box-sizing: border-box !important;
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) auto !important;
     align-items: center !important;
@@ -94,13 +96,12 @@
     line-height: 1.1 !important;
 }
 
-/* MASTER does not need the legacy explanatory subtitle. */
 .estack-mixer-strip.master .estack-strip-title span {
     display: none !important;
 }
 
 .estack-output-value {
-    min-width: 62px;
+    min-width: 60px;
     color: color-mix(in srgb, var(--channel-color) 76%, white 15%);
     font-size: 9px;
     font-weight: 700;
@@ -109,16 +110,18 @@
     white-space: nowrap;
 }
 
-/* One compact geometry owns LEVEL, fader and GAIN scale. The dBFS labels use
-   22 px, then 4 px gap, then a 38 px meter track. Its physical centre is x=45. */
+/* One geometry owns LEVEL, fader and GAIN scale. The dBFS labels use 22 px,
+   then 4 px gap, then a 38 px meter track. Its physical centre is x=45. */
 .estack-strip-center {
     position: relative !important;
     width: 92px !important;
+    height: 258px !important;
     min-height: 258px !important;
     display: block !important;
     margin: 0 auto !important;
     padding: 5px 0 3px !important;
     overflow: visible !important;
+    box-sizing: border-box !important;
 }
 
 .estack-level-meter {
@@ -168,7 +171,7 @@
     background: rgba(255,255,255,.88) !important;
 }
 
-/* Overlay the gain fader on the exact centre of the playback meter track. */
+/* Gain input and visual handle share the exact centre of the playback meter. */
 .estack-fader-wrap {
     position: absolute !important;
     left: 45px !important;
@@ -176,28 +179,30 @@
     width: 38px !important;
     height: 246px !important;
     transform: translate(-50%, -50%) !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
+    display: block !important;
     z-index: 3;
     pointer-events: auto;
 }
 
-/* Neutralise the browser's native round range thumb. The channel colour stays
-   on the fader rail; the handle itself is a small flat neutral marker. */
+/* Native range stays interactive but visually invisible. The custom handle
+   rendered by estackControlScales.js is the only visible position indicator. */
 .estack-vertical-fader,
 .estack-mixer-strip.master .estack-vertical-fader {
     -webkit-appearance: none !important;
     appearance: none !important;
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
     width: 38px !important;
     height: 236px !important;
     margin: 0 !important;
-    transform: none !important;
+    transform: translate(-50%, -50%) !important;
     writing-mode: vertical-lr;
     direction: rtl;
     background: transparent !important;
     cursor: ns-resize;
     pointer-events: auto;
+    z-index: 4;
 }
 
 .estack-vertical-fader::-webkit-slider-runnable-track {
@@ -211,13 +216,14 @@
 .estack-vertical-fader::-webkit-slider-thumb {
     -webkit-appearance: none !important;
     appearance: none !important;
-    width: 22px !important;
-    height: 5px !important;
-    margin-left: -9.5px !important;
-    border: 1px solid #090c0d !important;
-    border-radius: 1px !important;
-    background: #d6dddf !important;
-    box-shadow: 0 0 0 1px rgba(255,255,255,.12) !important;
+    width: 1px !important;
+    height: 1px !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    opacity: 0 !important;
 }
 
 .estack-vertical-fader::-moz-range-track {
@@ -228,15 +234,38 @@
 }
 
 .estack-vertical-fader::-moz-range-thumb {
-    width: 22px !important;
-    height: 5px !important;
-    border: 1px solid #090c0d !important;
-    border-radius: 1px !important;
-    background: #d6dddf !important;
-    box-shadow: none !important;
+    width: 1px !important;
+    height: 1px !important;
+    border: 0 !important;
+    background: transparent !important;
+    opacity: 0 !important;
 }
 
-/* The old independent 0 dB marker is replaced by the GAIN scale's unity tick. */
+.estack-fader-handle {
+    position: absolute !important;
+    left: 50% !important;
+    width: 24px !important;
+    height: 5px !important;
+    box-sizing: border-box !important;
+    transform: translate(-50%, -50%) !important;
+    border: 1px solid #080b0c !important;
+    border-radius: 1px !important;
+    background: #d7dddf !important;
+    box-shadow: 0 0 0 1px rgba(255,255,255,.13), 0 1px 2px rgba(0,0,0,.7) !important;
+    pointer-events: none !important;
+    z-index: 6 !important;
+}
+
+.estack-fader-handle::after {
+    content: "";
+    position: absolute;
+    left: 3px;
+    right: 3px;
+    top: 1px;
+    height: 1px;
+    background: rgba(50,58,60,.65);
+}
+
 .estack-unity-mark {
     display: none !important;
 }
@@ -249,8 +278,7 @@
     display: none !important;
 }
 
-/* Keep the numeric gain field on the same centre line as MUTE. The unit is
-   absolutely positioned so it cannot push the input sideways. */
+/* Numeric gain and MUTE share exactly the same horizontal axis. */
 .estack-fader-number-wrap {
     position: relative !important;
     width: 62px !important;
@@ -323,13 +351,13 @@
 
 @media (max-width: 1250px) {
     .estack-mixer-strips {
-        grid-template-columns: repeat(4, minmax(118px, 150px)) !important;
+        grid-template-columns: repeat(4, minmax(118px, 148px)) !important;
         justify-content: center !important;
     }
 }
 
 @media (max-width: 760px) {
     .estack-mixer-strips {
-        grid-template-columns: repeat(2, minmax(118px, 150px)) !important;
+        grid-template-columns: repeat(2, minmax(118px, 148px)) !important;
     }
 }
