@@ -251,16 +251,16 @@
     color: color-mix(in srgb, var(--channel-color) 82%, white 14%);
     font-weight: 700;
 }
-/* The unity reference is a dedicated DOM element; no pseudo-line on the label. */
 .estack-gain-scale span.unity::before { display: none; }
 
 .estack-unity-marker {
     position: absolute;
     left: 50%;
-    width: 30px;
+    width: 18px;
     height: 2px;
     transform: translateY(-50%);
-    background: var(--channel-color);
+    background: color-mix(in srgb, var(--channel-color) 84%, white 6%);
+    border-radius: 1px;
     pointer-events: none;
     z-index: 8;
 }
@@ -289,18 +289,28 @@
 .estack-fader-handle {
     position: absolute;
     left: 50%;
-    width: 25px;
-    height: 3px;
+    width: 28px;
+    height: 7px;
     box-sizing: border-box;
     transform: translate(-50%, -50%);
-    border: 0;
-    border-radius: 0;
-    background: #d7dddf;
+    border: 1px solid #788387;
+    border-radius: 2px;
+    background: #d7dcde;
     box-shadow: none;
     pointer-events: none;
     z-index: 9;
 }
-.estack-fader-handle::after { content: none; display: none; }
+.estack-fader-handle::after {
+    content: "";
+    position: absolute;
+    left: 6px;
+    right: 6px;
+    top: 50%;
+    height: 1px;
+    transform: translateY(-50%);
+    background: color-mix(in srgb, var(--channel-color) 75%, #566064 25%);
+    opacity: .9;
+}
 .estack-fader-value { display: none; }
 
 .estack-fader-number-wrap {
