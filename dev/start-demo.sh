@@ -51,6 +51,7 @@ stop_previous_codespace_demo() {
 
     pkill -f '[n]odemon index.js' >/dev/null 2>&1 || true
     pkill -f '[n]ode index.js' >/dev/null 2>&1 || true
+    pkill -f '[g]enerate-input-demo.py' >/dev/null 2>&1 || true
 
     if command -v fuser >/dev/null 2>&1; then
         fuser -k 1234/tcp >/dev/null 2>&1 || true
@@ -173,12 +174,19 @@ cleanup() {
     trap - EXIT INT TERM
     [[ -n "$MAIN_PID" ]] && kill "$MAIN_PID" >/dev/null 2>&1 || true
     [[ -n "$SPECTRUM_PID" ]] && kill "$SPECTRUM_PID" >/dev/null 2>&1 || true
+    pkill -f '[g]enerate-input-demo.py' >/dev/null 2>&1 || true
     rm -f "$RUN_DIR/main.pid" "$RUN_DIR/spectrum.pid"
     exit "$status"
 }
 trap cleanup EXIT INT TERM
 
-"$CAMILLA_BIN" --port 1234 --loglevel warn "$MAIN_CONFIG" >"$LOG_DIR/camilladsp-main.log" 2>&1 &
+# CamillaDSP's built-in SignalGenerator clones one waveform to every capture
+# channel. For an 8-input E-Stack preview that would make all eight raw-input
+# meters move. Feed stdin instead: CH1/CH2 carry -30 dBFS noise and CH3-CH8
+# remain exact digital silence.
+"$CAMILLA_BIN" --port 1234 --loglevel warn "$MAIN_CONFIG" \
+    < <(python3 "$ROOT_DIR/dev/generate-input-demo.py") \
+    >"$LOG_DIR/camilladsp-main.log" 2>&1 &
 MAIN_PID=$!
 echo "$MAIN_PID" > "$RUN_DIR/main.pid"
 
@@ -213,6 +221,7 @@ export CAMILLADSP_PORT=1234
 export CAMILLA_SPECTRUM_PORT=6413
 
 printf '\nE-Stack cloud demo is ready:\n'
+printf '  Demo input:   CH1/CH2 noise @ -30 dBFS; CH3-CH8 digital silence\n'
 printf '  Main DSP:     ws://127.0.0.1:1234\n'
 printf '  Spectrum DSP: ws://127.0.0.1:6413\n'
 printf '  CamillaNode:  http://localhost:8080\n'
