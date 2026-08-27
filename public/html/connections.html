@@ -14,8 +14,10 @@
     <script type="module" >
         import camillaDSP from "/src/camillaDSP.js";
         import installEStackCompatibility from "/src/estackCompat.js";
+        import installEStackConnectionDecouple from "/src/estackConnectionDecouple.js";
 
         installEStackCompatibility(camillaDSP);
+        installEStackConnectionDecouple(camillaDSP);
         window.camillaDSP = camillaDSP;
         document.addEventListener("DOMContentLoaded",connectionsOnLoad)
     </script>
@@ -35,6 +37,8 @@
             } else {
                 // E-Stack defaults: main CamillaDSP on 1234 and the dedicated
                 // spectrum instance on 6413, both hosted by the Raspberry Pi.
+                // In Codespaces these values are carried through the same-origin
+                // CamillaNode WebSocket proxy, so no public DSP ports are needed.
                 document.getElementById("server").value = window.location.hostname;
                 document.getElementById("port").value=1234;
                 document.getElementById("spectrumPort").value=6413;
