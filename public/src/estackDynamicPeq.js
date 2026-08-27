@@ -31,6 +31,7 @@ async function estackDynamicDeletePeq(slot, entry) {
 
 function estackDynamicDecorateStrip(slot, entry) {
     const strip = estackRenderPeqStrip(slot, entry);
+    strip.dataset.peqSlot = String(slot);
     if (!entry) return strip;
 
     const remove = document.createElement("button");
@@ -107,4 +108,83 @@ estackRenderPeqRack = function(root) {
     eq.append(eqHead, strips);
     consoleEl.append(xovers, eq, estackEq8AnalyzerPanel());
     root.appendChild(consoleEl);
+};
+
+// Graph points must follow the same dynamic model: only existing PEQs are
+// selectable/draggable. Empty slots are created only with + ADD PEQ.
+estackFixedPeqPointPositions = function() {
+    const canvas = document.getElementById("responseCanvas");
+    if (!canvas) return [];
+    const rect = canvas.getBoundingClientRect();
+    const margin = { left: 50, right: 18, top: 18, bottom: 31 };
+    const innerW = rect.width - margin.left - margin.right;
+    const innerH = rect.height - margin.top - margin.bottom;
+    const range = graphRange();
+    const slots = mapPeqSlots();
+    const points = [];
+
+    slots.forEach((entry, slot) => {
+        if (!entry) return;
+        const p = entry[1]?.parameters || {};
+        const freq = Number(p.freq || ESTACK_PEQ_DEFAULT_FREQS[slot]);
+        const gain = Number(p.gain || 0);
+        points.push({
+            slot,
+            entry,
+            x: margin.left + freqToX(clamp(freq, 20, 20000), innerW),
+            y: margin.top + dbToY(clamp(gain, range.min, range.max), innerH, range)
+        });
+    });
+    return points;
+};
+
+if (typeof estackV2PointPositions === "function") {
+    estackV2PointPositions = estackFixedPeqPointPositions;
+}
+
+estackSelectPeqSlotVisual = function(slot) {
+    selectedPeqSlot = Number(slot);
+    document.querySelectorAll(".estack-peq-dynamic-strips > .estack-peq-strip").forEach(strip => {
+        strip.classList.toggle("selected", Number(strip.dataset.peqSlot) === selectedPeqSlot);
+    });
+    drawGraph();
+};
+
+// The normal V4 renderer calls this after every graph redraw. Render only
+// existing user bands so the graph and the rack always tell the same story.
+estackDrawPeqMarkers = function() {
+    const canvas = document.getElementById("responseCanvas");
+    if (!canvas || activeModule !== "peq") return;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // canvasSetup already scales the drawing context for DPR, so coordinates
+    // here remain CSS pixels. Keep this guard for canvases drawn without it.
+    const width = rect.width;
+    const height = rect.height;
+    if (!width || !height) return;
+
+    const points = estackFixedPeqPointPositions();
+    for (const point of points) {
+        const selected = point.slot === selectedPeqSlot;
+        const color = typeof estackV4SelectedColor === "function" ? estackV4SelectedColor() : "#59d5e3";
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, selected ? 9 : 7, 0, Math.PI * 2);
+        ctx.fillStyle = selected ? color : "#172022";
+        ctx.fill();
+        ctx.lineWidth = selected ? 2 : 1.25;
+        ctx.strokeStyle = color;
+        ctx.globalAlpha = selected ? 1 : .75;
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = selected ? "#102124" : "#eef4f5";
+        ctx.font = `${selected ? "700 " : ""}10px Open Sans, Arial`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(String(point.slot + 1), point.x, point.y + .25);
+        ctx.restore();
+    }
 };
