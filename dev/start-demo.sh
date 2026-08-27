@@ -43,15 +43,12 @@ esac
 CAMILLA_BIN="$BIN_DIR/camilladsp-$CAMILLA_VERSION-$CAMILLA_ARCH"
 
 stop_previous_codespace_demo() {
-    # This deliberately only takes over ports/processes inside Codespaces. It
-    # must never kill the real Raspberry services when someone runs the script
-    # by mistake on the hardware.
+    # Only take over processes/ports automatically inside Codespaces. Never
+    # interfere with the Raspberry services if this helper is run there.
     if [[ "${CODESPACES:-false}" != "true" ]]; then
         return
     fi
 
-    # Stop both an earlier automated demo and the manual CamillaDSP instances
-    # used while bootstrapping the Codespace.
     pkill -f '[n]odemon index.js' >/dev/null 2>&1 || true
     pkill -f '[n]ode index.js' >/dev/null 2>&1 || true
 
@@ -61,14 +58,16 @@ stop_previous_codespace_demo() {
         fuser -k 8080/tcp >/dev/null 2>&1 || true
     fi
 
-    # The very first manual test wrote an unbounded raw stream here. Remove it
-    # so a previous test cannot keep /tmp full forever.
+    # Clean the unbounded raw files created by the first manual bootstrap tests.
     rm -f /tmp/estack-demo.raw /tmp/camilladsp-demo.raw 2>/dev/null || true
     sleep 0.3
 }
 
 ensure_system_dependencies() {
-    if ldconfig -p 2>/dev/null | grep -q 'libasound\.so\.2'; then
+    # Do not use grep -q here: with `set -o pipefail`, an early grep exit can
+    # make ldconfig receive SIGPIPE and abort the launcher even when the library
+    # is actually installed.
+    if ldconfig -p 2>/dev/null | grep 'libasound\.so\.2' >/dev/null; then
         return
     fi
 
@@ -103,19 +102,63 @@ download_camilladsp() {
     trap - RETURN
 }
 
-# Free any old manual test first. This is intentionally before downloading so
-# the launcher can recover even when /tmp was filled by the old raw-file test.
+validate_config() {
+    local label="$1"
+    local config="$2"
+    local output
+
+    printf 'Validating %-18s ... ' "$label"
+    if ! output="$("$CAMILLA_BIN" --check "$config" 2>&1)"; then
+        echo "FAILED"
+        echo
+        echo "$output" >&2
+        echo >&2
+        echo "The $label configuration is invalid; startup stopped before opening any ports." >&2
+        return 1
+    fi
+    echo "OK"
+}
+
+wait_for_port() {
+    local port="$1"
+    local label="$2"
+    local attempts=50
+
+    for ((i=1; i<=attempts; i++)); do
+        if python3 - "$port" <<'PY' >/dev/null 2>&1
+import socket
+import sys
+port = int(sys.argv[1])
+s = socket.socket()
+s.settimeout(0.1)
+try:
+    s.connect(("127.0.0.1", port))
+except OSError:
+    raise SystemExit(1)
+finally:
+    s.close()
+PY
+        then
+            return 0
+        fi
+        sleep 0.1
+    done
+
+    echo "$label did not open port $port in time." >&2
+    return 1
+}
+
+# Recover from previous manual tests first, then prepare the runtime.
 stop_previous_codespace_demo
 ensure_system_dependencies
 download_camilladsp
 
-# Build a cloud-safe copy of the real 30-band analyzer config. The production
-# setupFiles/spectrum.yml remains untouched for the Raspberry Pi.
+# Build a standalone cloud analyzer. Production setupFiles/spectrum.yml is not
+# read or changed by the cloud demo.
 python3 "$ROOT_DIR/dev/make-spectrum-demo.py" "$SPECTRUM_CONFIG" >/dev/null
 
-# Validate before taking over any ports.
-"$CAMILLA_BIN" -c "$MAIN_CONFIG" >/dev/null
-"$CAMILLA_BIN" -c "$SPECTRUM_CONFIG" >/dev/null
+validate_config "main E-Stack DSP" "$MAIN_CONFIG"
+validate_config "30-band spectrum" "$SPECTRUM_CONFIG"
 
 cd "$ROOT_DIR"
 if [[ ! -d node_modules ]]; then
@@ -135,24 +178,31 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-"$CAMILLA_BIN" -p 1234 "$MAIN_CONFIG" >"$LOG_DIR/camilladsp-main.log" 2>&1 &
+"$CAMILLA_BIN" --port 1234 --loglevel warn "$MAIN_CONFIG" >"$LOG_DIR/camilladsp-main.log" 2>&1 &
 MAIN_PID=$!
 echo "$MAIN_PID" > "$RUN_DIR/main.pid"
 
-"$CAMILLA_BIN" -p 6413 "$SPECTRUM_CONFIG" >"$LOG_DIR/camilladsp-spectrum.log" 2>&1 &
+"$CAMILLA_BIN" --port 6413 --loglevel warn "$SPECTRUM_CONFIG" >"$LOG_DIR/camilladsp-spectrum.log" 2>&1 &
 SPECTRUM_PID=$!
 echo "$SPECTRUM_PID" > "$RUN_DIR/spectrum.pid"
 
-sleep 0.8
+if ! wait_for_port 1234 "Main CamillaDSP"; then
+    cat "$LOG_DIR/camilladsp-main.log" >&2 || true
+    exit 1
+fi
+if ! wait_for_port 6413 "Spectrum CamillaDSP"; then
+    cat "$LOG_DIR/camilladsp-spectrum.log" >&2 || true
+    exit 1
+fi
 
 if ! kill -0 "$MAIN_PID" >/dev/null 2>&1; then
-    echo "Main CamillaDSP failed to start:" >&2
-    cat "$LOG_DIR/camilladsp-main.log" >&2
+    echo "Main CamillaDSP exited unexpectedly:" >&2
+    cat "$LOG_DIR/camilladsp-main.log" >&2 || true
     exit 1
 fi
 if ! kill -0 "$SPECTRUM_PID" >/dev/null 2>&1; then
-    echo "Spectrum CamillaDSP failed to start:" >&2
-    cat "$LOG_DIR/camilladsp-spectrum.log" >&2
+    echo "Spectrum CamillaDSP exited unexpectedly:" >&2
+    cat "$LOG_DIR/camilladsp-spectrum.log" >&2 || true
     exit 1
 fi
 
