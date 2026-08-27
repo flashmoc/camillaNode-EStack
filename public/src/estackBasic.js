@@ -127,7 +127,7 @@ async function updateOutputChannels(channels, gain, mute = null) {
         }
 
         const names = entries.map(([channel]) => EStackControlChannels[channel]?.name || `OUT ${channel + 1}`).join(" + ");
-        setMixerStatus(`${names}: ${Number(gain).toFixed(1)} dB · applied`, "ok");
+        setMixerStatus(`${names}: ${Number(gain).toFixed(1)} dB`, "ok");
         return true;
     } catch (error) {
         console.error("Output gain update failed", error);
@@ -142,35 +142,6 @@ async function updateOutputGain(channel, gain, mute = null) {
 
 async function updateLinkedGain(channel, gain) {
     return updateOutputChannels(linkedChannelsFor(channel), gain, null);
-}
-
-function renderLinkControls() {
-    const root = document.getElementById("linkControls");
-    if (!root) return;
-    root.replaceChildren();
-
-    for (const [key, link] of Object.entries(EStackGainLinks)) {
-        const button = document.createElement("button");
-        button.className = "estack-link-button";
-        button.classList.toggle("active", !!gainLinks[key]);
-        button.setAttribute("aria-pressed", String(!!gainLinks[key]));
-        button.innerHTML = `<span>${link.label}</span><strong>${gainLinks[key] ? "LINKED" : "FREE"}</strong>`;
-        button.title = gainLinks[key]
-            ? `${link.label} gains move together. Click to unlink.`
-            : `${link.label} gains are independent. Click to link.`;
-
-        button.addEventListener("click", () => {
-            gainLinks[key] = !gainLinks[key];
-            saveGainLink(key);
-            renderLinkControls();
-            setMixerStatus(
-                `${link.label}: ${gainLinks[key] ? "gain link enabled — next move controls both channels" : "independent gain mode"}`,
-                "ok"
-            );
-        });
-
-        root.appendChild(button);
-    }
 }
 
 function makeMeter() {
@@ -194,7 +165,20 @@ function makeFader({ id, value, min, max, step, color, label, sublabel, onPrevie
 
     const head = document.createElement("div");
     head.className = "estack-strip-head";
-    head.innerHTML = `<strong>${label}</strong><span>${sublabel || ""}</span>`;
+
+    const title = document.createElement("div");
+    title.className = "estack-strip-title";
+    const strong = document.createElement("strong");
+    strong.textContent = label;
+    const subtitle = document.createElement("span");
+    subtitle.textContent = sublabel || "";
+    title.append(strong, subtitle);
+
+    const meterValue = document.createElement("output");
+    meterValue.className = "estack-output-value";
+    meterValue.textContent = "-60.0 dBFS";
+    meterValue.setAttribute("aria-label", `${label} playback level`);
+    head.append(title, meterValue);
 
     const meter = makeMeter();
 
@@ -207,16 +191,16 @@ function makeFader({ id, value, min, max, step, color, label, sublabel, onPrevie
     fader.min = min;
     fader.max = max;
     fader.step = step;
-    fader.value = value;
+    fader.value = Math.max(Number(min), Math.min(Number(max), Number(value)));
 
     const unity = document.createElement("div");
     unity.className = "estack-unity-mark";
-    unity.title = "0 dB";
+    unity.title = "0 dB gain";
     faderWrap.append(fader, unity);
 
     const valueBox = document.createElement("div");
     valueBox.className = "estack-fader-value";
-    valueBox.textContent = `${Number(value).toFixed(1)} dB`;
+    valueBox.textContent = `${Number(fader.value).toFixed(1)} dB`;
 
     fader.addEventListener("input", () => {
         const next = Number(fader.value);
@@ -259,6 +243,7 @@ function makeFader({ id, value, min, max, step, color, label, sublabel, onPrevie
         strip,
         fader,
         valueBox,
+        meterValue,
         meterFill: meter.querySelector(".estack-meter-fill"),
         meterPeak: meter.querySelector(".estack-meter-peak")
     };
@@ -271,12 +256,14 @@ function dbToMeterPercent(db) {
 
 function updateMeterElement(parts, db) {
     if (!parts) return;
-    const percent = dbToMeterPercent(db);
+    const level = Number.isFinite(Number(db)) ? Number(db) : -60;
+    const percent = dbToMeterPercent(level);
     parts.meterFill.style.height = `${percent}%`;
-    parts.meterFill.dataset.zone = db > -3 ? "clip" : db > -10 ? "hot" : "normal";
+    parts.meterFill.dataset.zone = level > -3 ? "clip" : level > -10 ? "hot" : "normal";
 
-    const peak = Math.max(-60, Math.min(0, Number(db)));
+    const peak = Math.max(-60, Math.min(0, level));
     parts.meterPeak.style.bottom = `${dbToMeterPercent(peak)}%`;
+    if (parts.meterValue) parts.meterValue.textContent = `${level.toFixed(1)} dBFS`;
 }
 
 async function startMeters() {
@@ -302,7 +289,6 @@ async function loadBasic() {
     DSP = await waitForDSP();
     await DSP.downloadConfig();
     loadGainLinks();
-    renderLinkControls();
 
     const root = document.getElementById("estackMixerStrips");
     root.replaceChildren();
@@ -318,12 +304,12 @@ async function loadBasic() {
     const master = makeFader({
         id: "masterVolume",
         value: masterValue,
-        min: -90,
+        min: -50,
         max: 0,
         step: .5,
         color: "hsl(var(--bck-hue), 65%, 60%)",
         label: "MASTER",
-        sublabel: "DSP volume",
+        sublabel: "MAX OUT",
         isMaster: true,
         onCommit: async gain => {
             await DSP.sendDSPMessage({ SetVolume: gain });
@@ -343,11 +329,11 @@ async function loadBasic() {
             id: `outputGain${channel}`,
             value: gain,
             min: -60,
-            max: 12,
+            max: 0,
             step: .1,
             color: meta.color,
             label: meta.name,
-            sublabel: `OUT ${channel + 1}${entry ? ` · ${entry[0]}` : " · no Gain filter"}`,
+            sublabel: `OUT ${channel + 1}`,
             muted,
             onPreview: value => syncLinkedPreview(channel, value),
             onCommit: value => updateLinkedGain(channel, value),
@@ -367,7 +353,7 @@ async function loadBasic() {
         faderControls.set(channel, parts);
     }
 
-    setMixerStatus("Connected · MID L/R and HIGH L/R gain links enabled by default", "ok");
+    setMixerStatus("Connected", "ok");
     startMeters();
 }
 
