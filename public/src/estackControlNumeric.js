@@ -18,6 +18,14 @@ function estackSyncAllNumericFaders() {
 
 function estackAttachNumericToFader(fader) {
     if (!fader || fader.dataset.numericAttached === "true") return;
+
+    // MASTER is intentionally constrained to the useful -50..0 dB range.
+    // Per-output trims keep their wider engineering range.
+    if (fader.id === "masterVolume") {
+        fader.min = "-50";
+        fader.max = "0";
+    }
+
     const strip = fader.closest(".estack-mixer-strip");
     const valueBox = strip?.querySelector(".estack-fader-value");
     if (!strip || !valueBox) return;
