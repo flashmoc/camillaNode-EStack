@@ -1,11 +1,19 @@
-// Soft 0 dB detent for bipolar EQ/output gain controls.
+// Perceptible 0 dB detent for bipolar EQ/output gain controls.
 // Frequency, Q, delay and limiter ceiling remain unaffected.
+
+function estackZeroDetent(min, max, step) {
+    const s = Math.abs(Number(step)) || 0.1;
+    if (!(Number(min) < 0 && Number(max) > 0)) return 0;
+    const span = Math.abs(Number(max) - Number(min));
+    return Math.max(s * 2, Math.min(0.8, span * 0.02));
+}
 
 function estackZeroSnapKnobValue(value, min, max, step) {
     let next = Math.min(max, Math.max(min, Number(value)));
     const s = Number(step) || 1;
     next = Math.round(next / s) * s;
-    if (min < 0 && max > 0 && Math.abs(next) <= Math.max(s, 0.3)) next = 0;
+    const detent = estackZeroDetent(min, max, step);
+    if (detent && Math.abs(next) <= detent) next = 0;
     return next;
 }
 
@@ -25,7 +33,7 @@ if (typeof estackEq8MakeKnob === "function") {
         knob.setAttribute("aria-label", label);
         knob.setAttribute("aria-valuemin", String(min));
         knob.setAttribute("aria-valuemax", String(max));
-        if (min < 0 && max > 0) knob.title = "Soft snap at 0 dB · double-click resets";
+        if (min < 0 && max > 0) knob.title = "0 dB detent · double-click resets";
 
         const marker = document.createElement("span");
         marker.className = "estack-eq8-knob-marker";
@@ -50,6 +58,7 @@ if (typeof estackEq8MakeKnob === "function") {
         let dragStartNorm = 0;
         let dragging = false;
         let wheelCommitTimer;
+        let keyCommitTimer;
 
         const render = () => {
             const norm = estackEq8Norm(current, min, max, logarithmic);
@@ -72,6 +81,7 @@ if (typeof estackEq8MakeKnob === "function") {
         knob.addEventListener("pointerdown", event => {
             if (event.button !== 0) return;
             event.preventDefault();
+            knob.focus({ preventScroll: true });
             dragging = true;
             dragStartY = event.clientY;
             dragStartNorm = estackEq8Norm(current, min, max, logarithmic);
@@ -96,6 +106,7 @@ if (typeof estackEq8MakeKnob === "function") {
 
         knob.addEventListener("wheel", event => {
             event.preventDefault();
+            knob.focus({ preventScroll: true });
             const norm = estackEq8Norm(current, min, max, logarithmic);
             const amount = event.shiftKey ? .004 : .015;
             setCurrent(estackEq8FromNorm(norm + (event.deltaY < 0 ? amount : -amount), min, max, logarithmic));
@@ -113,7 +124,8 @@ if (typeof estackEq8MakeKnob === "function") {
                 const direction = ["ArrowUp", "ArrowRight"].includes(event.key) ? 1 : -1;
                 setCurrent(estackEq8FromNorm(norm + direction * (event.shiftKey ? .004 : .015), min, max, logarithmic));
             }
-            commitCurrent();
+            clearTimeout(keyCommitTimer);
+            keyCommitTimer = setTimeout(commitCurrent, 130);
         });
 
         knob.addEventListener("dblclick", () => {
@@ -142,7 +154,7 @@ if (typeof estackEq8MakeKnob === "function") {
 if (typeof estackCommitPeqValue === "function") {
     const estackZeroSnapBaseCommit = estackCommitPeqValue;
     estackCommitPeqValue = async function(slot, key, value) {
-        if (key === "gain" && Math.abs(Number(value)) <= 0.3) value = 0;
+        if (key === "gain" && Math.abs(Number(value)) <= 0.8) value = 0;
         return estackZeroSnapBaseCommit(slot, key, value);
     };
 }
@@ -151,7 +163,7 @@ if (typeof estackV2PointerToParams === "function") {
     const estackZeroSnapBasePointer = estackV2PointerToParams;
     estackV2PointerToParams = function(event) {
         const params = estackZeroSnapBasePointer(event);
-        if (Math.abs(Number(params.gain)) <= 0.3) params.gain = 0;
+        if (Math.abs(Number(params.gain)) <= 0.8) params.gain = 0;
         return params;
     };
 }
