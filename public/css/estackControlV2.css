@@ -1,6 +1,6 @@
 /* E-Stack Control v2 — compact console strips with the fader physically
-   integrated into a wider playback meter. The meter remains dBFS; the small
-   coloured tick on its right edge marks 0 dB gain for the fader. */
+   integrated into a wider playback meter. The meter is dBFS; per-output gain
+   faders use a -60..0 dB UI range so unity aligns with the meter's 0 dBFS top. */
 
 .estack-mixer.group {
     padding: 0 10px 12px !important;
@@ -58,9 +58,20 @@
 }
 
 .estack-strip-head {
-    min-height: 38px !important;
-    padding: 7px 1px 5px !important;
+    min-height: 42px !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    align-items: center !important;
+    gap: 5px !important;
+    padding: 6px 1px 5px !important;
     border-bottom-color: #343d40 !important;
+}
+
+.estack-strip-title {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
 }
 
 .estack-strip-head strong {
@@ -68,6 +79,23 @@
     font-size: 12px !important;
     font-weight: 700 !important;
     letter-spacing: .025em;
+}
+
+.estack-strip-head span {
+    min-height: 0 !important;
+    color: #6f7b7f !important;
+    font-size: 7px !important;
+    line-height: 1.1 !important;
+}
+
+.estack-output-value {
+    min-width: 62px;
+    color: color-mix(in srgb, var(--channel-color) 76%, white 15%);
+    font-size: 9px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
 }
 
 .estack-strip-center {
@@ -123,7 +151,7 @@
     background: rgba(255,255,255,.88) !important;
 }
 
-/* Overlay the actual gain fader over the meter track. */
+/* Overlay the gain fader over the dBFS meter track. */
 .estack-fader-wrap {
     position: absolute !important;
     left: calc(50% + 12px) !important;
@@ -172,13 +200,22 @@
 .estack-unity-mark {
     left: auto !important;
     right: -7px !important;
-    top: var(--estack-unity-pos, 16.667%) !important;
     width: 11px !important;
     height: 2px !important;
     pointer-events: none !important;
     background: var(--channel-color) !important;
     box-shadow: 0 0 5px color-mix(in srgb, var(--channel-color) 38%, transparent);
     transform: translateY(-1px);
+}
+
+/* Output trims now stop at 0 dB, so unity is at the top just like 0 dBFS. */
+.estack-mixer-strip:not(.master) .estack-unity-mark {
+    top: 4.2% !important;
+}
+
+/* MASTER retains its deliberately offset visual geometry. */
+.estack-mixer-strip.master .estack-unity-mark {
+    top: 16.667% !important;
 }
 
 .estack-unity-mark::after {
