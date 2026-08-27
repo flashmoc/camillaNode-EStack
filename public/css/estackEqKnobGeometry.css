@@ -1,0 +1,34 @@
+/* Final rotary marker geometry for E-Stack EQ.
+   The marker's bottom-center is anchored exactly on the knob center, then the
+   marker rotates around that same point. Loaded after V4 so older transforms
+   cannot offset the indicator. */
+
+.estack-eq8-knob-marker {
+    left: 50% !important;
+    top: auto !important;
+    bottom: 50% !important;
+    width: 3px !important;
+    height: 15px !important;
+    margin: 0 !important;
+    transform: translateX(-50%) rotate(var(--angle)) !important;
+    transform-origin: 50% 100% !important;
+}
+
+.estack-v2-xover .estack-eq8-knob-marker {
+    left: 50% !important;
+    top: auto !important;
+    bottom: 50% !important;
+    height: 17px !important;
+    transform: translateX(-50%) rotate(var(--angle)) !important;
+    transform-origin: 50% 100% !important;
+}
+
+.estack-v2-output-body .estack-eq8-knob-marker,
+.estack-v2-protection-module .estack-eq8-knob-marker {
+    left: 50% !important;
+    top: auto !important;
+    bottom: 50% !important;
+    height: 22px !important;
+    transform: translateX(-50%) rotate(var(--angle)) !important;
+    transform-origin: 50% 100% !important;
+}
