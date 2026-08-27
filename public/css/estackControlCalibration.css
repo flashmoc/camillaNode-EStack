@@ -1,0 +1,132 @@
+/* Final Control calibration layer.
+   Keeps LEVEL dBFS, meter/fader and GAIN on three non-overlapping columns and
+   keeps all seven output strips on one desktop row. */
+
+.estack-mixer.group {
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+}
+
+.estack-mixer-strips {
+    grid-template-columns: repeat(7, 136px) !important;
+    width: max-content !important;
+    min-width: max-content !important;
+    justify-content: start !important;
+    gap: 5px !important;
+    margin: 0 auto !important;
+}
+
+.estack-mixer-strip {
+    width: 136px !important;
+    max-width: 136px !important;
+}
+
+/* Fixed three-column visual geometry:
+   0..23 = dBFS labels
+   28..65 = 38 px meter/fader track
+   73..103 = GAIN labels */
+.estack-strip-center {
+    width: 104px !important;
+    height: 258px !important;
+    min-height: 258px !important;
+    margin: 0 auto !important;
+    overflow: visible !important;
+}
+
+.estack-level-meter {
+    left: 0 !important;
+    width: 66px !important;
+    height: 246px !important;
+    grid-template-columns: 24px 38px !important;
+    gap: 4px !important;
+}
+
+.estack-meter-scale {
+    width: 24px !important;
+}
+
+.estack-meter-track {
+    width: 38px !important;
+}
+
+.estack-fader-wrap {
+    left: 47px !important;
+    width: 38px !important;
+    height: 246px !important;
+}
+
+.estack-vertical-fader,
+.estack-mixer-strip.master .estack-vertical-fader {
+    width: 38px !important;
+    height: 246px !important;
+}
+
+/* Native range remains the invisible interaction surface. */
+.estack-vertical-fader::-webkit-slider-runnable-track {
+    width: 3px !important;
+    background: color-mix(in srgb, var(--channel-color) 78%, #6d777a 22%) !important;
+}
+
+.estack-vertical-fader::-webkit-slider-thumb {
+    -webkit-appearance: none !important;
+    appearance: none !important;
+    width: 1px !important;
+    height: 1px !important;
+    opacity: 0 !important;
+}
+
+.estack-fader-handle {
+    left: 50% !important;
+    width: 24px !important;
+    height: 5px !important;
+    transform: translate(-50%, -50%) !important;
+}
+
+/* Give GAIN its own clean column. */
+.estack-gain-scale {
+    left: calc(100% + 7px) !important;
+    top: 0 !important;
+    width: 30px !important;
+    height: 246px !important;
+    font-size: 6px !important;
+}
+
+.estack-gain-scale::before {
+    left: 0 !important;
+}
+
+.estack-gain-scale span {
+    left: 0 !important;
+    width: 26px !important;
+    height: 10px !important;
+    min-width: 26px !important;
+    line-height: 10px !important;
+    transform: translateY(-50%) !important;
+}
+
+.estack-gain-scale span::before {
+    left: -6px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+}
+
+.estack-gain-scale span.unity::before {
+    left: -11px !important;
+    width: 11px !important;
+    height: 2px !important;
+}
+
+/* Stop the responsive rule in estackControlV2.css from wrapping to four strips.
+   Only genuinely narrow screens switch to a smaller multi-row layout. */
+@media (max-width: 880px) {
+    .estack-mixer-strips {
+        grid-template-columns: repeat(2, 132px) !important;
+        width: max-content !important;
+        min-width: max-content !important;
+    }
+
+    .estack-mixer-strip {
+        width: 132px !important;
+        max-width: 132px !important;
+    }
+}
