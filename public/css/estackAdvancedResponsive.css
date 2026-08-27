@@ -1,0 +1,149 @@
+/* Responsive Advanced page: wrap chains instead of hiding the rightmost nodes. */
+
+html,
+body {
+    max-width: 100%;
+    overflow-x: hidden !important;
+}
+
+#pipelineVisual,
+#channelMapping,
+#advancedFilters,
+#processors {
+    width: calc(100% - 12px) !important;
+    margin-inline: 6px !important;
+    box-sizing: border-box;
+}
+
+#pipelineContainer,
+#advancedFilters,
+#channelMapping,
+#processors {
+    max-width: 100%;
+    overflow: visible !important;
+}
+
+.pipelineChannel,
+.filterChannel {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: stretch;
+    gap: 5px !important;
+    width: 100% !important;
+    margin: 0 0 8px !important;
+    padding: 0 5px 7px !important;
+    box-sizing: border-box;
+    overflow: visible !important;
+}
+
+.pipelineChannel::before,
+.filterChannel::before {
+    position: static !important;
+    display: flex;
+    flex: 1 0 100%;
+    width: auto !important;
+    height: 22px !important;
+    margin: 0 -5px 2px !important;
+    padding: 3px 7px !important;
+    box-sizing: border-box;
+    align-items: center;
+    writing-mode: horizontal-tb !important;
+    text-align: left !important;
+    font-size: 11px !important;
+}
+
+.pipelineElement {
+    flex: 1 1 108px;
+    width: auto !important;
+    min-width: 96px;
+    max-width: 180px;
+    margin: 0 !important;
+    box-sizing: border-box;
+}
+
+.pipelineElement:last-of-type,
+.filterChannel .peqElement:first-of-type,
+.filterChannel .peqElement:last-of-type {
+    margin: 0 !important;
+}
+
+.filterChannel .peqElement {
+    flex: 1 1 270px;
+    width: auto !important;
+    min-width: 240px;
+    max-width: 100%;
+    padding: 0 6px !important;
+    box-sizing: border-box;
+}
+
+.filterBasic,
+.filterParams,
+.peqParams {
+    width: 100%;
+    height: auto !important;
+    min-height: 34px;
+    margin-left: 0 !important;
+    padding: 3px !important;
+    box-sizing: border-box;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 3px 5px;
+}
+
+.filterBasic > select,
+.filterParams > select,
+.peqParams > select,
+.filterBasic > input,
+.filterParams > input,
+.peqParams > input {
+    min-width: 58px;
+    max-width: 120px !important;
+    margin: 2px !important;
+}
+
+.filterType,
+.filterSubType {
+    width: auto !important;
+    min-width: 90px;
+    flex: 1 1 100px;
+}
+
+.mixer {
+    width: calc(100% - 10px) !important;
+}
+
+#pipeContextMenu {
+    max-width: calc(100vw - 30px);
+}
+
+@media (max-width: 700px) {
+    #sectionMainTitle {
+        font-size: 22px !important;
+        margin-bottom: 8px !important;
+    }
+
+    .group {
+        margin-right: 0 !important;
+    }
+
+    .pipelineElement {
+        flex-basis: 90px;
+        min-width: 82px;
+        max-width: none;
+    }
+
+    .filterChannel .peqElement {
+        flex-basis: 100%;
+        min-width: 0;
+    }
+
+    .filterBasic > select,
+    .filterParams > select,
+    .peqParams > select,
+    .filterBasic > input,
+    .filterParams > input,
+    .peqParams > input {
+        flex: 1 1 74px;
+        max-width: none !important;
+    }
+}
