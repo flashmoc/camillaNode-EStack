@@ -7,6 +7,10 @@ const ESTACK_DAW_GRAPH_BG_TOP = "#3a3c3d";
 const ESTACK_DAW_GRAPH_BG_BOTTOM = "#303233";
 const ESTACK_DAW_INACTIVE_CURVES = ["#8b8f91", "#9a9ea0", "#777c7e", "#a5a8aa", "#858a8c", "#969a9c"];
 
+function estackDawHasDSP() {
+    return typeof DSP !== "undefined" && !!DSP;
+}
+
 // One restrained accent for all PEQ bands. Selection is expressed by fill,
 // size and border instead of ten unrelated colours.
 if (typeof estackPeqBandColor === "function") {
@@ -53,7 +57,7 @@ if (typeof estackDrawResponseCurve === "function") {
 if (typeof estackRenderLegend === "function") {
     estackRenderLegend = function() {
         const root = document.querySelector(".venu-graph-legend");
-        if (!root || !window.DSP) return;
+        if (!root || !estackDawHasDSP()) return;
         root.replaceChildren();
 
         for (const channel of activeChannels()) {
@@ -76,7 +80,7 @@ if (typeof estackRenderLegend === "function") {
 // existing RTA, frequency zoom, all-output curves and draggable PEQ markers.
 if (typeof canvasSetup === "function" && typeof activeChannels === "function" && typeof filterEntries === "function") {
     drawGraph = function() {
-        if (!window.DSP) return;
+        if (!estackDawHasDSP()) return;
 
         const { ctx, width, height } = canvasSetup();
         const margin = { left: 50, right: 18, top: 18, bottom: 31 };
