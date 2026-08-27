@@ -18,7 +18,9 @@ if (fs.existsSync('camillaNodeConfig.json')) {
 }
 let appConfig = JSON.parse(strAppConfig);
 
-PORT = appConfig.port;
+// Hardware keeps using camillaNodeConfig.json. The development launcher can
+// override the HTTP port without modifying the Raspberry Pi configuration.
+const PORT = Number.parseInt(process.env.CAMILLANODE_PORT || appConfig.port || 80, 10);
 let currentConfigName="";
 
 //// Global settings
@@ -55,6 +57,17 @@ app.get('/preferences',(req,res)=>{
 
 app.get('/spectrum',(req,res)=>{
     res.sendFile(__dirname+'/public/html/spectrum.html');
+});
+
+// Small diagnostic endpoint used by the cloud development environment. It is
+// intentionally harmless on the Raspberry and exposes no configuration data.
+app.get('/api/runtime',(req,res)=>{
+    res.json({
+        mode: process.env.ESTACK_DEMO === '1' ? 'demo' : 'hardware',
+        httpPort: PORT,
+        dspPort: Number.parseInt(process.env.CAMILLADSP_PORT || '1234', 10),
+        spectrumPort: Number.parseInt(process.env.CAMILLA_SPECTRUM_PORT || '6413', 10)
+    });
 });
 
 app.post('/saveConfigName',(req,res)=>{
@@ -163,14 +176,15 @@ app.get('/restartService',function(req,res){
 });
 
 // Same-origin WebSocket proxy for E-Stack.
-// Browsers no longer connect directly to ports 1234/6413, which avoids
-// Chrome Local Network Access / Private Network Access blocking. CamillaNode
-// talks to the local CamillaDSP instances over loopback instead.
+// Browser clients only talk to CamillaNode. CamillaNode then talks to the local
+// CamillaDSP processes over loopback. This works on the Raspberry and through
+// the HTTPS/WSS URL provided by GitHub Codespaces.
 const server = http.createServer(app);
 const proxyWss = new WebSocket.Server({ noServer: true });
+const proxyHost = process.env.CAMILLADSP_PROXY_HOST || '127.0.0.1';
 const proxyTargets = {
-    '/ws/dsp': 1234,
-    '/ws/spectrum': 6413
+    '/ws/dsp': Number.parseInt(process.env.CAMILLADSP_PORT || '1234', 10),
+    '/ws/spectrum': Number.parseInt(process.env.CAMILLA_SPECTRUM_PORT || '6413', 10)
 };
 
 server.on('upgrade', (request, socket, head) => {
@@ -189,7 +203,8 @@ server.on('upgrade', (request, socket, head) => {
     }
 
     proxyWss.handleUpgrade(request, socket, head, (client) => {
-        const upstream = new WebSocket(`ws://127.0.0.1:${targetPort}`);
+        const upstream = new WebSocket(`ws://${proxyHost}:${targetPort}`);
+        const pendingClientMessages = [];
         let closed = false;
 
         const closeBoth = () => {
@@ -199,14 +214,25 @@ server.on('upgrade', (request, socket, head) => {
             try { if (upstream.readyState === WebSocket.OPEN || upstream.readyState === WebSocket.CONNECTING) upstream.close(); } catch (_) {}
         };
 
-        upstream.on('open', () => {
-            client.on('message', (data, isBinary) => {
-                if (upstream.readyState === WebSocket.OPEN) upstream.send(data, { binary: isBinary });
-            });
+        // The browser-side WebSocket can become OPEN a few milliseconds before
+        // the local upstream is ready. Queue those first API commands instead of
+        // dropping GetVersion/GetConfigJson during startup.
+        client.on('message', (data, isBinary) => {
+            if (upstream.readyState === WebSocket.OPEN) {
+                upstream.send(data, { binary: isBinary });
+            } else if (upstream.readyState === WebSocket.CONNECTING) {
+                pendingClientMessages.push({ data, isBinary });
+            }
+        });
 
-            upstream.on('message', (data, isBinary) => {
-                if (client.readyState === WebSocket.OPEN) client.send(data, { binary: isBinary });
-            });
+        upstream.on('open', () => {
+            for (const message of pendingClientMessages.splice(0)) {
+                upstream.send(message.data, { binary: message.isBinary });
+            }
+        });
+
+        upstream.on('message', (data, isBinary) => {
+            if (client.readyState === WebSocket.OPEN) client.send(data, { binary: isBinary });
         });
 
         upstream.on('error', (error) => {
@@ -219,4 +245,7 @@ server.on('upgrade', (request, socket, head) => {
     });
 });
 
-server.listen(PORT, () => console.log(`CamillaNode is running on port ${PORT}...`));
+server.listen(PORT, () => {
+    const mode = process.env.ESTACK_DEMO === '1' ? ' [E-Stack demo]' : '';
+    console.log(`CamillaNode is running on port ${PORT}${mode}...`);
+});
