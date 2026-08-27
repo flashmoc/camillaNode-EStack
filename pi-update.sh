@@ -3,7 +3,7 @@ set -euo pipefail
 
 BRANCH="camilladsp-4.1-estack"
 REPO="https://github.com/flashmoc/camillaNode-EStack.git"
-RUNTIME_PATTERN='^(camillaNodeConfig\.json|currentConfig\.json|savedConfigs\.dat|config/.*|setupFiles/spectrum_.*\.yml)$'
+RUNTIME_PATTERN='^(camillaNodeConfig\.json|currentConfig\.json|savedConfigs\.dat|config/.*|setupFiles/spectrum_.*)$'
 
 printf '\nE-Stack Raspberry update\n'
 printf 'Repository : %s\n' "$REPO"
@@ -72,7 +72,7 @@ fi
 # This does not touch CamillaDSP binaries, YAML, ALSA, output routing or system audio files.
 npm install --omit=dev
 
-if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files --type=service | grep -q '^camillanode.service'; then
+if command -v systemctl >/dev/null 2>&1 && systemctl cat camillanode.service >/dev/null 2>&1; then
     echo "Restarting camillanode.service..."
     sudo systemctl restart camillanode.service
     sleep 1
