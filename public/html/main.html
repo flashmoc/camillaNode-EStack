@@ -29,6 +29,21 @@
         window.preferences = new preferences();
         window.autoEQ = new autoEQ();
 
+        // Open the official CamillaGUI instance that accompanies the E-Stack
+        // Codespaces demo. On the Raspberry/local network, use the same host on
+        // CamillaGUI's standard port 5005.
+        window.openCamillaGui = function() {
+            const current = new URL(window.location.href);
+            let target;
+            if (current.hostname.endsWith('.app.github.dev')) {
+                const guiHost = current.hostname.replace(/-8080(?=\.app\.github\.dev$)/, '-5005');
+                target = `https://${guiHost}/gui/index.html`;
+            } else {
+                target = `http://${current.hostname}:5005/gui/index.html`;
+            }
+            window.open(target, '_blank', 'noopener,noreferrer');
+        };
+
         // Migrate the browser's old CamillaNode preferences to the E-Stack UI.
         // Preferences live in localStorage, so simply changing repository defaults
         // does not update an existing browser profile.
@@ -130,6 +145,7 @@
             <div class="navigate" onclick="showImport()" target=""><img src="/img/icon/import.png" class="icon">Import</div>
             <div class="navigate" onclick="exportConfig()" target=""><img src="/img/icon/export.png" class="icon">Export</div>
             <div class="navigate" onclick="showAutoEQ()" target=""><img src="/img/icon/connections.png" class="icon">Auto EQ</div>
+            <div class="navigate" onclick="openCamillaGui()" target=""><img src="/img/icon/advanced.png" class="icon">CamillaGUI ↗</div>
 
             <div class="leftTitle">Configurations</div>
             <div class="navigate" onclick="showManageConfigs()" target=""><img src="/img/icon/manageconfig.png" class="icon">Manage Configurations</div>
