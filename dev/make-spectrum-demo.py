@@ -77,12 +77,13 @@ lines.extend([
     "    name: spectrum_30band",
 ])
 
+# CamillaDSP 4.x Filter steps use `channels: [N]`, not legacy `channel: N`.
 for band_index in range(len(FREQUENCIES)):
     for side in range(2):
         channel = band_index * 2 + side
         lines.extend([
             "  - type: Filter",
-            f"    channel: {channel}",
+            f"    channels: [{channel}]",
             "    names:",
             f"      - band_{band_index}",
         ])
