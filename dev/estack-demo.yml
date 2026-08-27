@@ -1,0 +1,123 @@
+devices:
+  samplerate: 48000
+  chunksize: 1024
+  enable_rate_adjust: false
+
+  capture:
+    type: SignalGenerator
+    channels: 2
+    signal:
+      type: WhiteNoise
+      level: -30.0
+
+  playback:
+    type: File
+    channels: 8
+    filename: "/dev/null"
+    format: S32LE
+
+filters: {}
+
+mixers:
+  estack:
+    description: "E-Stack cloud demo routing"
+    channels:
+      in: 2
+      out: 8
+    mapping:
+      # 0 SUB: mono sum
+      - dest: 0
+        sources:
+          - channel: 0
+            gain: -6.0
+          - channel: 1
+            gain: -6.0
+
+      # 1 KICK: mono sum
+      - dest: 1
+        sources:
+          - channel: 0
+            gain: -6.0
+          - channel: 1
+            gain: -6.0
+
+      # 2 MID L
+      - dest: 2
+        sources:
+          - channel: 0
+            gain: 0.0
+
+      # 3 MID R
+      - dest: 3
+        sources:
+          - channel: 1
+            gain: 0.0
+
+      # 4 HIGH L
+      - dest: 4
+        sources:
+          - channel: 0
+            gain: 0.0
+
+      # 5 HIGH R
+      - dest: 5
+        sources:
+          - channel: 1
+            gain: 0.0
+
+      # 6/7 spare outputs kept active so meters and channel editors can be tested.
+      - dest: 6
+        sources:
+          - channel: 0
+            gain: 0.0
+      - dest: 7
+        sources:
+          - channel: 1
+            gain: 0.0
+
+pipeline:
+  - type: Mixer
+    name: estack
+    description: "E-Stack 2-in / 8-out routing"
+    bypassed: false
+
+  - type: Filter
+    channel: 0
+    names: []
+    description: "SUB filters"
+    bypassed: false
+  - type: Filter
+    channel: 1
+    names: []
+    description: "KICK filters"
+    bypassed: false
+  - type: Filter
+    channel: 2
+    names: []
+    description: "MID L filters"
+    bypassed: false
+  - type: Filter
+    channel: 3
+    names: []
+    description: "MID R filters"
+    bypassed: false
+  - type: Filter
+    channel: 4
+    names: []
+    description: "HIGH L filters"
+    bypassed: false
+  - type: Filter
+    channel: 5
+    names: []
+    description: "HIGH R filters"
+    bypassed: false
+  - type: Filter
+    channel: 6
+    names: []
+    description: "OUT 7 filters"
+    bypassed: false
+  - type: Filter
+    channel: 7
+    names: []
+    description: "OUT 8 filters"
+    bypassed: false
