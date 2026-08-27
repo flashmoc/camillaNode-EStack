@@ -1,0 +1,385 @@
+/*
+ * E-Stack EQ Studio V3
+ * Flat, legible studio-tool skin integrated with the main CamillaNode hue.
+ * Loaded last: presentation only, no DSP behaviour changes.
+ */
+
+:root {
+    --studio-bg: hsl(var(--bck-hue), 30%, 10%);
+    --studio-panel: hsl(var(--bck-hue), 24%, 15%);
+    --studio-panel-2: hsl(var(--bck-hue), 20%, 18%);
+    --studio-panel-3: hsl(var(--bck-hue), 18%, 21%);
+    --studio-control: hsl(var(--bck-hue), 16%, 12%);
+    --studio-border: hsla(var(--bck-hue), 18%, 75%, .20);
+    --studio-border-strong: hsla(var(--bck-hue), 18%, 85%, .32);
+    --studio-text: rgba(255,255,255,.92);
+    --studio-muted: rgba(255,255,255,.58);
+    --studio-dim: rgba(255,255,255,.36);
+    --studio-accent: #74dce6;
+    --studio-accent-soft: rgba(116,220,230,.18);
+    --studio-danger: #de7777;
+}
+
+/* Main EQ surfaces: use the same family as CamillaNode rather than a foreign grey block. */
+body.estack-dsp-page,
+body.global-v2-page {
+    background: hsl(var(--bck-hue), var(--bck-sat), var(--bck-light)) !important;
+    color: var(--studio-text) !important;
+}
+
+.venu-workspace,
+.venu-controls.estack-peq-rack-mode,
+.global-v2-console.estack-peq-console.estack-eq8-console,
+.global-v2-graph-panel {
+    background: var(--studio-bg) !important;
+}
+
+.venu-graph-wrap,
+.global-v2-canvas-wrap {
+    border: 1px solid var(--studio-border) !important;
+    border-radius: 4px !important;
+    background: hsl(var(--bck-hue), 12%, 13%) !important;
+    box-shadow: none !important;
+}
+
+#responseCanvas,
+#globalEqCanvas {
+    background: hsl(var(--bck-hue), 12%, 13%) !important;
+}
+
+/* Module tabs: flat segmentation, no raised-button effect. */
+.venu-module-tabs {
+    background: var(--studio-bg) !important;
+    border-color: var(--studio-border) !important;
+    box-shadow: none !important;
+}
+
+.venu-module-tabs button,
+.venu-output-tabs button,
+.estack-eq8-type button,
+.estack-eq8-reset,
+.estack-v2-segmented button,
+.estack-eq8-analyzer-modes button,
+.global-v2-analyzer-modes button,
+.global-v2-analyzer-button,
+.global-v2-reset-all,
+.venu-system-edit,
+.estack-v2-switches button {
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    filter: none !important;
+    border-radius: 2px !important;
+}
+
+.venu-module-tabs button,
+.estack-eq8-type button,
+.estack-eq8-reset,
+.estack-v2-segmented button,
+.estack-eq8-analyzer-modes button,
+.global-v2-analyzer-modes button,
+.global-v2-analyzer-button,
+.global-v2-reset-all {
+    border: 1px solid var(--studio-border) !important;
+    color: var(--studio-muted) !important;
+    background: transparent !important;
+}
+
+.venu-module-tabs button:hover,
+.estack-eq8-type button:hover,
+.estack-eq8-reset:hover,
+.estack-v2-segmented button:hover,
+.estack-eq8-analyzer-modes button:hover,
+.global-v2-analyzer-modes button:hover,
+.global-v2-analyzer-button:hover {
+    color: var(--studio-text) !important;
+    border-color: var(--studio-border-strong) !important;
+    background: rgba(255,255,255,.045) !important;
+}
+
+.venu-module-tabs button.active,
+.estack-eq8-type button.active,
+.estack-v2-segmented button.active,
+.estack-eq8-analyzer-modes button.active,
+.global-v2-analyzer-modes button.active,
+.global-v2-analyzer-button.active {
+    color: #102024 !important;
+    border-color: var(--studio-accent) !important;
+    background: var(--studio-accent) !important;
+    box-shadow: none !important;
+}
+
+/* Main console */
+.estack-peq-console.estack-eq8-console,
+.global-v2-console.estack-peq-console.estack-eq8-console {
+    gap: 6px !important;
+    padding: 6px !important;
+    border-color: var(--studio-border) !important;
+    background: var(--studio-bg) !important;
+    box-shadow: none !important;
+}
+
+.estack-eq8-console .estack-peq-xover-card,
+.estack-eq8-console .estack-peq-equalizer,
+.estack-eq8-analyzer,
+.global-v2-equalizer,
+.global-v2-analyzer {
+    border: 1px solid var(--studio-border) !important;
+    border-radius: 4px !important;
+    background: var(--studio-panel) !important;
+    box-shadow: none !important;
+}
+
+.estack-eq8-console .estack-peq-eq-head,
+.estack-eq8-analyzer-head,
+.estack-peq-xover-title,
+.global-v2-eq-head {
+    min-height: 32px !important;
+    border-bottom: 1px solid var(--studio-border) !important;
+    background: rgba(255,255,255,.025) !important;
+}
+
+.estack-eq8-console .estack-peq-eq-head strong,
+.estack-eq8-analyzer-head strong,
+.estack-peq-xover-title strong,
+.global-v2-eq-head strong {
+    color: var(--studio-text) !important;
+    font: 600 11px Arial, Helvetica, sans-serif !important;
+}
+
+/* Band strips: quiet background, selection via one accent line/border. */
+.estack-eq8-console .estack-peq-strips,
+.global-v2-bands.estack-peq-strips {
+    gap: 2px !important;
+    background: transparent !important;
+}
+
+.estack-eq8-console .estack-peq-strip,
+.global-v2-band.estack-peq-strip {
+    border: 1px solid transparent !important;
+    border-right-color: var(--studio-border) !important;
+    border-radius: 2px !important;
+    background: var(--studio-panel-2) !important;
+    box-shadow: none !important;
+}
+
+.estack-eq8-console .estack-peq-strip.disabled,
+.global-v2-band.estack-peq-strip.off {
+    background: hsl(var(--bck-hue), 17%, 15%) !important;
+    opacity: .54 !important;
+}
+
+.estack-eq8-console .estack-peq-strip.selected,
+.global-v2-band.estack-peq-strip.selected {
+    border-color: var(--studio-accent) !important;
+    background: hsl(var(--bck-hue), 18%, 22%) !important;
+    box-shadow: inset 0 2px 0 var(--studio-accent) !important;
+}
+
+.estack-peq-strip-head,
+.global-v2-band .estack-peq-strip-head {
+    background: transparent !important;
+    border-bottom-color: var(--studio-border) !important;
+}
+
+.estack-peq-strip-head strong,
+.global-v2-band .estack-peq-strip-head strong {
+    border: 0 !important;
+    border-radius: 2px !important;
+    color: var(--studio-muted) !important;
+    background: transparent !important;
+    font: 700 10px Arial, Helvetica, sans-serif !important;
+}
+
+.estack-peq-strip.selected .estack-peq-strip-head strong,
+.global-v2-band.selected .estack-peq-strip-head strong {
+    color: #102024 !important;
+    background: var(--studio-accent) !important;
+}
+
+/* Flat on/off square */
+.estack-eq8-on,
+.global-v2-power {
+    width: 14px !important;
+    height: 14px !important;
+    border: 1px solid var(--studio-border-strong) !important;
+    border-radius: 2px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.estack-eq8-on.active,
+.global-v2-power.active {
+    border-color: var(--studio-accent) !important;
+    background: var(--studio-accent) !important;
+}
+
+/* Rotary controls: explicitly flat. No radial highlight, no inner/outer shadow. */
+.estack-eq8-knob,
+.global-v2-band .estack-eq8-knob,
+.estack-v2-xover .estack-eq8-knob,
+.estack-v2-output-body .estack-eq8-knob,
+.estack-v2-protection-module .estack-eq8-knob {
+    border: 1px solid var(--studio-border-strong) !important;
+    background: var(--studio-control) !important;
+    background-image: none !important;
+    box-shadow: none !important;
+}
+
+.estack-eq8-knob::before {
+    border: 0 !important;
+    box-shadow: none !important;
+}
+
+.estack-eq8-knob-marker,
+.global-v2-band .estack-eq8-knob-marker {
+    background: var(--studio-accent) !important;
+    box-shadow: none !important;
+}
+
+.estack-eq8-knob:focus-visible {
+    outline: 2px solid var(--studio-accent) !important;
+    outline-offset: 2px !important;
+    box-shadow: none !important;
+}
+
+.estack-eq8-knob-label,
+.estack-eq8-q-label {
+    color: var(--studio-muted) !important;
+    font: 600 9px Arial, Helvetica, sans-serif !important;
+}
+
+/* Numeric readouts are the primary information surface. */
+.estack-eq8-number,
+.global-v2-band .estack-eq8-number,
+.estack-eq8-q-value {
+    border: 1px solid var(--studio-border) !important;
+    border-radius: 2px !important;
+    color: var(--studio-accent) !important;
+    background: hsl(var(--bck-hue), 28%, 9%) !important;
+    box-shadow: none !important;
+    font-family: Arial, Helvetica, sans-serif !important;
+    font-weight: 700 !important;
+}
+
+.estack-eq8-number,
+.global-v2-band .estack-eq8-number {
+    min-width: 60px !important;
+    height: 23px !important;
+    font-size: 11px !important;
+}
+
+.estack-eq8-q-value {
+    min-width: 38px !important;
+    padding: 2px 4px !important;
+    font-size: 10px !important;
+}
+
+.estack-eq8-unit {
+    color: var(--studio-dim) !important;
+    font-size: 8px !important;
+}
+
+/* Q: flat line + simple cyan handle */
+.estack-eq8-q {
+    accent-color: var(--studio-accent) !important;
+}
+
+.estack-eq8-q::-webkit-slider-runnable-track {
+    height: 3px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: var(--studio-border-strong) !important;
+    box-shadow: none !important;
+}
+
+.estack-eq8-q::-webkit-slider-thumb {
+    width: 10px !important;
+    height: 13px !important;
+    margin-top: -5px !important;
+    border: 0 !important;
+    border-radius: 2px !important;
+    background: var(--studio-accent) !important;
+    box-shadow: none !important;
+}
+
+/* Crossover blocks stay in the same visual family. */
+.estack-v2-xover,
+.estack-v2-xover-body,
+.estack-v2-xover-options {
+    background: transparent !important;
+}
+
+.estack-v2-segmented button {
+    min-height: 22px !important;
+}
+
+/* Analyzer: quiet utility panel, not a separate shiny card. */
+.estack-eq8-analyzer,
+.global-v2-analyzer {
+    background: var(--studio-panel) !important;
+}
+
+.estack-eq8-analyzer select {
+    border: 1px solid var(--studio-border) !important;
+    border-radius: 2px !important;
+    color: var(--studio-accent) !important;
+    background: hsl(var(--bck-hue), 28%, 9%) !important;
+    box-shadow: none !important;
+}
+
+.estack-eq8-analyzer-led {
+    background: var(--studio-accent) !important;
+    box-shadow: none !important;
+}
+
+/* Global-EQ header also belongs to the E-Stack page instead of a grey plugin. */
+.global-v2-head,
+.global-v2-graph-head {
+    border-color: var(--studio-border) !important;
+    background: var(--studio-panel) !important;
+    box-shadow: none !important;
+}
+
+.global-v2-badges span {
+    border-color: var(--studio-border) !important;
+    color: var(--studio-muted) !important;
+    background: transparent !important;
+}
+
+.global-v2-badges span:last-child {
+    color: #102024 !important;
+    border-color: var(--studio-accent) !important;
+    background: var(--studio-accent) !important;
+}
+
+/* Unified Output / Protection cards: remove leftover bevel/shadow treatment too. */
+.estack-v2-card,
+.estack-v2-protection-module,
+.estack-v2-dynamics-grid > div,
+.estack-v2-switches button {
+    border-color: var(--studio-border) !important;
+    border-radius: 3px !important;
+    background: var(--studio-panel) !important;
+    background-image: none !important;
+    box-shadow: none !important;
+}
+
+.estack-v2-card > header {
+    background: rgba(255,255,255,.025) !important;
+    border-bottom-color: var(--studio-border) !important;
+}
+
+.estack-v2-switches button.active {
+    color: #102024 !important;
+    border-color: var(--studio-accent) !important;
+    background: var(--studio-accent) !important;
+}
+
+.estack-v2-switches button.danger {
+    color: #fff !important;
+    border-color: var(--studio-danger) !important;
+    background: rgba(222,119,119,.16) !important;
+}
