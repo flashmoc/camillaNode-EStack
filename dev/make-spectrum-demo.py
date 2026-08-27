@@ -32,7 +32,7 @@ lines = [
     "    type: File",
     "    filename: /dev/null",
     "    channels: 60",
-    "    format: S32LE",
+    "    format: S32_LE",
     "",
     "filters:",
 ]
