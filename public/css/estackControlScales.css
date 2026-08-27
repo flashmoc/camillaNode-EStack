@@ -1,0 +1,92 @@
+/* Separate the playback LEVEL scale (left, dBFS) from the fader GAIN scale
+   (right, dB). Tick geometry is calibrated in estackControlScales.js. */
+
+.estack-strip-center {
+    padding-right: 24px !important;
+}
+
+.estack-meter-scale::before {
+    content: "dBFS";
+    position: absolute;
+    right: 0;
+    top: -12px;
+    color: #59666a;
+    font-size: 6px;
+    font-weight: 700;
+    letter-spacing: .03em;
+}
+
+.estack-gain-scale {
+    position: absolute;
+    left: calc(100% + 5px);
+    top: 0;
+    width: 25px;
+    height: 100%;
+    pointer-events: none;
+    color: #788589;
+    font-size: 6px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.estack-gain-scale::before {
+    content: "GAIN";
+    position: absolute;
+    left: 0;
+    top: -12px;
+    color: #59666a;
+    font-size: 6px;
+    font-weight: 700;
+    letter-spacing: .03em;
+}
+
+.estack-gain-scale span {
+    position: absolute;
+    left: 0;
+    min-width: 22px;
+    transform: translateY(-50%);
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.estack-gain-scale span::before {
+    content: "";
+    position: absolute;
+    left: -5px;
+    top: 50%;
+    width: 3px;
+    height: 1px;
+    background: #59666a;
+}
+
+.estack-gain-scale span.maximum {
+    color: color-mix(in srgb, var(--channel-color) 80%, white 12%);
+}
+
+.estack-gain-scale span.unity {
+    color: color-mix(in srgb, var(--channel-color) 82%, white 15%);
+    font-weight: 700;
+}
+
+.estack-gain-scale span.unity::before {
+    width: 5px;
+    left: -7px;
+    background: var(--channel-color);
+}
+
+/* The unity marker is positioned from the exact same fader geometry as the
+   GAIN scale. Remove the old hard-coded label to avoid duplicate zeros. */
+.estack-mixer-strip:not(.master) .estack-unity-mark,
+.estack-mixer-strip.master .estack-unity-mark {
+    top: var(--estack-unity-px, 0px) !important;
+}
+
+.estack-unity-mark::after {
+    content: none !important;
+    display: none !important;
+}
+
+@media (max-width: 1250px) {
+    .estack-strip-center { padding-right: 21px !important; }
+    .estack-gain-scale { left: calc(100% + 3px); width: 22px; }
+}
