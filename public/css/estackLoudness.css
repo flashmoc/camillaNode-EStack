@@ -4,7 +4,7 @@
     min-height: 100%;
     height: auto !important;
     margin: 0;
-    padding: 0 0 28px;
+    padding: 0 0 20px;
     overflow-x: hidden;
     overflow-y: auto;
     background: var(--estack-bg);
@@ -28,7 +28,6 @@
 .estack-loudness-page .loudness-shell > section {
     display: block !important;
     width: 100% !important;
-    height: auto !important;
     min-height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -40,13 +39,13 @@
     position: static !important;
     width: 100% !important;
     height: auto !important;
-    min-height: 54px;
+    min-height: 48px;
     display: flex !important;
     align-items: center;
     justify-content: space-between;
     gap: 18px;
     margin: 0 !important;
-    padding: 5px 2px 9px !important;
+    padding: 4px 2px 7px !important;
     border: 0 !important;
     border-bottom: 1px solid var(--estack-border-soft) !important;
     background: transparent !important;
@@ -61,14 +60,14 @@
 }
 
 .loudness-head-copy strong {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 600;
     letter-spacing: .035em;
 }
 
 .loudness-head-copy span {
     color: var(--estack-muted);
-    font-size: 9px;
+    font-size: 8px;
 }
 
 .loudness-live {
@@ -79,10 +78,10 @@
 }
 
 .loudness-live > div {
-    min-width: 94px;
+    min-width: 88px;
     display: grid;
     gap: 2px;
-    padding: 2px 12px;
+    padding: 2px 10px;
     border-left: 1px solid var(--estack-border-soft);
     text-align: right;
 }
@@ -96,15 +95,18 @@
 
 .loudness-live strong {
     color: var(--estack-text);
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
 }
 
-.estack-loudness-page .loudness-graph {
+/* More specific than the generic shell > section reset above. */
+.estack-loudness-page .loudness-shell > section.loudness-graph {
     width: 100% !important;
-    height: 270px !important;
-    margin: 8px 0 10px !important;
+    height: 230px !important;
+    min-height: 230px !important;
+    max-height: 230px !important;
+    margin: 7px 0 8px !important;
     padding: 0 !important;
     overflow: hidden !important;
     border: 1px solid var(--estack-border-soft) !important;
@@ -115,7 +117,8 @@
 #loudnessCanvas {
     display: block;
     width: 100% !important;
-    height: 100% !important;
+    height: 230px !important;
+    max-height: 230px !important;
     margin: 0 !important;
     padding: 0 !important;
     border: 0 !important;
@@ -139,13 +142,13 @@
     position: relative;
     width: 100%;
     min-width: 0;
-    min-height: 112px;
+    min-height: 96px;
     display: flex;
     flex-direction: column;
     align-items: stretch;
     justify-content: space-between;
-    gap: 8px;
-    padding: 10px;
+    gap: 6px;
+    padding: 8px 9px;
     overflow: hidden;
     border: 1px solid var(--estack-border-soft);
     border-radius: var(--estack-radius);
@@ -158,8 +161,8 @@
 .loudness-preset::before {
     content: "";
     position: absolute;
-    left: 10px;
-    right: 10px;
+    left: 9px;
+    right: 9px;
     top: 0;
     height: 2px;
     border-radius: 1px;
@@ -183,7 +186,7 @@
     content: "HOME";
     position: absolute;
     right: 8px;
-    top: 7px;
+    top: 6px;
     color: var(--preset-color);
     font-size: 6px;
     font-weight: 700;
@@ -193,24 +196,24 @@
 .loudness-preset-name {
     display: block;
     padding-top: 3px;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 700;
     letter-spacing: .035em;
 }
 
 .loudness-preset-desc {
-    min-height: 24px;
+    min-height: 22px;
     display: block;
     color: var(--estack-muted);
-    font-size: 8px;
-    line-height: 1.45;
+    font-size: 7px;
+    line-height: 1.4;
 }
 
 .loudness-preset-meta {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 4px;
-    padding-top: 6px;
+    padding-top: 5px;
     border-top: 1px solid var(--estack-border-soft);
 }
 
@@ -231,13 +234,13 @@
 
 .loudness-footer {
     width: 100%;
-    min-height: 26px;
+    min-height: 22px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-    margin-top: 7px;
-    padding: 4px 2px;
+    margin-top: 6px;
+    padding: 3px 2px;
     border-top: 1px solid var(--estack-border-soft);
     color: var(--estack-dim);
     font-size: 7px;
@@ -265,7 +268,12 @@
     .loudness-live { width: 100%; justify-content: flex-start; }
     .loudness-live > div { min-width: 0; flex: 1 1 0; padding-inline: 8px; text-align: left; }
     .loudness-live > div:first-child { border-left: 0; padding-left: 0; }
-    .estack-loudness-page .loudness-graph { height: 220px !important; }
+    .estack-loudness-page .loudness-shell > section.loudness-graph,
+    #loudnessCanvas {
+        height: 190px !important;
+        min-height: 190px !important;
+        max-height: 190px !important;
+    }
     .loudness-presets { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
