@@ -13,30 +13,30 @@
     <script src="/src/estackEqV4.js" defer></script>
 </head>
 <body class="global-eq-v4 global-v2-page">
-    <header class="global-v2-head">
+    <div class="global-v2-head">
         <div class="global-v2-title"><strong>GLOBAL EQ</strong></div>
         <div class="global-v2-badges">
             <span>INPUT L/R</span>
             <span>PRE-ROUTING</span>
             <span id="globalEqActiveCount">0 ACTIVE</span>
         </div>
-    </header>
+    </div>
 
-    <section class="global-v2-graph-panel">
+    <div class="global-v2-graph-panel">
         <div class="global-v2-graph-head"><strong>RESPONSE / ANALYZER</strong></div>
         <div class="global-v2-canvas-wrap">
             <canvas id="globalEqCanvas"></canvas>
         </div>
-    </section>
+    </div>
 
-    <section class="global-v2-console estack-peq-console estack-eq8-console">
-        <section class="estack-peq-equalizer global-v2-equalizer">
-            <header class="estack-peq-eq-head global-v2-eq-head">
+    <div class="global-v2-console estack-peq-console estack-eq8-console">
+        <div class="estack-peq-equalizer global-v2-equalizer">
+            <div class="estack-peq-eq-head global-v2-eq-head">
                 <div><strong>PARAMETRIC EQ</strong><span>10 bands · shared L/R</span></div>
                 <button type="button" id="globalEqResetAll" class="global-v2-reset-all">RESET ALL</button>
-            </header>
+            </div>
             <div id="globalEqBands" class="estack-peq-strips global-v2-bands"></div>
-        </section>
+        </div>
 
         <aside class="estack-eq8-analyzer global-v2-analyzer">
             <div class="estack-eq8-analyzer-head">
@@ -51,10 +51,10 @@
             <button type="button" id="globalEqInfinite" class="global-v2-analyzer-button active">INFINITE</button>
             <button type="button" id="globalEqResetInfinite" class="global-v2-analyzer-button">RESET</button>
         </aside>
-    </section>
+    </div>
 
-    <footer class="global-v2-statusbar">
+    <div class="global-v2-statusbar">
         <span id="globalEqStatus">Connecting to CamillaDSP…</span>
-    </footer>
+    </div>
 </body>
 </html>
