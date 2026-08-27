@@ -1,11 +1,12 @@
-/* Compact spectrum strip inside the flat Inputs section. */
+/* Original-CamillaNode-inspired segmented spectrum inside the flat Inputs section. */
 .estack-input-spectrum {
     position: relative;
-    height: 82px;
+    height: 150px;
     margin: 0;
     padding: 5px 2px 2px;
     border-top: 1px solid hsla(0,0%,100%,.08);
     overflow: hidden;
+    background: rgba(0,0,0,.055);
 }
 
 .estack-input-spectrum canvas {
@@ -25,11 +26,16 @@
     right: 4px;
     top: 4px;
     z-index: 1;
-    color: hsla(0,0%,100%,.34);
+    color: hsla(0,0%,100%,.30);
     font-size: 7px;
+    letter-spacing: .04em;
     pointer-events: none;
 }
 
-@media (max-width: 700px) {
-    .estack-input-spectrum { height: 68px; }
+@media (max-width: 900px) {
+    .estack-input-spectrum { height: 132px; }
+}
+
+@media (max-width: 600px) {
+    .estack-input-spectrum { height: 118px; }
 }
