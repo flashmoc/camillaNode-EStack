@@ -8,12 +8,14 @@
     <link rel="stylesheet" href="/css/estackBasicLinks.css">
     <link rel="stylesheet" href="/css/estackInputs.css">
     <link rel="stylesheet" href="/css/estackControlUnified.css">
+    <link rel="stylesheet" href="/css/estackControlSpectrum.css">
     <script src="/src/estackBasic.js" defer></script>
     <script src="/src/estackControlLinksRestore.js" defer></script>
     <script src="/src/estackControlInputCompat.js" defer></script>
     <script src="/src/estackInputMeters.js" defer></script>
     <script src="/src/estackControlUnified.js" defer></script>
     <script src="/src/estackControlMuteFix.js" defer></script>
+    <script src="/src/estackControlSpectrum.js" defer></script>
 </head>
 <body>
     <div id="sectionMainTitle"><img src="img/icon/basic.png" class="icon">E-Stack Control</div>
@@ -27,6 +29,10 @@
             </div>
         </div>
         <div id="estackInputMeters" class="estack-input-meter-grid"></div>
+        <div id="estackInputSpectrum" class="estack-input-spectrum" aria-label="Input spectrum analyzer">
+            <span id="estackInputSpectrumStatus" class="estack-input-spectrum-status">SPECTRUM</span>
+            <canvas id="estackInputSpectrumCanvas"></canvas>
+        </div>
     </section>
 
     <section class="estack-mixer group" label="Levels & Outputs">
