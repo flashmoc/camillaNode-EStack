@@ -1,10 +1,13 @@
-// Compact 30-band analyzer for the Control / Inputs section.
+// 30-band segmented analyzer for the Control / Inputs section.
+// Visual language intentionally follows the original CamillaNode spectrum:
+// dark columns, stacked luminous segments and frequency labels above the bars.
 const ESTACK_CONTROL_SPECTRUM_FREQS = [25,30,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000,5000,6300,8000,10000,12500,16000,20000];
 const ESTACK_CONTROL_SPECTRUM_MIN_DB = -80;
 const ESTACK_CONTROL_SPECTRUM_MAX_DB = 0;
 
 let estackControlSpectrumTimer = null;
 let estackControlSpectrumBusy = false;
+let estackControlSpectrumLastLevels = ESTACK_CONTROL_SPECTRUM_FREQS.map(() => ESTACK_CONTROL_SPECTRUM_MIN_DB);
 
 function estackControlSpectrumWaitForDSP() {
     return new Promise(resolve => {
@@ -26,6 +29,23 @@ function estackControlSpectrumResize(canvas) {
     if (canvas.height !== height) canvas.height = height;
 }
 
+function estackControlSpectrumColor(segment, segmentCount) {
+    const t = segmentCount <= 1 ? 0 : segment / (segmentCount - 1);
+    // Blue at the bottom -> cyan -> green -> yellow towards the top.
+    const hue = 214 - (164 * t);
+    const saturation = 58 + (24 * t);
+    const lightness = 55 + (5 * t);
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+}
+
+function estackControlSpectrumLabel(freq) {
+    if (freq >= 1000) {
+        const value = freq / 1000;
+        return `${Number(value.toFixed(value % 1 ? 1 : 0))}k`;
+    }
+    return String(freq);
+}
+
 function estackControlSpectrumDraw(canvas, levels) {
     estackControlSpectrumResize(canvas);
     const ctx = canvas.getContext('2d');
@@ -37,48 +57,53 @@ function estackControlSpectrumDraw(canvas, levels) {
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, width, height);
 
-    const hueRaw = getComputedStyle(document.documentElement).getPropertyValue('--bck-hue').trim();
-    const hue = Number.isFinite(Number(hueRaw)) ? Number(hueRaw) : 180;
-    const topPad = 3;
-    const bottomPad = 14;
-    const innerH = Math.max(1, height - topPad - bottomPad);
     const count = ESTACK_CONTROL_SPECTRUM_FREQS.length;
-    const gap = Math.max(1, Math.min(3, width / 600));
-    const barW = Math.max(2, (width - gap * (count - 1)) / count);
+    const topPad = 18;
+    const bottomPad = 4;
+    const sidePad = 2;
+    const innerH = Math.max(1, height - topPad - bottomPad);
+    const gap = Math.max(2, Math.min(4, width / 360));
+    const barW = Math.max(4, (width - sidePad * 2 - gap * (count - 1)) / count);
 
-    // Subtle horizontal references.
-    ctx.strokeStyle = 'rgba(255,255,255,.06)';
-    ctx.lineWidth = 1;
-    for (const db of [-20, -40, -60]) {
-        const y = topPad + ((ESTACK_CONTROL_SPECTRUM_MAX_DB - db) / (ESTACK_CONTROL_SPECTRUM_MAX_DB - ESTACK_CONTROL_SPECTRUM_MIN_DB)) * innerH;
-        ctx.beginPath();
-        ctx.moveTo(0, Math.round(y) + .5);
-        ctx.lineTo(width, Math.round(y) + .5);
-        ctx.stroke();
-    }
+    const segmentGap = 2;
+    const segmentH = Math.max(3, Math.min(5, innerH / 26));
+    const segmentCount = Math.max(8, Math.floor((innerH + segmentGap) / (segmentH + segmentGap)));
+    const actualStackH = segmentCount * segmentH + (segmentCount - 1) * segmentGap;
+    const stackTop = topPad + Math.max(0, (innerH - actualStackH) / 2);
 
-    levels.forEach((db, index) => {
-        const clamped = Math.max(ESTACK_CONTROL_SPECTRUM_MIN_DB, Math.min(ESTACK_CONTROL_SPECTRUM_MAX_DB, Number(db)));
-        const norm = (clamped - ESTACK_CONTROL_SPECTRUM_MIN_DB) / (ESTACK_CONTROL_SPECTRUM_MAX_DB - ESTACK_CONTROL_SPECTRUM_MIN_DB);
-        const h = Math.max(1, norm * innerH);
-        const x = index * (barW + gap);
-        const y = topPad + innerH - h;
-
-        const alpha = .35 + norm * .55;
-        ctx.fillStyle = `hsla(${hue}, 62%, ${48 + norm * 18}%, ${alpha})`;
-        ctx.fillRect(x, y, barW, h);
-    });
-
-    const labelIndices = [0, 4, 7, 11, 16, 20, 24, 26, 29];
-    ctx.fillStyle = 'rgba(255,255,255,.30)';
-    ctx.font = '7px Abel, sans-serif';
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    for (const index of labelIndices) {
-        const freq = ESTACK_CONTROL_SPECTRUM_FREQS[index];
-        const label = freq >= 1000 ? `${Number((freq / 1000).toFixed(freq % 1000 ? 1 : 0))}k` : String(freq);
-        const x = index * (barW + gap) + barW / 2;
-        ctx.fillText(label, x, height - 1);
+    ctx.textBaseline = 'middle';
+    ctx.font = `${Math.max(6, Math.min(8, barW * .32))}px Abel, sans-serif`;
+
+    for (let index = 0; index < count; index++) {
+        const x = sidePad + index * (barW + gap);
+        const db = Math.max(
+            ESTACK_CONTROL_SPECTRUM_MIN_DB,
+            Math.min(ESTACK_CONTROL_SPECTRUM_MAX_DB, Number(levels[index] ?? ESTACK_CONTROL_SPECTRUM_MIN_DB))
+        );
+        const norm = (db - ESTACK_CONTROL_SPECTRUM_MIN_DB) /
+            (ESTACK_CONTROL_SPECTRUM_MAX_DB - ESTACK_CONTROL_SPECTRUM_MIN_DB);
+        const activeSegments = Math.max(0, Math.min(segmentCount, Math.round(norm * segmentCount)));
+
+        // Frequency label above each column, as in the original CamillaNode view.
+        if (barW >= 13 || index % 2 === 0) {
+            ctx.fillStyle = 'rgba(255,255,255,.30)';
+            ctx.fillText(estackControlSpectrumLabel(ESTACK_CONTROL_SPECTRUM_FREQS[index]), x + barW / 2, 7);
+        }
+
+        // Dark inactive segment stack.
+        for (let segment = 0; segment < segmentCount; segment++) {
+            const y = stackTop + actualStackH - segmentH - segment * (segmentH + segmentGap);
+            ctx.fillStyle = 'rgba(8,18,26,.78)';
+            ctx.fillRect(x, y, barW, segmentH);
+        }
+
+        // Active luminous segments grow from bottom to top.
+        for (let segment = 0; segment < activeSegments; segment++) {
+            const y = stackTop + actualStackH - segmentH - segment * (segmentH + segmentGap);
+            ctx.fillStyle = estackControlSpectrumColor(segment, segmentCount);
+            ctx.fillRect(x, y, barW, segmentH);
+        }
     }
 }
 
@@ -90,11 +115,11 @@ async function estackControlSpectrumStart() {
     const DSP = await estackControlSpectrumWaitForDSP();
     if (status) status.textContent = 'SPECTRUM';
 
-    const drawSilence = () => estackControlSpectrumDraw(canvas, ESTACK_CONTROL_SPECTRUM_FREQS.map(() => ESTACK_CONTROL_SPECTRUM_MIN_DB));
-    drawSilence();
+    const redraw = () => estackControlSpectrumDraw(canvas, estackControlSpectrumLastLevels);
+    redraw();
 
     if (window.ResizeObserver) {
-        new ResizeObserver(() => drawSilence()).observe(canvas);
+        new ResizeObserver(redraw).observe(canvas);
     }
 
     if (estackControlSpectrumTimer) clearInterval(estackControlSpectrumTimer);
@@ -108,12 +133,12 @@ async function estackControlSpectrumStart() {
             }
             const raw = await DSP.getSpectrumData();
             if (!Array.isArray(raw)) return;
-            const levels = ESTACK_CONTROL_SPECTRUM_FREQS.map((_, index) => {
+            estackControlSpectrumLastLevels = ESTACK_CONTROL_SPECTRUM_FREQS.map((_, index) => {
                 const a = Number(raw[index * 2] ?? ESTACK_CONTROL_SPECTRUM_MIN_DB);
                 const b = Number(raw[index * 2 + 1] ?? a);
                 return Math.max(a, b);
             });
-            estackControlSpectrumDraw(canvas, levels);
+            redraw();
             if (status) status.textContent = 'SPECTRUM';
         } catch (_) {
             if (status) status.textContent = 'SPECTRUM WAIT';
