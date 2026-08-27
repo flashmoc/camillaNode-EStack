@@ -2,6 +2,10 @@
 // The left scale belongs to the playback meter (dBFS). This module adds a
 // separate right-hand GAIN scale whose tick positions are derived from each
 // fader's actual min/max and from the real slider thumb travel geometry.
+//
+// IMPORTANT: do not observe mutations inside the scale itself. Rebuilding the
+// scale changes child nodes; observing those mutations caused a render loop and
+// froze the Control page after the meter-scale update.
 
 const ESTACK_CONTROL_THUMB_PX = 12;
 
@@ -52,22 +56,24 @@ function estackBuildGainScale(fader) {
         wrap.appendChild(scale);
     }
 
-    scale.replaceChildren();
     const min = Number(fader.min);
     const max = Number(fader.max);
+    const values = estackGainScaleValues(min, max);
 
-    for (const value of estackGainScaleValues(min, max)) {
+    // Build off-DOM, then replace once. No observer watches this subtree.
+    const fragment = document.createDocumentFragment();
+    for (const value of values) {
         const tick = document.createElement('span');
         tick.dataset.value = String(value);
         tick.textContent = estackFormatGainTick(value);
         tick.classList.toggle('unity', Math.abs(value) < 1e-9);
         tick.classList.toggle('maximum', Math.abs(value - max) < 1e-9);
         tick.style.top = `${estackFaderValueY(fader, wrap, value)}px`;
-        scale.appendChild(tick);
+        fragment.appendChild(tick);
     }
+    scale.replaceChildren(fragment);
 
-    const unity = wrap.querySelector('.estack-unity-mark');
-    if (unity && min <= 0 && max >= 0) {
+    if (min <= 0 && max >= 0) {
         wrap.style.setProperty('--estack-unity-px', `${estackFaderValueY(fader, wrap, 0)}px`);
     }
 
@@ -75,22 +81,36 @@ function estackBuildGainScale(fader) {
 }
 
 function estackRefreshGainScales() {
-    document.querySelectorAll('.estack-vertical-fader').forEach(estackBuildGainScale);
+    const faders = [...document.querySelectorAll('.estack-vertical-fader')];
+    faders.forEach(estackBuildGainScale);
+    return faders.length;
 }
 
 function estackInitGainScales() {
-    const root = document.getElementById('estackMixerStrips') || document.body;
-    const observer = new MutationObserver(() => requestAnimationFrame(estackRefreshGainScales));
-    observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['min', 'max'] });
+    // estackBasic.js builds the strips asynchronously after downloading the DSP
+    // config. Use bounded retries instead of a MutationObserver so scale drawing
+    // can never recursively trigger itself.
+    let attempts = 0;
+    const maxAttempts = 20;
 
-    requestAnimationFrame(estackRefreshGainScales);
-    setTimeout(estackRefreshGainScales, 180);
-    setTimeout(estackRefreshGainScales, 600);
-    window.addEventListener('resize', estackRefreshGainScales, { passive: true });
+    const tryBuild = () => {
+        attempts += 1;
+        const count = estackRefreshGainScales();
+        if (count > 0 || attempts >= maxAttempts) return;
+        setTimeout(tryBuild, 100);
+    };
+
+    requestAnimationFrame(tryBuild);
+
+    let resizeFrame = 0;
+    window.addEventListener('resize', () => {
+        cancelAnimationFrame(resizeFrame);
+        resizeFrame = requestAnimationFrame(estackRefreshGainScales);
+    }, { passive: true });
 }
 
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', estackInitGainScales);
+    document.addEventListener('DOMContentLoaded', estackInitGainScales, { once: true });
 } else {
     estackInitGainScales();
 }
