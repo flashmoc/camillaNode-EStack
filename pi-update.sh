@@ -3,7 +3,7 @@ set -euo pipefail
 
 BRANCH="camilladsp-4.1-estack"
 REPO="https://github.com/flashmoc/camillaNode-EStack.git"
-RUNTIME_PATTERN='^(camillaNodeConfig\.json|currentConfig\.json|savedConfigs\.dat|config/.*)$'
+RUNTIME_PATTERN='^(camillaNodeConfig\.json|currentConfig\.json|savedConfigs\.dat|config/.*|setupFiles/spectrum_.*\.yml)$'
 
 printf '\nE-Stack Raspberry update\n'
 printf 'Repository : %s\n' "$REPO"
@@ -27,7 +27,6 @@ for file in "${DIRTY_FILES[@]:-}"; do
         git status --short
         exit 1
     fi
-
 done
 
 if [ "${#DIRTY_FILES[@]}" -gt 0 ]; then
