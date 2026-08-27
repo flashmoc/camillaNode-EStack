@@ -25,7 +25,6 @@ body > p {
     display: none !important;
 }
 
-/* Collapse the empty space left by the removed helper copy. */
 .estack-input-head > div:first-child,
 .estack-control-head > div:first-child,
 .global-eq-head > div:first-child,
@@ -56,8 +55,6 @@ function applyDeclutter(doc) {
 function clampMasterControls(doc) {
     const master = doc?.getElementById("masterVolume");
     if (!master) return;
-
-    // User-facing MASTER range is deliberately limited to -50..0 dB.
     master.min = "-50";
     master.max = "0";
 
@@ -66,6 +63,10 @@ function clampMasterControls(doc) {
         numeric.min = "-50";
         numeric.max = "0";
     }
+}
+
+function isRangeInput(input) {
+    return !!input && String(input.tagName).toUpperCase() === "INPUT" && input.type === "range";
 }
 
 function zeroSnapThreshold(input) {
@@ -77,8 +78,7 @@ function zeroSnapThreshold(input) {
 }
 
 function snapRangeToZero(input) {
-    if (!(input instanceof input.ownerDocument.defaultView.HTMLInputElement)) return false;
-    if (input.type !== "range") return false;
+    if (!isRangeInput(input)) return false;
     const threshold = zeroSnapThreshold(input);
     if (!threshold) return false;
     const value = Number(input.value);
@@ -107,25 +107,24 @@ function installZeroSnapBehavior(doc) {
     if (!doc?.documentElement || doc.documentElement.dataset.estackZeroSnapInstalled === "true") return;
     doc.documentElement.dataset.estackZeroSnapInstalled = "true";
 
-    // Capture phase means page-specific listeners receive the already-snapped
-    // value. Only ranges whose numeric range crosses 0 are affected; logarithmic
-    // frequency and Q controls therefore remain untouched.
+    // Capture phase means page-specific handlers receive the already-snapped
+    // value. Only numeric ranges crossing 0 are affected; frequency/Q controls
+    // remain untouched because their domains are positive.
     const maybeSnap = event => {
         const input = event.target;
-        if (!(input instanceof doc.defaultView.HTMLInputElement) || input.type !== "range") return;
+        if (!isRangeInput(input)) return;
         snapRangeToZero(input);
     };
     doc.addEventListener("input", maybeSnap, true);
     doc.addEventListener("change", maybeSnap, true);
 
-    // A second deterministic way to come home: double-click any bipolar slider.
     doc.addEventListener("dblclick", event => {
         const input = event.target;
-        if (!(input instanceof doc.defaultView.HTMLInputElement) || input.type !== "range") return;
-        if (!zeroSnapThreshold(input)) return;
+        if (!isRangeInput(input) || !zeroSnapThreshold(input)) return;
         input.value = "0";
-        input.dispatchEvent(new Event("input", { bubbles: true }));
-        input.dispatchEvent(new Event("change", { bubbles: true }));
+        const InputEventCtor = doc.defaultView?.Event || Event;
+        input.dispatchEvent(new InputEventCtor("input", { bubbles: true }));
+        input.dispatchEvent(new InputEventCtor("change", { bubbles: true }));
     }, true);
 }
 
@@ -136,11 +135,10 @@ function polishDocument(doc) {
     decorateZeroSnapControls(doc);
     installZeroSnapBehavior(doc);
 
-    // Several E-Stack controls are rendered asynchronously after DSP connects.
-    // Re-apply the tiny set of DOM-only rules when that happens.
     if (!doc.documentElement?.dataset.estackPolishObserved) {
         doc.documentElement.dataset.estackPolishObserved = "true";
-        const observer = new MutationObserver(() => {
+        const Observer = doc.defaultView?.MutationObserver || MutationObserver;
+        const observer = new Observer(() => {
             clampMasterControls(doc);
             decorateZeroSnapControls(doc);
         });
