@@ -1,10 +1,10 @@
 /* E-Stack Control — single source of truth for the Output Mixer UI. */
 
 .estack-mixer.group {
-    margin: 8px 4% 0 5px;
+    margin: 8px 1% 0;
     padding: 0 0 10px;
-    overflow-x: auto;
-    overflow-y: hidden;
+    overflow-x: hidden;
+    overflow-y: visible;
     border: 0;
     border-radius: 0;
     background: transparent;
@@ -26,24 +26,26 @@
 .estack-control-head strong {
     color: #f0f3f4;
     font-size: 14px;
-    font-weight: 700;
-    letter-spacing: .025em;
+    font-weight: 600;
+    letter-spacing: .015em;
 }
 
 .estack-mixer-strips {
-    display: grid;
-    grid-template-columns: repeat(7, 148px);
-    width: max-content;
-    min-width: max-content;
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    min-width: 0;
     gap: 0;
     margin: 0 auto;
     align-items: stretch;
+    justify-content: center;
 }
 
 .estack-mixer-strip {
     --channel-color: hsl(var(--bck-hue), 60%, 60%);
     position: relative;
     width: 148px;
+    flex: 0 0 148px;
     min-height: 392px;
     display: flex;
     flex-direction: column;
@@ -379,5 +381,6 @@
 .estack-mute-button.active { border-color: #e96868; color: #fff; background: #74272b; }
 
 @media (max-width: 900px) {
-    .estack-mixer-strips { margin-left: 0; margin-right: 0; }
+    .estack-mixer.group { margin-inline: 4px; }
+    .estack-mixer-strips { justify-content: flex-start; }
 }
