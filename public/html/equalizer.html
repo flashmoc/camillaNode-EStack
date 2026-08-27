@@ -14,6 +14,7 @@
     <link rel="stylesheet" href="/css/estackPeqRackFix.css">
     <link rel="stylesheet" href="/css/estackSpectrumPro.css">
     <link rel="stylesheet" href="/css/estackEqEight.css">
+    <link rel="stylesheet" href="/css/estackEqEightV2.css">
     <script src="/src/estackEqualizer.js" defer></script>
     <script src="/src/estackProcessorVisibility.js" defer></script>
     <script src="/src/estackVenuPolish.js" defer></script>
@@ -24,6 +25,7 @@
     <script src="/src/estackOutputScope.js" defer></script>
     <script src="/src/estackSpectrumPro.js" defer></script>
     <script src="/src/estackEqEight.js" defer></script>
+    <script src="/src/estackEqEightV2.js" defer></script>
 </head>
 <body class="estack-dsp-page">
     <header class="venu-page-head">
@@ -51,17 +53,15 @@
     </section>
 
     <nav id="moduleTabs" class="venu-module-tabs" aria-label="DSP modules">
-        <button data-module="crossover" class="active">Crossover</button>
-        <button data-module="peq">Parametric EQ</button>
-        <button data-module="output">Output</button>
-        <button data-module="protection">Protection</button>
+        <button data-module="peq" class="active">EQ</button>
+        <button data-module="outputProtection">OUTPUT / PROTECTION</button>
     </nav>
 
     <main class="venu-workspace">
         <div class="venu-module-title">
             <div>
-                <strong id="moduleTitle">System Response</strong>
-                <span id="moduleSubtitle">All outputs</span>
+                <strong id="moduleTitle">Parametric EQ</strong>
+                <span id="moduleSubtitle"></span>
             </div>
             <div class="venu-graph-legend" aria-label="Output response legend"></div>
         </div>
