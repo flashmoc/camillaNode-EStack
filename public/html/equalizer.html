@@ -6,14 +6,7 @@
     <title>E-Stack EQ</title>
     <link rel="stylesheet" href="/css/main.css">
     <link rel="stylesheet" href="/css/estackEqV4.css">
-    <style>
-        /* main.css sizes every semantic header to 80px; dynamic DSP cards still
-           generate a few header tags, so isolate only those legacy semantics. */
-        .estack-eq-v4 .estack-peq-eq-head,
-        .estack-eq-v4 .estack-v2-card > header { height:auto !important; padding-top:4px !important; font-size:inherit !important; }
-    </style>
 
-    <!-- Functional DSP/editor layers. Visual presentation is owned only by V4 CSS. -->
     <script src="/src/estackEqualizer.js" defer></script>
     <script src="/src/estackProcessorVisibility.js" defer></script>
     <script src="/src/estackVenuPolish.js" defer></script>
@@ -30,37 +23,35 @@
 </head>
 <body class="estack-eq-v4">
     <div class="eq-v4-shell">
-        <div class="venu-page-head">
-            <div class="venu-page-identity">
-                <span class="venu-eyebrow">E-STACK DSP</span>
-                <strong id="selectedChannelTitle">Output</strong>
-                <span id="selectedChannelMeta"></span>
+        <!-- Legacy engine mount points kept hidden. The visible channel selector is
+             now the clickable response-graph legend. -->
+        <div class="eq-v4-engine-mount" aria-hidden="true">
+            <strong id="selectedChannelTitle">Output</strong>
+            <span id="selectedChannelMeta"></span>
+            <nav id="channelTabs" class="venu-output-tabs"></nav>
+            <div class="venu-rta-strip">
+                <div class="venu-rta-label"><strong>LIVE SPECTRUM</strong><span>Analyzer</span></div>
+                <div class="venu-rta-canvas-wrap"><canvas id="rtaCanvas"></canvas></div>
             </div>
+        </div>
+
+        <div class="eq-v4-topbar">
+            <nav id="moduleTabs" class="venu-module-tabs" aria-label="DSP modules">
+                <button data-module="peq" class="active">EQ</button>
+                <button data-module="outputProtection">OUTPUT / PROTECTION</button>
+            </nav>
+
+            <div class="eq-v4-context">
+                <strong id="moduleTitle">Parametric EQ</strong>
+                <span id="moduleSubtitle"></span>
+            </div>
+
+            <div class="venu-graph-legend" aria-label="Select output to edit"></div>
+
             <button id="systemEditToggle" class="venu-system-edit" aria-pressed="false">EDIT SYSTEM</button>
         </div>
 
-        <nav id="channelTabs" class="venu-output-tabs" aria-label="E-Stack outputs"></nav>
-
-        <!-- Functional spectrum mount point; V4 folds its data into the main graph. -->
-        <div class="venu-rta-strip" aria-hidden="true">
-            <div class="venu-rta-label"><strong>LIVE SPECTRUM</strong><span>Analyzer</span></div>
-            <div class="venu-rta-canvas-wrap"><canvas id="rtaCanvas"></canvas></div>
-        </div>
-
-        <nav id="moduleTabs" class="venu-module-tabs" aria-label="DSP modules">
-            <button data-module="peq" class="active">EQ</button>
-            <button data-module="outputProtection">OUTPUT / PROTECTION</button>
-        </nav>
-
         <div class="venu-workspace">
-            <div class="venu-module-title">
-                <div>
-                    <strong id="moduleTitle">Parametric EQ</strong>
-                    <span id="moduleSubtitle"></span>
-                </div>
-                <div class="venu-graph-legend" aria-label="Output response legend"></div>
-            </div>
-
             <div class="venu-graph-wrap" aria-label="System response and live analyzer">
                 <canvas id="responseCanvas"></canvas>
             </div>
