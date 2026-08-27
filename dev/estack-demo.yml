@@ -3,7 +3,7 @@ description: >
   Cloud-safe mirror of the current E-Stack hardware configuration.
   DSP routing, crossovers, gains, delays, protection compressors and hard
   limiters match EStack_HW_RASPIAUDIO.yml. Only the physical ALSA capture and
-  playback devices are replaced by a SignalGenerator and /dev/null.
+  playback devices are replaced by an 8-channel stdin stream and /dev/null.
 
 devices:
   samplerate: 48000
@@ -16,11 +16,9 @@ devices:
   volume_ramp_time: 400
 
   capture:
-    type: SignalGenerator
+    type: Stdin
     channels: 8
-    signal:
-      type: WhiteNoise
-      level: -30.0
+    format: S32_LE
 
   playback:
     type: File
