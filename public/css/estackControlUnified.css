@@ -119,7 +119,6 @@
     white-space: nowrap;
 }
 
-/* Fixed console geometry: dBFS labels | meter/fader core | reserved GAIN text. */
 .estack-meter-console {
     width: 126px;
     height: 258px;
@@ -229,14 +228,11 @@
     transform: translateX(-50%);
     border-radius: 2px;
     background: color-mix(in srgb, var(--channel-color) 78%, #6d777a 22%);
-    box-shadow: 0 0 0 1px rgba(0,0,0,.45);
+    box-shadow: none;
     z-index: 3;
     pointer-events: none;
 }
 
-/* GAIN scale is physically inside the same core as the handle. Its text simply
-   overflows into the reserved third column. This removes any layout offset
-   between the 0 dB tick and a handle positioned at 0 dB. */
 .estack-gain-scale {
     position: absolute;
     inset: 0;
@@ -291,18 +287,14 @@
     font-weight: 700;
 }
 
-/* At unity the reference line physically crosses the fader axis. The handle at
-   0 dB uses the same parent and the same top coordinate, so the two overlap. */
 .estack-gain-scale span.unity::before {
     left: -31px;
     width: 29px;
     height: 2px;
     background: var(--channel-color);
-    box-shadow: 0 0 3px color-mix(in srgb, var(--channel-color) 25%, transparent);
+    box-shadow: none;
 }
 
-/* Native range is only the value/focus/keyboard source. Mouse/touch belongs to
-   .estack-meter-core and is handled by estackControlUnified.js. */
 .estack-vertical-fader {
     -webkit-appearance: none;
     appearance: none;
@@ -329,25 +321,20 @@
     position: absolute;
     left: 50%;
     width: 25px;
-    height: 5px;
+    height: 3px;
     box-sizing: border-box;
     transform: translate(-50%, -50%);
-    border: 1px solid #080b0c;
-    border-radius: 1px;
+    border: 0;
+    border-radius: 0;
     background: #d7dddf;
-    box-shadow: 0 0 0 1px rgba(255,255,255,.13), 0 1px 2px rgba(0,0,0,.7);
+    box-shadow: none;
     pointer-events: none;
     z-index: 9;
 }
 
 .estack-fader-handle::after {
-    content: "";
-    position: absolute;
-    left: 3px;
-    right: 3px;
-    top: 1px;
-    height: 1px;
-    background: rgba(50,58,60,.65);
+    content: none;
+    display: none;
 }
 
 .estack-fader-value { display: none; }
