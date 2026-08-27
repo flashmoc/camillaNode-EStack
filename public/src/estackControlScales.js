@@ -1,12 +1,13 @@
-// Calibrated gain scales + visual fader handles for E-Stack Control.
+// E-Stack Control gain scale + custom fader handle.
 //
-// The browser range input is only an interaction surface. It is never used as
-// a visual geometry reference. Every GAIN tick and the visible handle use the
-// same fixed value -> Y mapping inside the 246 px fader wrap.
+// The visible GAIN scale and the visible fader handle are intentionally derived
+// from one fixed mathematical axis. They do not depend on browser range-thumb
+// geometry or DOM measurements. This guarantees that a 0.0 dB fader value and
+// the printed 0 dB tick always have the exact same Y coordinate.
 
-const ESTACK_CONTROL_WRAP_HEIGHT_PX = 246;
-const ESTACK_CONTROL_VISUAL_TOP_PX = 3;
-const ESTACK_CONTROL_VISUAL_BOTTOM_PX = 243;
+const ESTACK_GAIN_AXIS_TOP = 4;
+const ESTACK_GAIN_AXIS_BOTTOM = 242;
+const ESTACK_GAIN_AXIS_TRAVEL = ESTACK_GAIN_AXIS_BOTTOM - ESTACK_GAIN_AXIS_TOP;
 
 function estackGainScaleValues(min, max) {
     const candidates = [max, 0, -6, -12, -24, -40, min];
@@ -29,17 +30,16 @@ function estackFormatGainTick(value) {
     return Number.isInteger(n) ? String(n) : n.toFixed(1);
 }
 
-function estackFaderValueY(fader, value) {
+function estackGainValueY(fader, value) {
     const min = Number(fader.min);
     const max = Number(fader.max);
     if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) {
-        return ESTACK_CONTROL_VISUAL_TOP_PX;
+        return ESTACK_GAIN_AXIS_TOP;
     }
 
     const clamped = Math.max(min, Math.min(max, Number(value)));
     const ratio = (max - clamped) / (max - min);
-    const travel = ESTACK_CONTROL_VISUAL_BOTTOM_PX - ESTACK_CONTROL_VISUAL_TOP_PX;
-    return ESTACK_CONTROL_VISUAL_TOP_PX + ratio * travel;
+    return ESTACK_GAIN_AXIS_TOP + ratio * ESTACK_GAIN_AXIS_TRAVEL;
 }
 
 function estackEnsureVisualHandle(fader, wrap) {
@@ -53,24 +53,30 @@ function estackEnsureVisualHandle(fader, wrap) {
     return handle;
 }
 
-function estackPositionVisualHandle(fader) {
-    const wrap = fader.closest('.estack-fader-wrap');
-    if (!wrap) return;
-    const handle = estackEnsureVisualHandle(fader, wrap);
-    handle.style.top = `${estackFaderValueY(fader, Number(fader.value))}px`;
-}
+function estackEnsureGainScale(fader) {
+    const center = fader.closest('.estack-strip-center');
+    if (!center) return null;
 
-function estackBuildGainScale(fader) {
-    const wrap = fader.closest('.estack-fader-wrap');
-    if (!wrap) return;
-
-    let scale = wrap.querySelector('.estack-gain-scale');
+    let scale = center.querySelector('.estack-gain-scale');
     if (!scale) {
         scale = document.createElement('div');
         scale.className = 'estack-gain-scale';
         scale.setAttribute('aria-hidden', 'true');
-        wrap.appendChild(scale);
+        center.appendChild(scale);
     }
+    return scale;
+}
+
+function estackPositionVisualHandle(fader) {
+    const wrap = fader.closest('.estack-fader-wrap');
+    if (!wrap) return;
+    const handle = estackEnsureVisualHandle(fader, wrap);
+    handle.style.top = `${estackGainValueY(fader, Number(fader.value))}px`;
+}
+
+function estackBuildGainScale(fader) {
+    const scale = estackEnsureGainScale(fader);
+    if (!scale) return;
 
     const min = Number(fader.min);
     const max = Number(fader.max);
@@ -82,7 +88,7 @@ function estackBuildGainScale(fader) {
         tick.textContent = estackFormatGainTick(value);
         tick.classList.toggle('unity', Math.abs(value) < 1e-9);
         tick.classList.toggle('maximum', Math.abs(value - max) < 1e-9);
-        tick.style.top = `${estackFaderValueY(fader, value)}px`;
+        tick.style.top = `${estackGainValueY(fader, value)}px`;
         fragment.appendChild(tick);
     }
 
