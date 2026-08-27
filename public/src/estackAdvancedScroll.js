@@ -48,6 +48,65 @@
         };
     }
 
+    // The stock page assumes every logical channel has a Mixer item. E-Stack
+    // intentionally leaves OUT7/OUT8 spare, so those paths have no mixer node.
+    // Render only real routed destinations instead of dereferencing undefined.
+    if (typeof loadMixers === "function") {
+        loadMixers = function(element, mixers) {
+            element.replaceChildren();
+            const channels = window.channels || [];
+
+            for (let channelNo = 0; channelNo < channels.length; channelNo++) {
+                const mixerItem = (channels[channelNo] || []).find(item => item?.type === "mixer");
+                if (!mixerItem) continue;
+
+                const mixerSources = document.createElement("div");
+                mixerSources.className = "mixer";
+
+                const title = document.createElement("span");
+                title.innerText = `Channel ${channelNo} Sources`;
+                title.className = "mixerTitle";
+                mixerSources.appendChild(title);
+
+                for (const source of (mixerItem.sources || [])) {
+                    const sourceElement = document.createElement("div");
+                    sourceElement.className = "mixerSource";
+
+                    const channelSpan = document.createElement("span");
+                    channelSpan.innerText = `Channel ${source.channel}`;
+                    const channelText = document.createElement("div");
+                    channelText.contentEditable = true;
+                    sourceElement.append(channelSpan, channelText);
+
+                    const gainSpan = document.createElement("span");
+                    gainSpan.innerText = "Gain :";
+                    const gainText = document.createElement("input");
+                    gainText.type = "text";
+                    gainText.value = `${source.gain ?? 0}${source.scale || "dB"}`;
+                    sourceElement.append(gainSpan, gainText);
+
+                    const invertedSpan = document.createElement("span");
+                    invertedSpan.innerText = "Inverted :";
+                    const invertedCheckbox = document.createElement("input");
+                    invertedCheckbox.type = "checkbox";
+                    invertedCheckbox.checked = !!source.inverted;
+                    sourceElement.append(invertedSpan, invertedCheckbox);
+
+                    const mutedSpan = document.createElement("span");
+                    mutedSpan.innerText = "Muted :";
+                    const mutedCheckbox = document.createElement("input");
+                    mutedCheckbox.type = "checkbox";
+                    mutedCheckbox.checked = !!source.mute;
+                    sourceElement.append(mutedSpan, mutedCheckbox);
+
+                    mixerSources.appendChild(sourceElement);
+                }
+
+                element.appendChild(mixerSources);
+            }
+        };
+    }
+
     document.addEventListener("wheel", event => {
         const row = event.target?.closest?.(".pipelineChannel, .filterChannel");
         if (!row) return;
