@@ -1,9 +1,5 @@
-/* Separate the playback LEVEL scale (left, dBFS) from the fader GAIN scale
-   (right, dB). Tick geometry is calibrated in estackControlScales.js. */
-
-.estack-strip-center {
-    padding-right: 24px !important;
-}
+/* Separate playback LEVEL (left, dBFS) from fader GAIN (right, dB).
+   Tick geometry is calibrated in estackControlScales.js. */
 
 .estack-meter-scale::before {
     content: "dBFS";
@@ -16,6 +12,9 @@
     letter-spacing: .03em;
 }
 
+/* The fader wrap is centred on x=50 px inside the 101 px Control geometry.
+   Its right edge is x=71; starting the scale 5 px later puts GAIN at x=76,
+   exactly after the playback meter block. */
 .estack-gain-scale {
     position: absolute;
     left: calc(100% + 5px);
@@ -56,6 +55,7 @@
     top: 50%;
     width: 3px;
     height: 1px;
+    transform: translateY(-50%);
     background: #59666a;
 }
 
@@ -68,25 +68,22 @@
     font-weight: 700;
 }
 
+/* The coloured unity line belongs to the 0 dB tick itself. It therefore uses
+   exactly the same top coordinate as the text "0" and cannot drift above it. */
 .estack-gain-scale span.unity::before {
-    width: 5px;
-    left: -7px;
+    width: 10px;
+    left: -10px;
+    height: 2px;
     background: var(--channel-color);
+    box-shadow: 0 0 4px color-mix(in srgb, var(--channel-color) 30%, transparent);
 }
 
-/* The unity marker is positioned from the exact same fader geometry as the
-   GAIN scale. Remove the old hard-coded label to avoid duplicate zeros. */
-.estack-mixer-strip:not(.master) .estack-unity-mark,
-.estack-mixer-strip.master .estack-unity-mark {
-    top: var(--estack-unity-px, 0px) !important;
-}
-
-.estack-unity-mark::after {
-    content: none !important;
+/* Legacy marker is deliberately hidden by estackControlV2.css; the unity tick
+   above is now the single source of truth for the 0 dB reference. */
+.estack-unity-mark {
     display: none !important;
 }
 
 @media (max-width: 1250px) {
-    .estack-strip-center { padding-right: 21px !important; }
-    .estack-gain-scale { left: calc(100% + 3px); width: 22px; }
+    .estack-gain-scale { width: 22px; }
 }
