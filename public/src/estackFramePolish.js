@@ -68,16 +68,82 @@ function clampMasterControls(doc) {
     }
 }
 
+function zeroSnapThreshold(input) {
+    const min = Number(input?.min);
+    const max = Number(input?.max);
+    const step = Math.abs(Number(input?.step)) || 0.1;
+    if (!Number.isFinite(min) || !Number.isFinite(max) || !(min < 0 && max >= 0)) return 0;
+    return Math.max(step, Math.min(0.3, Math.abs(max - min) * 0.006));
+}
+
+function snapRangeToZero(input) {
+    if (!(input instanceof input.ownerDocument.defaultView.HTMLInputElement)) return false;
+    if (input.type !== "range") return false;
+    const threshold = zeroSnapThreshold(input);
+    if (!threshold) return false;
+    const value = Number(input.value);
+    if (!Number.isFinite(value) || Math.abs(value) > threshold || value === 0) return false;
+    input.value = "0";
+    return true;
+}
+
+function decorateZeroSnapControls(doc) {
+    if (!doc?.querySelectorAll) return;
+    doc.querySelectorAll('input[type="range"]').forEach(input => {
+        const min = Number(input.min);
+        const max = Number(input.max);
+        if (!Number.isFinite(min) || !Number.isFinite(max) || !(min < 0 && max >= 0)) {
+            delete input.dataset.estackZeroSnap;
+            return;
+        }
+        input.dataset.estackZeroSnap = "true";
+        const position = ((max - 0) / (max - min)) * 100;
+        input.style.setProperty("--estack-zero-pos", `${Math.max(0, Math.min(100, position))}%`);
+        input.title = input.title || "Soft snap at 0";
+    });
+}
+
+function installZeroSnapBehavior(doc) {
+    if (!doc?.documentElement || doc.documentElement.dataset.estackZeroSnapInstalled === "true") return;
+    doc.documentElement.dataset.estackZeroSnapInstalled = "true";
+
+    // Capture phase means page-specific listeners receive the already-snapped
+    // value. Only ranges whose numeric range crosses 0 are affected; logarithmic
+    // frequency and Q controls therefore remain untouched.
+    const maybeSnap = event => {
+        const input = event.target;
+        if (!(input instanceof doc.defaultView.HTMLInputElement) || input.type !== "range") return;
+        snapRangeToZero(input);
+    };
+    doc.addEventListener("input", maybeSnap, true);
+    doc.addEventListener("change", maybeSnap, true);
+
+    // A second deterministic way to come home: double-click any bipolar slider.
+    doc.addEventListener("dblclick", event => {
+        const input = event.target;
+        if (!(input instanceof doc.defaultView.HTMLInputElement) || input.type !== "range") return;
+        if (!zeroSnapThreshold(input)) return;
+        input.value = "0";
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        input.dispatchEvent(new Event("change", { bubbles: true }));
+    }, true);
+}
+
 function polishDocument(doc) {
     if (!doc) return;
     applyDeclutter(doc);
     clampMasterControls(doc);
+    decorateZeroSnapControls(doc);
+    installZeroSnapBehavior(doc);
 
     // Several E-Stack controls are rendered asynchronously after DSP connects.
     // Re-apply the tiny set of DOM-only rules when that happens.
     if (!doc.documentElement?.dataset.estackPolishObserved) {
         doc.documentElement.dataset.estackPolishObserved = "true";
-        const observer = new MutationObserver(() => clampMasterControls(doc));
+        const observer = new MutationObserver(() => {
+            clampMasterControls(doc);
+            decorateZeroSnapControls(doc);
+        });
         observer.observe(doc.body || doc.documentElement, { childList: true, subtree: true });
     }
 }
