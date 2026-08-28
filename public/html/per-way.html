@@ -38,7 +38,7 @@
                     </select>
                 </label>
 
-                <label class="signal-field">
+                <label id="signalFrequencyField" class="signal-field">
                     <span>Frequency</span>
                     <div class="signal-number">
                         <input id="testFrequency" type="number" min="10" max="20000" step="1" value="130">
@@ -46,11 +46,22 @@
                     </div>
                 </label>
 
-                <label class="signal-field">
+                <div id="signalBandwidthField" class="signal-field signal-bandwidth-field" hidden>
+                    <span>Bandwidth</span>
+                    <div class="signal-bandwidth-value">
+                        <strong>FULL BAND</strong>
+                        <small>Broadband white noise · no frequency setting</small>
+                    </div>
+                </div>
+
+                <label class="signal-field signal-level-field">
                     <span>Level</span>
-                    <div class="signal-number">
-                        <input id="testLevel" type="number" min="-80" max="-10" step="1" value="-40">
-                        <span>dBFS</span>
+                    <div class="signal-level-control">
+                        <input id="testLevelSlider" class="signal-level-slider" type="range" min="-80" max="-10" step="1" value="-40" aria-label="Signal level in dBFS">
+                        <div class="signal-number signal-level-number">
+                            <input id="testLevel" type="number" min="-80" max="-10" step="1" value="-40">
+                            <span>dBFS</span>
+                        </div>
                     </div>
                 </label>
 
@@ -73,7 +84,7 @@
                 <div id="signalTargets" class="signal-targets"></div>
             </div>
 
-            <div class="signal-block">
+            <div id="quickFrequencyBlock" class="signal-block">
                 <div class="signal-block-head">
                     <strong>QUICK FREQUENCIES</strong>
                     <span>Includes actual crossover frequencies from the selected outputs.</span>
@@ -91,27 +102,9 @@
             </div>
         </section>
 
-        <div class="signal-info-grid">
-            <section class="signal-info-card">
-                <header><strong>DSP PATH</strong></header>
-                <div class="signal-info-body">
-                    <div class="signal-flow">
-                        <b>Signal Generator</b><i>→</i><b>Mixer</b><i>→</i><b>XO</b><i>→</i><b>PEQ</b><i>→</i><b>Gain / Delay / Phase</b><i>→</i><b>Protection</b><i>→</i><b>Output</b>
-                    </div>
-                </div>
-            </section>
-
-            <section class="signal-info-card">
-                <header><strong>REW</strong></header>
-                <div class="signal-info-body">
-                    For REW sweep measurements of frequency response, impulse, delay and phase, leave this internal generator OFF. Send the REW sweep through the normal E-Stack input so the measurement traverses the real DSP chain.
-                </div>
-            </section>
-        </div>
-
         <div class="signal-statusbar">
             <span id="signalPageStatus">Connecting to CamillaDSP…</span>
-            <span>Sine for alignment / voltage checks · White noise for broadband checks</span>
+            <span>Internal generator → full DSP chain · For REW sweeps, leave generator OFF</span>
         </div>
     </main>
 </body>
