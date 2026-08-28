@@ -9,63 +9,12 @@ const ESTACK_LOUDNESS_STEP = "E-Stack loudness input stage";
 const ESTACK_LOUDNESS_STORAGE = "estack.loudness.preset";
 
 const ESTACK_LOUDNESS_PRESETS = {
-    reference: {
-        key: "reference",
-        name: "REFERENCE",
-        description: "Flat response for tuning and critical listening.",
-        disabled: true,
-        lowBoost: 0,
-        highBoost: 0,
-        referenceLevel: -10,
-        color: "#9aa7aa"
-    },
-    home: {
-        key: "home",
-        name: "HOME",
-        description: "Fuller low-volume balance; the Sonos-like starting point.",
-        lowBoost: 6,
-        highBoost: 2.5,
-        referenceLevel: -10,
-        color: "#59d5e3",
-        recommended: true
-    },
-    punch: {
-        key: "punch",
-        name: "PUNCH",
-        description: "Stronger low-end compensation for a more physical listen.",
-        lowBoost: 8,
-        highBoost: 2.5,
-        referenceLevel: -8,
-        color: "#ffd166"
-    },
-    night: {
-        key: "night",
-        name: "NIGHT",
-        description: "Moderate compensation for quiet apartment listening.",
-        lowBoost: 4,
-        highBoost: 1.5,
-        referenceLevel: -5,
-        color: "#a78bfa"
-    },
-    outdoor: {
-        key: "outdoor",
-        name: "OUTDOOR",
-        description: "Lighter bass lift with a little more upper-frequency support.",
-        lowBoost: 3,
-        highBoost: 2.5,
-        referenceLevel: -10,
-        color: "#7fd8b2"
-    },
-    maxspl: {
-        key: "maxspl",
-        name: "MAX SPL",
-        description: "No loudness compensation; preserve maximum system margin.",
-        disabled: true,
-        lowBoost: 0,
-        highBoost: 0,
-        referenceLevel: 0,
-        color: "#df7777"
-    }
+    reference: { key: "reference", name: "REFERENCE", description: "Flat response for tuning and critical listening.", disabled: true, lowBoost: 0, highBoost: 0, referenceLevel: -10, color: "#9aa7aa" },
+    home: { key: "home", name: "HOME", description: "Fuller low-volume balance; the Sonos-like starting point.", lowBoost: 6, highBoost: 2.5, referenceLevel: -10, color: "#59d5e3", recommended: true },
+    punch: { key: "punch", name: "PUNCH", description: "Stronger low-end compensation for a more physical listen.", lowBoost: 8, highBoost: 2.5, referenceLevel: -8, color: "#ffd166" },
+    night: { key: "night", name: "NIGHT", description: "Moderate compensation for quiet apartment listening.", lowBoost: 4, highBoost: 1.5, referenceLevel: -5, color: "#a78bfa" },
+    outdoor: { key: "outdoor", name: "OUTDOOR", description: "Lighter bass lift with a little more upper-frequency support.", lowBoost: 3, highBoost: 2.5, referenceLevel: -10, color: "#7fd8b2" },
+    maxspl: { key: "maxspl", name: "MAX SPL", description: "No loudness compensation; preserve maximum system margin.", disabled: true, lowBoost: 0, highBoost: 0, referenceLevel: 0, color: "#df7777" }
 };
 
 let loudnessDSP;
@@ -91,12 +40,6 @@ function loudnessStatus(message, state = "info") {
     if (!el) return;
     el.textContent = message;
     el.dataset.state = state;
-}
-
-function loudnessChannelsForStep(step) {
-    if (Array.isArray(step?.channels)) return step.channels.map(Number);
-    if (step?.channel !== undefined && step?.channel !== null) return [Number(step.channel)];
-    return [];
 }
 
 function loudnessCaptureChannels() {
@@ -201,12 +144,7 @@ function loudnessCompensationFactor(volume, preset) {
 function loudnessCurrentValues() {
     const preset = ESTACK_LOUDNESS_PRESETS[loudnessActiveKey] || ESTACK_LOUDNESS_PRESETS.reference;
     const factor = loudnessCompensationFactor(loudnessMasterVolume, preset);
-    return {
-        preset,
-        factor,
-        low: preset.lowBoost * factor,
-        high: preset.highBoost * factor
-    };
+    return { preset, factor, low: preset.lowBoost * factor, high: preset.highBoost * factor };
 }
 
 function loudnessRenderHeader() {
@@ -288,14 +226,10 @@ function loudnessDraw() {
     const preset = ESTACK_LOUDNESS_PRESETS[loudnessActiveKey] || ESTACK_LOUDNESS_PRESETS.reference;
     const current = loudnessCurrentValues();
 
-    const left = 42;
-    const right = 14;
-    const top = 16;
-    const bottom = 28;
+    const left = 42, right = 14, top = 16, bottom = 28;
     const width = Math.max(1, rect.width - left - right);
     const height = Math.max(1, rect.height - top - bottom);
     const maxDb = 10;
-
     const yFor = db => top + height - (Math.max(0, Math.min(maxDb, db)) / maxDb) * height;
 
     ctx.lineWidth = 1;
@@ -305,57 +239,39 @@ function loudnessDraw() {
     for (const db of [0, 2, 4, 6, 8, 10]) {
         const y = yFor(db);
         ctx.strokeStyle = db === 0 ? gridStrong : grid;
-        ctx.beginPath();
-        ctx.moveTo(left, y);
-        ctx.lineTo(left + width, y);
-        ctx.stroke();
-        ctx.fillStyle = text;
-        ctx.textAlign = "right";
-        ctx.fillText(db === 0 ? "0" : `+${db}`, left - 7, y);
+        ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(left + width, y); ctx.stroke();
+        ctx.fillStyle = text; ctx.textAlign = "right"; ctx.fillText(db === 0 ? "0" : `+${db}`, left - 7, y);
     }
 
     for (const freq of [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]) {
         const x = loudnessLogX(freq, left, width);
         ctx.strokeStyle = grid;
-        ctx.beginPath();
-        ctx.moveTo(x, top);
-        ctx.lineTo(x, top + height);
-        ctx.stroke();
-        ctx.fillStyle = text;
-        ctx.textAlign = "center";
-        const label = freq >= 1000 ? `${freq / 1000}k` : String(freq);
-        ctx.fillText(label, x, rect.height - 11);
+        ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, top + height); ctx.stroke();
+        ctx.fillStyle = text; ctx.textAlign = "center";
+        ctx.fillText(freq >= 1000 ? `${freq / 1000}k` : String(freq), x, rect.height - 11);
     }
 
     const drawCurve = (low, high, stroke, alpha, dashed = false) => {
         ctx.save();
-        ctx.strokeStyle = stroke;
-        ctx.globalAlpha = alpha;
-        ctx.lineWidth = dashed ? 1 : 2;
-        ctx.setLineDash(dashed ? [4, 4] : []);
-        ctx.beginPath();
-        for (let i = 0; i <= Math.max(180, Math.round(width)); i++) {
-            const t = i / Math.max(180, Math.round(width));
+        ctx.strokeStyle = stroke; ctx.globalAlpha = alpha; ctx.lineWidth = dashed ? 1 : 2;
+        ctx.setLineDash(dashed ? [4, 4] : []); ctx.beginPath();
+        const points = Math.max(180, Math.round(width));
+        for (let i = 0; i <= points; i++) {
+            const t = i / points;
             const freq = 20 * Math.pow(1000, t);
             const x = left + t * width;
-            const gain = loudnessRelativeGain(freq, low, high);
-            const y = yFor(gain);
+            const y = yFor(loudnessRelativeGain(freq, low, high));
             if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
         }
-        ctx.stroke();
-        ctx.restore();
+        ctx.stroke(); ctx.restore();
     };
 
     if (!preset.disabled) {
         drawCurve(preset.lowBoost, preset.highBoost, accent, .28, true);
         drawCurve(current.low, current.high, preset.color || accent, .95, false);
-    } else {
-        drawCurve(0, 0, preset.color || accent, .82, false);
-    }
+    } else drawCurve(0, 0, preset.color || accent, .82, false);
 
-    ctx.fillStyle = text;
-    ctx.textAlign = "left";
-    ctx.fillText("LOUDNESS BOOST · dB", left, 8);
+    ctx.fillStyle = text; ctx.textAlign = "left"; ctx.fillText("LOUDNESS BOOST · dB", left, 8);
 }
 
 function loudnessRender() {
@@ -373,6 +289,7 @@ async function loudnessApplyPreset(key) {
 
     try {
         await loudnessDSP.downloadConfig();
+        const beforeConfig = loudnessDSP.estackConfigSnapshot?.() || JSON.parse(JSON.stringify(loudnessDSP.config));
         if (!loudnessDSP.config.filters) loudnessDSP.config.filters = {};
 
         if (preset.disabled) {
@@ -392,29 +309,27 @@ async function loudnessApplyPreset(key) {
             loudnessEnsureStep();
         }
 
-        const ok = await loudnessDSP.uploadConfig();
-        if (!ok) throw new Error("CamillaDSP rejected the configuration");
+        if (typeof loudnessDSP.uploadConfigGuarded !== "function") throw new Error("E-Stack config guard is unavailable");
+        await loudnessDSP.uploadConfigGuarded(beforeConfig, {
+            name: "Loudness",
+            allowedFilterNames: [ESTACK_LOUDNESS_FILTER],
+            allowedStepDescriptions: [ESTACK_LOUDNESS_STEP]
+        });
         await loudnessDSP.downloadConfig();
 
         if (!preset.disabled) {
             const step = loudnessStep();
             const mixerIndex = loudnessFirstMixerIndex();
-            if (!step || loudnessDSP.config.pipeline.indexOf(step) >= mixerIndex) {
-                throw new Error("Loudness stage is not before routing");
-            }
+            if (!step || loudnessDSP.config.pipeline.indexOf(step) >= mixerIndex) throw new Error("Loudness stage is not before routing");
             const filter = loudnessDSP.config.filters?.[ESTACK_LOUDNESS_FILTER];
-            if (
-                filter?.type !== "Loudness" ||
-                filter?.parameters?.fader !== "Main" ||
-                filter?.parameters?.attenuate_mid !== false
-            ) {
+            if (filter?.type !== "Loudness" || filter?.parameters?.fader !== "Main" || filter?.parameters?.attenuate_mid !== false) {
                 throw new Error("Loudness filter validation failed");
             }
         }
 
         loudnessActiveKey = key;
         window.localStorage.setItem(ESTACK_LOUDNESS_STORAGE, key);
-        loudnessStatus(`${preset.name} · applied`, "ok");
+        loudnessStatus(`${preset.name} · applied · guarded`, "ok");
     } catch (error) {
         console.error("Loudness preset failed", error);
         loudnessStatus(`${preset.name} · ERROR: ${error?.message || error}`, "error");
@@ -450,7 +365,7 @@ async function loudnessInit() {
             const volume = Number(await loudnessDSP.sendDSPMessage("GetVolume"));
             if (Number.isFinite(volume)) loudnessMasterVolume = volume;
         } catch (_) {}
-        loudnessStatus("Connected · native CamillaDSP loudness · boost mode", "ok");
+        loudnessStatus("Connected · native CamillaDSP loudness · guarded boost mode", "ok");
         loudnessRender();
         loudnessTimer = setInterval(loudnessRefreshMaster, 700);
 
@@ -458,9 +373,7 @@ async function loudnessInit() {
         if (canvas && "ResizeObserver" in window) {
             loudnessResizeObserver = new ResizeObserver(() => loudnessDraw());
             loudnessResizeObserver.observe(canvas);
-        } else {
-            window.addEventListener("resize", loudnessDraw);
-        }
+        } else window.addEventListener("resize", loudnessDraw);
     } catch (error) {
         console.error("Loudness init failed", error);
         loudnessStatus(`ERROR: ${error?.message || error}`, "error");
