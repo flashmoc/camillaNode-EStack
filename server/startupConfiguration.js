@@ -5,8 +5,10 @@ const path = require('path');
 const express = require('express');
 
 const SYSTEM_TYPE = 'estack-system';
+const SAFE_BOOT_VOLUME_DB = -60;
+const LEGACY_FALLBACK_VOLUME_DB = -40;
 const DEFAULT_STATE = {
-    version: 2,
+    version: 3,
     mode: 'yaml',
     configId: null,
     configName: null,
@@ -15,6 +17,7 @@ const DEFAULT_STATE = {
     activeOrigin: 'yaml',
     activeId: null,
     activeName: 'Hardware YAML',
+    presetVolumes: {},
     lastBootIdApplied: null,
     lastBootAppliedId: null,
     lastBootAppliedName: null,
@@ -34,9 +37,7 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
 
     if (!WebSocket) throw new Error('startupConfiguration requires a WebSocket implementation');
 
-    function clone(value) {
-        return value == null ? value : JSON.parse(JSON.stringify(value));
-    }
+    const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
 
     function stable(value) {
         if (Array.isArray(value)) return value.map(stable);
@@ -61,18 +62,31 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
     }
 
     function readState() {
-        if (!fs.existsSync(stateFile)) return { ...DEFAULT_STATE };
+        if (!fs.existsSync(stateFile)) return { ...DEFAULT_STATE, presetVolumes: {} };
         try {
             const parsed = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
-            return { ...DEFAULT_STATE, ...parsed };
+            return {
+                ...DEFAULT_STATE,
+                ...parsed,
+                presetVolumes: parsed?.presetVolumes && typeof parsed.presetVolumes === 'object'
+                    ? parsed.presetVolumes
+                    : {}
+            };
         } catch (error) {
             console.error('Invalid startupConfig.json; using hardware YAML startup:', error.message);
-            return { ...DEFAULT_STATE };
+            return { ...DEFAULT_STATE, presetVolumes: {} };
         }
     }
 
     function writeState(next) {
-        const state = { ...DEFAULT_STATE, ...next, version: 2 };
+        const state = {
+            ...DEFAULT_STATE,
+            ...next,
+            version: 3,
+            presetVolumes: next?.presetVolumes && typeof next.presetVolumes === 'object'
+                ? next.presetVolumes
+                : {}
+        };
         const tmp = `${stateFile}.tmp`;
         fs.writeFileSync(tmp, JSON.stringify(state, null, 2), { mode: 0o600 });
         fs.renameSync(tmp, stateFile);
@@ -115,11 +129,8 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
     }
 
     function currentBootId() {
-        try {
-            return fs.readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim();
-        } catch (_) {
-            return null;
-        }
+        try { return fs.readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim(); }
+        catch (_) { return null; }
     }
 
     function openDsp(timeoutMs = 2500) {
@@ -129,7 +140,6 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
                 try { ws.terminate?.(); } catch (_) {}
                 reject(new Error('CamillaDSP connection timeout'));
             }, timeoutMs);
-
             ws.once('open', () => {
                 clearTimeout(timer);
                 resolve(ws);
@@ -194,7 +204,6 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
         const filters = processing.filters;
         const processors = processing.processors || {};
         const mixerNames = new Set(Object.keys(liveMixers || {}));
-
         for (const step of processing.pipeline) {
             if (step?.type === 'Mixer' && !mixerNames.has(step.name)) {
                 throw new Error(`Saved configuration expects unavailable mixer '${step.name}'`);
@@ -212,25 +221,51 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
         }
     }
 
+    function storedVolumeFor(record, state) {
+        const byId = state?.presetVolumes?.[String(record?.id)];
+        const embedded = record?.data?.masterVolume;
+        const candidate = Number.isFinite(Number(embedded)) ? Number(embedded) : Number(byId);
+        return Number.isFinite(candidate) ? candidate : LEGACY_FALLBACK_VOLUME_DB;
+    }
+
     async function applyRecord(record) {
         if (!record?.data?.processing) throw new Error('Selected startup item is not a full E-Stack system configuration');
+        const state = readState();
+        const targetVolume = storedVolumeFor(record, state);
         const ws = await openDsp();
         try {
+            // Attenuate before swapping the processing graph. This does not make
+            // the very first milliseconds of CamillaDSP boot intrinsically safe,
+            // but it prevents the preset recall itself from happening at 0 dB.
+            await dspRequest(ws, { SetVolume: SAFE_BOOT_VOLUME_DB });
+
             const live = await dspRequest(ws, 'GetConfigJson');
             validateProcessingSnapshot(record.data.processing, live?.mixers);
-
             const next = clone(live || {});
             next.filters = clone(record.data.processing.filters || {});
             next.pipeline = clone(record.data.processing.pipeline || []);
             next.processors = clone(record.data.processing.processors || {});
             next.title = record.name || record.data.processing.title || next.title || '';
 
-            // Deliberately preserve the live hardware layer: devices, chunksize,
-            // ALSA configuration and mixer routing stay exactly as CamillaDSP
-            // loaded them from the Raspberry hardware YAML.
+            // Preserve devices/chunksize/ALSA settings and live mixer routing.
             await dspRequest(ws, { SetConfigJson: JSON.stringify(next) });
+            await dspRequest(ws, { SetVolume: targetVolume });
         } finally {
             try { ws.close(); } catch (_) {}
+        }
+        return targetVolume;
+    }
+
+    async function readLiveVolume() {
+        let ws;
+        try {
+            ws = await openDsp(1400);
+            const value = Number(await dspRequest(ws, 'GetVolume', 1800));
+            return Number.isFinite(value) ? value : null;
+        } catch (_) {
+            return null;
+        } finally {
+            try { ws?.close(); } catch (_) {}
         }
     }
 
@@ -241,7 +276,9 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
                 activeId: null,
                 activeOrigin: 'yaml',
                 dirty: false,
-                activeMissing: false
+                activeMissing: false,
+                masterVolume: await readLiveVolume(),
+                presetMasterVolume: null
             };
         }
 
@@ -252,20 +289,30 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
                 activeId: state.activeId,
                 activeOrigin: 'system',
                 dirty: true,
-                activeMissing: true
+                activeMissing: true,
+                masterVolume: await readLiveVolume(),
+                presetMasterVolume: null
             };
         }
 
         let ws;
         try {
             ws = await openDsp(1400);
-            const live = await dspRequest(ws, 'GetConfigJson', 1800);
+            const [live, rawVolume] = await Promise.all([
+                dspRequest(ws, 'GetConfigJson', 1800),
+                dspRequest(ws, 'GetVolume', 1800)
+            ]);
+            const liveVolume = Number(rawVolume);
+            const presetVolume = storedVolumeFor(record, state);
+            const volumeDirty = Number.isFinite(liveVolume) && Math.abs(liveVolume - presetVolume) > 0.05;
             return {
                 activeName: record.name,
                 activeId: record.id,
                 activeOrigin: 'system',
-                dirty: !sameProcessing(live, record.data.processing),
-                activeMissing: false
+                dirty: !sameProcessing(live, record.data.processing) || volumeDirty,
+                activeMissing: false,
+                masterVolume: Number.isFinite(liveVolume) ? liveVolume : null,
+                presetMasterVolume: presetVolume
             };
         } catch (_) {
             return {
@@ -273,7 +320,9 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
                 activeId: record.id,
                 activeOrigin: 'system',
                 dirty: null,
-                activeMissing: false
+                activeMissing: false,
+                masterVolume: null,
+                presetMasterVolume: storedVolumeFor(record, state)
             };
         } finally {
             try { ws?.close(); } catch (_) {}
@@ -284,11 +333,8 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
         const state = readState();
         let resolvedName = null;
         let resolutionError = null;
-        try {
-            resolvedName = resolveConfiguredRecord(state)?.name || null;
-        } catch (error) {
-            resolutionError = error.message;
-        }
+        try { resolvedName = resolveConfiguredRecord(state)?.name || null; }
+        catch (error) { resolutionError = error.message; }
         const live = await livePresetState(state);
         return {
             mode: state.mode,
@@ -314,7 +360,6 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
         try {
             const mode = String(req.body?.mode || '').trim();
             if (!['yaml', 'specific', 'last'].includes(mode)) throw new Error('Invalid startup mode');
-
             const current = readState();
             const next = { ...current, mode };
             if (mode === 'specific') {
@@ -326,11 +371,9 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
                 next.configId = null;
                 next.configName = null;
             }
-
             if (mode === 'last' && !findSystemConfig(current.lastUsedId, current.lastUsedName)) {
                 throw new Error('No last-used system configuration is available yet');
             }
-
             writeState(next);
             res.json({ status: 'ok', ...(await publicState()) });
         } catch (error) {
@@ -343,13 +386,17 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
             const record = findSystemConfig(req.body?.configId, req.body?.configName);
             if (!record) throw new Error('Applied system configuration no longer exists');
             const current = readState();
+            const liveVolume = await readLiveVolume();
+            const presetVolumes = { ...(current.presetVolumes || {}) };
+            if (Number.isFinite(liveVolume)) presetVolumes[String(record.id)] = liveVolume;
             writeState({
                 ...current,
                 activeOrigin: 'system',
                 activeId: record.id,
                 activeName: record.name,
                 lastUsedId: record.id,
-                lastUsedName: record.name
+                lastUsedName: record.name,
+                presetVolumes
             });
             res.json({ status: 'ok', ...(await publicState()) });
         } catch (error) {
@@ -397,7 +444,7 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
         }
 
         try {
-            await applyRecord(record);
+            const targetVolume = await applyRecord(record);
             const latest = readState();
             writeState({
                 ...latest,
@@ -410,9 +457,9 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
                 lastBootAppliedId: record.id,
                 lastBootAppliedName: record.name,
                 lastBootAppliedAt: new Date().toISOString(),
-                lastBootStatus: 'applied'
+                lastBootStatus: `applied @ ${targetVolume.toFixed(1)} dB`
             });
-            console.log(`Startup configuration applied: ${record.name}`);
+            console.log(`Startup configuration applied: ${record.name} @ ${targetVolume.toFixed(1)} dB master`);
         } catch (error) {
             if (attempt < 20) {
                 setTimeout(() => runBootApply(bootId, attempt + 1), 1500);
