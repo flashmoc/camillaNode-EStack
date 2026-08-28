@@ -43,6 +43,10 @@ app.get('/equalizer',(req,res)=>{
     res.sendFile(__dirname+'/public/html/equalizer.html');
 });
 
+app.get('/per-way',(req,res)=>{
+    res.sendFile(__dirname+'/public/html/per-way.html');
+});
+
 app.get('/advanced',(req,res)=>{
     res.sendFile(__dirname+'/public/html/advanced.html');
 });
@@ -69,6 +73,16 @@ app.get('/api/runtime',(req,res)=>{
         spectrumPort: Number.parseInt(process.env.CAMILLA_SPECTRUM_PORT || '6413', 10),
         camillaGuiProxy: process.env.ESTACK_DEMO === '1' ? '/camillagui/gui/index.html' : null
     });
+});
+
+// Register the E-Stack measurement generator before the generic /api proxy used
+// by CamillaGUI in Codespaces. The backend owns the normal-config snapshot and
+// automatic restore, so a browser/tab failure cannot leave a test route active
+// indefinitely once CamillaNode is running again.
+require('./estackSignalGenerator')(app, {
+    WebSocket,
+    host: process.env.CAMILLADSP_PROXY_HOST || '127.0.0.1',
+    port: Number.parseInt(process.env.CAMILLADSP_PORT || '1234', 10)
 });
 
 // In Codespaces, opening port 5005 directly creates a second github.dev origin
