@@ -6,12 +6,15 @@ const express = require('express');
 
 const SYSTEM_TYPE = 'estack-system';
 const DEFAULT_STATE = {
-    version: 1,
+    version: 2,
     mode: 'yaml',
     configId: null,
     configName: null,
     lastUsedId: null,
     lastUsedName: null,
+    activeOrigin: 'yaml',
+    activeId: null,
+    activeName: 'Hardware YAML',
     lastBootIdApplied: null,
     lastBootAppliedId: null,
     lastBootAppliedName: null,
@@ -35,6 +38,28 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
         return value == null ? value : JSON.parse(JSON.stringify(value));
     }
 
+    function stable(value) {
+        if (Array.isArray(value)) return value.map(stable);
+        if (value && typeof value === 'object') {
+            const result = {};
+            for (const key of Object.keys(value).sort()) result[key] = stable(value[key]);
+            return result;
+        }
+        return value;
+    }
+
+    function processingOf(config) {
+        return {
+            filters: clone(config?.filters || {}),
+            pipeline: clone(config?.pipeline || []),
+            processors: clone(config?.processors || {})
+        };
+    }
+
+    function sameProcessing(a, b) {
+        return JSON.stringify(stable(processingOf(a))) === JSON.stringify(stable(processingOf(b)));
+    }
+
     function readState() {
         if (!fs.existsSync(stateFile)) return { ...DEFAULT_STATE };
         try {
@@ -47,7 +72,7 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
     }
 
     function writeState(next) {
-        const state = { ...DEFAULT_STATE, ...next, version: 1 };
+        const state = { ...DEFAULT_STATE, ...next, version: 2 };
         const tmp = `${stateFile}.tmp`;
         fs.writeFileSync(tmp, JSON.stringify(state, null, 2), { mode: 0o600 });
         fs.renameSync(tmp, stateFile);
@@ -209,7 +234,53 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
         }
     }
 
-    function publicState() {
+    async function livePresetState(state) {
+        if (state.activeOrigin !== 'system') {
+            return {
+                activeName: state.activeName || 'Hardware YAML',
+                activeId: null,
+                activeOrigin: 'yaml',
+                dirty: false,
+                activeMissing: false
+            };
+        }
+
+        const record = findSystemConfig(state.activeId, state.activeName);
+        if (!record?.data?.processing) {
+            return {
+                activeName: state.activeName || 'Unknown preset',
+                activeId: state.activeId,
+                activeOrigin: 'system',
+                dirty: true,
+                activeMissing: true
+            };
+        }
+
+        let ws;
+        try {
+            ws = await openDsp(1400);
+            const live = await dspRequest(ws, 'GetConfigJson', 1800);
+            return {
+                activeName: record.name,
+                activeId: record.id,
+                activeOrigin: 'system',
+                dirty: !sameProcessing(live, record.data.processing),
+                activeMissing: false
+            };
+        } catch (_) {
+            return {
+                activeName: record.name,
+                activeId: record.id,
+                activeOrigin: 'system',
+                dirty: null,
+                activeMissing: false
+            };
+        } finally {
+            try { ws?.close(); } catch (_) {}
+        }
+    }
+
+    async function publicState() {
         const state = readState();
         let resolvedName = null;
         let resolutionError = null;
@@ -218,6 +289,7 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
         } catch (error) {
             resolutionError = error.message;
         }
+        const live = await livePresetState(state);
         return {
             mode: state.mode,
             configId: state.configId,
@@ -226,18 +298,19 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
             lastUsedName: state.lastUsedName,
             resolvedName,
             resolutionError,
+            ...live,
             lastBootAppliedName: state.lastBootAppliedName,
             lastBootAppliedAt: state.lastBootAppliedAt,
             lastBootStatus: state.lastBootStatus
         };
     }
 
-    app.get('/api/startup-config', (_req, res) => {
-        try { res.json(publicState()); }
+    app.get('/api/startup-config', async (_req, res) => {
+        try { res.json(await publicState()); }
         catch (error) { res.status(500).json({ status: 'error', reason: error.message }); }
     });
 
-    app.post('/api/startup-config', jsonParser, (req, res) => {
+    app.post('/api/startup-config', jsonParser, async (req, res) => {
         try {
             const mode = String(req.body?.mode || '').trim();
             if (!['yaml', 'specific', 'last'].includes(mode)) throw new Error('Invalid startup mode');
@@ -259,23 +332,26 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
             }
 
             writeState(next);
-            res.json({ status: 'ok', ...publicState() });
+            res.json({ status: 'ok', ...(await publicState()) });
         } catch (error) {
             res.status(400).json({ status: 'error', reason: error.message });
         }
     });
 
-    app.post('/api/startup-config/last-used', jsonParser, (req, res) => {
+    app.post('/api/startup-config/active', jsonParser, async (req, res) => {
         try {
             const record = findSystemConfig(req.body?.configId, req.body?.configName);
             if (!record) throw new Error('Applied system configuration no longer exists');
             const current = readState();
             writeState({
                 ...current,
+                activeOrigin: 'system',
+                activeId: record.id,
+                activeName: record.name,
                 lastUsedId: record.id,
                 lastUsedName: record.name
             });
-            res.json({ status: 'ok', ...publicState() });
+            res.json({ status: 'ok', ...(await publicState()) });
         } catch (error) {
             res.status(400).json({ status: 'error', reason: error.message });
         }
@@ -288,6 +364,9 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
         if (state.mode === 'yaml') {
             writeState({
                 ...state,
+                activeOrigin: 'yaml',
+                activeId: null,
+                activeName: 'Hardware YAML',
                 lastBootIdApplied: bootId,
                 lastBootAppliedId: null,
                 lastBootAppliedName: 'Hardware YAML',
@@ -304,6 +383,9 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
         } catch (error) {
             writeState({
                 ...state,
+                activeOrigin: 'yaml',
+                activeId: null,
+                activeName: 'Hardware YAML',
                 lastBootIdApplied: bootId,
                 lastBootAppliedId: null,
                 lastBootAppliedName: null,
@@ -319,6 +401,11 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
             const latest = readState();
             writeState({
                 ...latest,
+                activeOrigin: 'system',
+                activeId: record.id,
+                activeName: record.name,
+                lastUsedId: record.id,
+                lastUsedName: record.name,
                 lastBootIdApplied: bootId,
                 lastBootAppliedId: record.id,
                 lastBootAppliedName: record.name,
@@ -334,6 +421,9 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
             const latest = readState();
             writeState({
                 ...latest,
+                activeOrigin: 'yaml',
+                activeId: null,
+                activeName: 'Hardware YAML',
                 lastBootIdApplied: bootId,
                 lastBootAppliedId: null,
                 lastBootAppliedName: record.name,
