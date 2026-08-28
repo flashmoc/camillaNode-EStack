@@ -7,6 +7,14 @@ camillaNodeConfig.json
 currentConfig.json
 savedConfigs.dat
 
+# Raspberry-local spectrum variants used by the E-Stack analyzer path.
+# The canonical template setupFiles/spectrum.yml stays tracked; local tuned
+# copies stay on the Raspberry and must survive application updates.
+setupFiles/spectrum_preview.yml
+setupFiles/spectrum_real.yml
+setupFiles/spectrum_white.yml
+setupFiles/spectrum_*.yml.bak
+
 # Local environment / logs.
 .env
 .env.*
