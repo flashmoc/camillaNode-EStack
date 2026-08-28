@@ -355,7 +355,7 @@ function loudnessDraw() {
 
     ctx.fillStyle = text;
     ctx.textAlign = "left";
-    ctx.fillText("RELATIVE COMPENSATION · dB", left, 8);
+    ctx.fillText("LOUDNESS BOOST · dB", left, 8);
 }
 
 function loudnessRender() {
@@ -386,7 +386,7 @@ async function loudnessApplyPreset(key) {
                     reference_level: preset.referenceLevel,
                     high_boost: preset.highBoost,
                     low_boost: preset.lowBoost,
-                    attenuate_mid: true
+                    attenuate_mid: false
                 }
             };
             loudnessEnsureStep();
@@ -403,7 +403,11 @@ async function loudnessApplyPreset(key) {
                 throw new Error("Loudness stage is not before routing");
             }
             const filter = loudnessDSP.config.filters?.[ESTACK_LOUDNESS_FILTER];
-            if (filter?.type !== "Loudness" || filter?.parameters?.fader !== "Main") {
+            if (
+                filter?.type !== "Loudness" ||
+                filter?.parameters?.fader !== "Main" ||
+                filter?.parameters?.attenuate_mid !== false
+            ) {
                 throw new Error("Loudness filter validation failed");
             }
         }
@@ -446,7 +450,7 @@ async function loudnessInit() {
             const volume = Number(await loudnessDSP.sendDSPMessage("GetVolume"));
             if (Number.isFinite(volume)) loudnessMasterVolume = volume;
         } catch (_) {}
-        loudnessStatus("Connected · native CamillaDSP loudness", "ok");
+        loudnessStatus("Connected · native CamillaDSP loudness · boost mode", "ok");
         loudnessRender();
         loudnessTimer = setInterval(loudnessRefreshMaster, 700);
 
