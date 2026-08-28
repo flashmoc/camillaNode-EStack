@@ -22,6 +22,10 @@ RUNTIME_PATHS=(
     setupFiles/spectrum_white.yml
 )
 RUNTIME_PATTERN='^(camillaNodeConfig\.json|currentConfig\.json|savedConfigs\.dat|config(/|$)|setupFiles/spectrum_(preview|real|white)\.yml(\.bak)?)$'
+# package-lock.json is repository-owned, not runtime state. Old npm versions or
+# previous installs can leave it locally modified; it is safe to discard because
+# the update restores the canonical lockfile from Git before running npm ci.
+SAFE_RESET_PATTERN='^package-lock\.json$'
 BACKUP_DIR="$(mktemp -d)"
 trap 'rm -rf "$BACKUP_DIR"' EXIT
 
@@ -49,19 +53,24 @@ printf '\nE-Stack Raspberry update\n'
 printf 'Repository : %s\n' "$REPO"
 printf 'Branch     : %s\n\n' "$BRANCH"
 
-# Runtime files are allowed to differ. Any local code modification aborts the
-# update rather than being silently overwritten. The Raspberry-specific
-# spectrum variants are runtime configuration too; the tracked spectrum.yml is
-# only a template and is never treated as machine-local state.
+# Runtime files are allowed to differ. Any local application-code modification
+# aborts the update rather than being silently overwritten. Raspberry-specific
+# spectrum variants are runtime configuration. package-lock.json is explicitly
+# safe to normalize to the repository copy before npm ci.
 while IFS= read -r line; do
     [[ -z "$line" ]] && continue
     file="${line:3}"
     file="${file##* -> }"
-    if [[ ! "$file" =~ $RUNTIME_PATTERN ]]; then
-        echo "ERROR: local code/content changes detected; update aborted:" >&2
-        git status --short >&2
-        exit 1
+    if [[ "$file" =~ $RUNTIME_PATTERN ]]; then
+        continue
     fi
+    if [[ "$file" =~ $SAFE_RESET_PATTERN ]]; then
+        echo "Normalizing generated dependency lockfile: $file"
+        continue
+    fi
+    echo "ERROR: local code/content changes detected; update aborted:" >&2
+    git status --short >&2
+    exit 1
 done < <(git status --porcelain=v1)
 
 backup_runtime
@@ -70,6 +79,7 @@ PREVIOUS_HEAD="$(git rev-parse HEAD)"
 # Before the cleanup release some runtime files were tracked by Git. Normalize
 # only the tracked working tree after the backup so the first fast-forward can
 # delete those legacy tracked files without losing the local runtime copy.
+# This also restores package-lock.json to the repository-owned version.
 git reset --hard HEAD >/dev/null
 
 git remote set-url origin "$REPO"
