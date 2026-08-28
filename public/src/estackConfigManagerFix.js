@@ -1,7 +1,7 @@
 // E-Stack system configuration manager.
-// The sidebar "Configurations" action stores/restores complete DSP processing
-// snapshots independent of the page currently open. Hardware I/O devices and
-// mixer routing remain owned by the live Raspberry configuration.
+// The sidebar "System Configurations" action stores/restores complete DSP
+// processing snapshots independent of the page currently open. Hardware I/O
+// devices and mixer routing remain owned by the live Raspberry configuration.
 
 (function installEStackConfigManagerFix() {
     const SYSTEM_TYPE = "estack-system";
@@ -10,6 +10,7 @@
     const PEQ_SLOTS = 10;
     const GLOBAL_SLOTS = 10;
     const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
+    let startupPoll = null;
 
     function activePage() {
         const frame = document.getElementById("mainframe");
@@ -42,6 +43,141 @@
         el.textContent = message;
         el.dataset.state = state;
         el.style.color = state === "error" ? "#ff9b9b" : state === "ok" ? "#7fd8b2" : state === "busy" ? "#ffd37a" : "";
+    }
+
+    async function apiJson(url, options = {}) {
+        const response = await fetch(url, {
+            ...options,
+            headers: {
+                "Content-Type": "application/json",
+                ...(options.headers || {})
+            },
+            cache: "no-store"
+        });
+        let body = {};
+        try { body = await response.json(); }
+        catch (_) {}
+        if (!response.ok) throw new Error(body.reason || `Request failed (${response.status})`);
+        return body;
+    }
+
+    function presetIndicatorText(state) {
+        if (state?.activeOrigin !== "system") return "PRESET · Hardware YAML";
+        const name = state.activeName || "Unknown";
+        if (state.activeMissing) return `PRESET · ${name} · MISSING`;
+        if (state.dirty === true) return `PRESET · ${name} · MODIFIED`;
+        if (state.dirty === null) return `PRESET · ${name} · ?`;
+        return `PRESET · ${name}`;
+    }
+
+    function startupText(state) {
+        if (!state) return "Startup: —";
+        if (state.resolutionError) return `Startup ERROR: ${state.resolutionError}`;
+        if (state.mode === "specific") return `Startup: ${state.resolvedName || state.configName || "selected preset"}`;
+        if (state.mode === "last") return `Startup: LAST USED → ${state.resolvedName || state.lastUsedName || "none"}`;
+        return "Startup: Hardware YAML";
+    }
+
+    function renderStartupState(state) {
+        const indicator = document.getElementById("presetInd");
+        if (indicator) {
+            indicator.textContent = presetIndicatorText(state);
+            indicator.dataset.state = state?.dirty === true || state?.activeMissing ? "warning" : "ok";
+            indicator.title = `${presetIndicatorText(state)} · ${startupText(state)}`;
+        }
+
+        const startupStatus = document.getElementById("startupConfigStatus");
+        if (startupStatus) {
+            startupStatus.textContent = startupText(state);
+            startupStatus.dataset.state = state?.resolutionError ? "error" : "ok";
+        }
+    }
+
+    async function refreshStartupState() {
+        try {
+            const state = await apiJson("/api/startup-config");
+            renderStartupState(state);
+            return state;
+        } catch (error) {
+            const indicator = document.getElementById("presetInd");
+            if (indicator) {
+                indicator.textContent = "PRESET · unavailable";
+                indicator.dataset.state = "error";
+                indicator.title = error.message;
+            }
+            const startupStatus = document.getElementById("startupConfigStatus");
+            if (startupStatus) {
+                startupStatus.textContent = `Startup status unavailable: ${error.message}`;
+                startupStatus.dataset.state = "error";
+            }
+            return null;
+        }
+    }
+
+    async function markActiveConfiguration(record) {
+        if (!record?.id && !record?.name) return;
+        await apiJson("/api/startup-config/active", {
+            method: "POST",
+            body: JSON.stringify({ configId: record.id, configName: record.name })
+        });
+        await refreshStartupState();
+    }
+
+    async function setStartupMode(mode) {
+        const payload = { mode };
+        if (mode === "specific") {
+            const configName = document.getElementById("configName");
+            const id = configName?.getAttribute("configId");
+            const name = String(configName?.value || "").trim();
+            if (!id) {
+                status("Select a System Configuration first", "error");
+                return;
+            }
+            payload.configId = id;
+            payload.configName = name;
+        }
+
+        try {
+            const result = await apiJson("/api/startup-config", {
+                method: "POST",
+                body: JSON.stringify(payload)
+            });
+            renderStartupState(result);
+            status(startupText(result), "ok");
+        } catch (error) {
+            status(`STARTUP ERROR: ${error.message}`, "error");
+        }
+    }
+
+    function ensureStartupControls() {
+        const dialog = document.getElementById("manageConfigs");
+        const list = document.getElementById("configList");
+        if (!dialog || !list || document.getElementById("startupConfigControls")) return;
+
+        const wrapper = document.createElement("div");
+        wrapper.id = "startupConfigControls";
+
+        const label = document.createElement("div");
+        label.id = "startupConfigStatus";
+        label.textContent = "Startup: —";
+        wrapper.appendChild(label);
+
+        const buttons = document.createElement("div");
+        buttons.className = "startupConfigButtons";
+        const definitions = [
+            ["Hardware YAML", "yaml"],
+            ["Last used", "last"],
+            ["Selected preset", "specific"]
+        ];
+        for (const [text, mode] of definitions) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.textContent = text;
+            button.addEventListener("click", () => setStartupMode(mode));
+            buttons.appendChild(button);
+        }
+        wrapper.appendChild(buttons);
+        dialog.insertBefore(wrapper, list);
     }
 
     function snapshotUiState() {
@@ -154,6 +290,7 @@
     }
 
     window.getActivePage = activePage;
+    window.refreshSystemPresetIndicator = refreshStartupState;
 
     window.showManageConfigs = async function() {
         const mod = document.getElementById("manageConfigs");
@@ -161,11 +298,18 @@
         const configName = document.getElementById("configName");
         if (!mod || !configList || !configName) return;
 
+        ensureStartupControls();
         configName.value = "";
         configName.removeAttribute("configId");
         status("SYSTEM CONFIG · all DSP processing · hardware routing preserved");
-        try { await window.loadConfigs(SYSTEM_TYPE, configList); }
-        catch (error) { status(`ERROR: ${error?.message || error}`, "error"); }
+        try {
+            await Promise.all([
+                window.loadConfigs(SYSTEM_TYPE, configList),
+                refreshStartupState()
+            ]);
+        } catch (error) {
+            status(`ERROR: ${error?.message || error}`, "error");
+        }
 
         configName.oninput = () => window.loadConfigs(SYSTEM_TYPE, configList, configName.value)
             .catch(error => status(error.message, "error"));
@@ -209,10 +353,11 @@
                 await window.configsObject.saveConfigRemote(record, true);
             }
 
+            await markActiveConfiguration(record);
             await window.loadConfigs(SYSTEM_TYPE, configList);
             configName.value = "";
             configName.removeAttribute("configId");
-            status(`'${name}' saved · XO / PEQ / gain / delay / polarity / phase / dynamics`, "ok");
+            status(`'${name}' saved · now active`, "ok");
         } catch (error) {
             console.error("System configuration save failed", error);
             status(`SAVE ERROR: ${error?.message || error}`, "error");
@@ -235,6 +380,7 @@
 
             await restoreSystemConfiguration(config.data || {}, configName.value);
             window.configsObject.saveLastConfigLocal(configName.value);
+            await markActiveConfiguration(config);
             status(`'${configName.value}' applied`, "ok");
             document.getElementById("manageConfigs")?.close();
         } catch (error) {
@@ -259,10 +405,18 @@
             configName.value = "";
             configName.removeAttribute("configId");
             await window.loadConfigs(SYSTEM_TYPE, document.getElementById("configList"));
+            await refreshStartupState();
             status("System configuration deleted", "ok");
         } catch (error) {
             console.error("System configuration delete failed", error);
             status(`DELETE ERROR: ${error?.message || error}`, "error");
         }
     };
+
+    window.addEventListener("DOMContentLoaded", () => {
+        ensureStartupControls();
+        refreshStartupState();
+        if (startupPoll) clearInterval(startupPoll);
+        startupPoll = setInterval(refreshStartupState, 6000);
+    }, { once: true });
 })();
