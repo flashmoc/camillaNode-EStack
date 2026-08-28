@@ -34,9 +34,9 @@
         if (!fader) return;
 
         if (strip.classList.contains("master")) {
-            fader.step = "0.1";
+            if (fader.step !== "0.1") fader.step = "0.1";
             const numeric = strip.querySelector(".estack-fader-number");
-            if (numeric) numeric.step = "0.1";
+            if (numeric && numeric.step !== "0.1") numeric.step = "0.1";
         }
 
         let row = strip.querySelector(".estack-fader-nudges");
@@ -66,8 +66,9 @@
         }
 
         const locked = !strip.classList.contains("master") && strip.classList.contains("level-locked");
+        const shouldDisable = locked || strip.classList.contains("disabled");
         row.querySelectorAll("button").forEach(button => {
-            button.disabled = locked || strip.classList.contains("disabled");
+            if (button.disabled !== shouldDisable) button.disabled = shouldDisable;
         });
     }
 
