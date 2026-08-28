@@ -3,62 +3,58 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Per Way</title>
+    <title>Signal Generator</title>
     <link rel="stylesheet" href="/css/main.css">
     <link rel="stylesheet" href="/css/estackTheme.css">
-    <link rel="stylesheet" href="/css/estackEqV4.css">
     <link rel="stylesheet" href="/css/estackPerWay.css">
-    <link rel="stylesheet" href="/css/estackPerWayV2.css">
     <script src="/src/estackPerWay.js" defer></script>
-    <script src="/src/estackPerWayV2.js" defer></script>
 </head>
-<body class="estack-per-way">
-    <div class="per-way-page-title">
+<body class="estack-signal-generator">
+    <div class="signal-page-title">
         <div>
-            <img src="/img/icon/merge.png" class="icon" alt="">
-            <span>Per Way</span>
-            <small>speaker management</small>
+            <img src="/img/icon/advanced.png" alt="">
+            <strong>Signal Generator</strong>
+            <small>measurement utility</small>
         </div>
-        <button id="systemEditToggle" class="per-way-system-edit" aria-pressed="false">EDIT SYSTEM</button>
+        <div id="signalRuntimeState" class="signal-runtime-state">
+            <strong>NORMAL INPUT</strong>
+            <span>Generator off</span>
+        </div>
     </div>
 
-    <main class="per-way-shell">
-        <section class="per-way-waybar">
-            <div class="per-way-current">
-                <strong id="perWayTitle">SUB</strong>
-                <span id="perWayMeta">OUT 1</span>
-            </div>
-            <nav id="wayTabs" class="per-way-tabs" aria-label="E-Stack outputs"></nav>
-        </section>
-
-        <section class="per-way-generator">
+    <main class="signal-page">
+        <section class="signal-panel">
             <header>
-                <div>
-                    <strong>SIGNAL GENERATOR</strong>
-                    <small>Injected as CamillaDSP capture/input → mixer → XO → PEQ → gain/delay/phase → protection → output</small>
-                </div>
-                <div id="testSignalStatus" class="test-signal-status">
-                    <strong>NORMAL INPUT</strong><span>Generator off</span>
-                </div>
+                <strong>INTERNAL TEST SIGNAL</strong>
+                <span>CamillaDSP capture source · protected output routing</span>
             </header>
 
-            <div class="generator-grid">
-                <label class="generator-field">
+            <div class="signal-controls">
+                <label class="signal-field">
                     <span>Signal</span>
                     <select id="testType">
                         <option value="Sine">Sine</option>
                         <option value="WhiteNoise">White noise</option>
                     </select>
                 </label>
-                <label class="generator-field">
+
+                <label class="signal-field">
                     <span>Frequency</span>
-                    <div class="generator-number"><input id="testFrequency" type="number" min="10" max="20000" step="1" value="130"><span>Hz</span></div>
+                    <div class="signal-number">
+                        <input id="testFrequency" type="number" min="10" max="20000" step="1" value="130">
+                        <span>Hz</span>
+                    </div>
                 </label>
-                <label class="generator-field">
+
+                <label class="signal-field">
                     <span>Level</span>
-                    <div class="generator-number"><input id="testLevel" type="number" min="-80" max="-10" step="1" value="-40"><span>dBFS</span></div>
+                    <div class="signal-number">
+                        <input id="testLevel" type="number" min="-80" max="-10" step="1" value="-40">
+                        <span>dBFS</span>
+                    </div>
                 </label>
-                <label class="generator-field">
+
+                <label class="signal-field">
                     <span>Auto stop</span>
                     <select id="testDuration">
                         <option value="10">10 s</option>
@@ -69,31 +65,53 @@
                 </label>
             </div>
 
-            <div class="generator-row">
-                <div class="generator-row-label"><strong>OUTPUTS</strong><small>Select one or several ways for crossover alignment.</small></div>
-                <div id="testTargets" class="test-targets"></div>
+            <div class="signal-block">
+                <div class="signal-block-head">
+                    <strong>OUTPUTS</strong>
+                    <span>Select one or several ways, for example both sides of a crossover.</span>
+                </div>
+                <div id="signalTargets" class="signal-targets"></div>
             </div>
 
-            <div class="generator-row quick-row">
-                <div class="generator-row-label"><strong>QUICK FREQUENCIES</strong><small>Includes the selected way's actual crossover frequencies.</small></div>
+            <div class="signal-block">
+                <div class="signal-block-head">
+                    <strong>QUICK FREQUENCIES</strong>
+                    <span>Includes actual crossover frequencies from the selected outputs.</span>
+                </div>
                 <div id="quickFrequencies" class="quick-frequencies"></div>
             </div>
 
-            <div class="generator-actions">
-                <div>
-                    <strong id="testSafetyNote">Start low; -40 dBFS is the normal measurement starting point.</strong>
-                    <small>For REW frequency/phase/impulse sweeps: leave this generator OFF and send the REW sweep through the normal E-Stack input.</small>
+            <div class="signal-actions">
+                <div class="signal-safety">
+                    <strong id="signalSafety">Recommended starting level: -40 dBFS.</strong>
+                    <span>Signal stops automatically and the exact normal capture/routing configuration is restored.</span>
                 </div>
-                <button id="startTestSignal" class="generator-start">START TEST</button>
-                <button id="stopTestSignal" class="generator-stop" disabled>STOP ALL TEST SIGNAL</button>
+                <button id="startTestSignal" class="signal-start">START TEST</button>
+                <button id="stopTestSignal" class="signal-stop" disabled>STOP ALL TEST SIGNAL</button>
             </div>
         </section>
 
-        <section id="processingCards" class="per-way-cards"></section>
+        <div class="signal-info-grid">
+            <section class="signal-info-card">
+                <header><strong>DSP PATH</strong></header>
+                <div class="signal-info-body">
+                    <div class="signal-flow">
+                        <b>Signal Generator</b><i>→</i><b>Mixer</b><i>→</i><b>XO</b><i>→</i><b>PEQ</b><i>→</i><b>Gain / Delay / Phase</b><i>→</i><b>Protection</b><i>→</i><b>Output</b>
+                    </div>
+                </div>
+            </section>
 
-        <div class="per-way-statusbar">
-            <span id="perWayStatus">Connecting to CamillaDSP…</span>
-            <span>System parameters require EDIT SYSTEM · PEQ remains user-editable</span>
+            <section class="signal-info-card">
+                <header><strong>REW</strong></header>
+                <div class="signal-info-body">
+                    For REW sweep measurements of frequency response, impulse, delay and phase, leave this internal generator OFF. Send the REW sweep through the normal E-Stack input so the measurement traverses the real DSP chain.
+                </div>
+            </section>
+        </div>
+
+        <div class="signal-statusbar">
+            <span id="signalPageStatus">Connecting to CamillaDSP…</span>
+            <span>Sine for alignment / voltage checks · White noise for broadband checks</span>
         </div>
     </main>
 </body>
