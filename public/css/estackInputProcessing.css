@@ -1,0 +1,194 @@
+/* Input Processing additions: compact global L/R delay above Global EQ. */
+
+.input-processing-delay {
+    width: 100%;
+    margin: 0 0 5px;
+    border: 1px solid var(--eq-border);
+    background: var(--eq-shell);
+}
+
+.input-delay-head {
+    display: flex;
+    min-height: 30px;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 6px;
+    border-bottom: 1px solid var(--eq-border);
+    background: var(--eq-panel-2);
+}
+
+.input-delay-head-copy {
+    display: flex;
+    min-width: 0;
+    align-items: baseline;
+    gap: 7px;
+}
+
+.input-delay-head-copy strong {
+    color: var(--eq-text);
+    font-size: 8px;
+    font-weight: 700;
+}
+
+.input-delay-head-copy span {
+    color: var(--eq-dim);
+    font-size: 6px;
+    font-weight: 700;
+}
+
+#inputDelayState {
+    min-width: 46px;
+    padding: 3px 5px;
+    border: 1px solid var(--eq-border);
+    color: var(--eq-dim);
+    background: var(--eq-control-dark);
+    font-size: 6px;
+    font-weight: 700;
+    text-align: center;
+}
+
+#inputDelayState.active {
+    border-color: var(--eq-accent);
+    color: var(--eq-accent);
+}
+
+.input-delay-body {
+    display: grid;
+    grid-template-columns: minmax(190px, 1fr) auto auto;
+    align-items: center;
+    gap: 8px;
+    padding: 7px;
+}
+
+.input-delay-range-wrap {
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) 64px;
+    align-items: center;
+    gap: 8px;
+}
+
+#inputDelayRange {
+    appearance: none;
+    width: 100%;
+    height: 18px;
+    margin: 0;
+    background: transparent;
+    touch-action: pan-y;
+}
+
+#inputDelayRange::-webkit-slider-runnable-track {
+    height: 4px;
+    background: rgba(255,255,255,.18);
+}
+
+#inputDelayRange::-webkit-slider-thumb {
+    appearance: none;
+    width: 12px;
+    height: 18px;
+    margin-top: -7px;
+    border: 1px solid var(--eq-accent);
+    border-radius: 1px;
+    background: var(--eq-accent);
+}
+
+#inputDelayReadout {
+    color: var(--eq-accent);
+    font-size: 10px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.input-delay-nudge {
+    display: grid;
+    grid-template-columns: repeat(4, 42px);
+    gap: 2px;
+}
+
+.input-delay-nudge button,
+#inputDelayReset {
+    height: 28px;
+    border: 1px solid var(--eq-border) !important;
+    border-radius: 2px !important;
+    color: var(--eq-muted) !important;
+    background: var(--eq-control) !important;
+    font-size: 7px;
+    font-weight: 700;
+}
+
+.input-delay-nudge button:active,
+#inputDelayReset:active {
+    border-color: var(--eq-accent) !important;
+    color: var(--eq-text) !important;
+}
+
+.input-delay-number-wrap {
+    display: grid;
+    grid-template-columns: 78px 20px auto;
+    align-items: center;
+    gap: 4px;
+}
+
+#inputDelayNumber {
+    width: 78px;
+    height: 28px;
+    padding: 3px 6px;
+    border: 1px solid rgba(0,0,0,.5);
+    border-radius: 1px;
+    color: var(--eq-accent);
+    background: #142326;
+    font-size: 12px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+}
+
+.input-delay-number-wrap > span {
+    color: var(--eq-dim);
+    font-size: 7px;
+}
+
+#inputDelayReset {
+    min-width: 54px;
+    padding: 0 7px;
+}
+
+.input-delay-status {
+    min-height: 21px;
+    padding: 3px 7px;
+    border-top: 1px solid var(--eq-border);
+    color: var(--eq-dim);
+    background: var(--eq-control-dark);
+    font-size: 7px;
+}
+
+#inputDelayStatus[data-state="ok"] { color: var(--eq-ok); }
+#inputDelayStatus[data-state="error"] { color: var(--eq-danger); }
+#inputDelayStatus[data-state="busy"] { color: #ffd37a; }
+
+@media (max-width: 850px) {
+    .input-delay-body {
+        grid-template-columns: 1fr;
+        gap: 7px;
+    }
+
+    .input-delay-nudge {
+        grid-template-columns: repeat(4, 1fr);
+    }
+
+    .input-delay-nudge button,
+    #inputDelayReset,
+    #inputDelayNumber {
+        min-height: 42px;
+    }
+
+    .input-delay-number-wrap {
+        grid-template-columns: minmax(100px, 1fr) 22px auto;
+    }
+
+    #inputDelayNumber {
+        width: 100%;
+        font-size: 16px;
+    }
+}
