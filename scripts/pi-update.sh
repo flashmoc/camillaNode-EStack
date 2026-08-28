@@ -56,6 +56,12 @@ done < <(git status --porcelain=v1)
 backup_runtime
 PREVIOUS_HEAD="$(git rev-parse HEAD)"
 
+# Before this cleanup release, runtime files were tracked by Git. Normalize only
+# the tracked working tree after the backup so the first fast-forward can delete
+# those legacy tracked files without Git rejecting the update. Untracked runtime
+# presets remain untouched and the complete runtime snapshot is restored below.
+git reset --hard HEAD >/dev/null
+
 git remote set-url origin "$REPO"
 git fetch --prune origin "$BRANCH"
 if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
@@ -80,7 +86,7 @@ if command -v systemctl >/dev/null 2>&1 && systemctl cat camillanode.service >/d
         exit 1
     fi
 
-    PORT="$(node -e "const fs=require('fs');let p=80;try{p=JSON.parse(fs.readFileSync('camillaNodeConfig.json','utf8')).port||p}catch(_){};process.stdout.write(String(p))")"
+    PORT="$(node -e "const fs=require('fs');let p=8080;try{p=JSON.parse(fs.readFileSync('camillaNodeConfig.json','utf8')).port||p}catch(_){};process.stdout.write(String(p))")"
     HEALTH_OK=0
     for _ in {1..12}; do
         if node - "$PORT" <<'NODE' >/dev/null 2>&1
