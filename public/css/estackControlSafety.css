@@ -48,9 +48,18 @@
 }
 
 .estack-master-safety-dialog {
+    position: fixed !important;
+    inset: 0 !important;
+    top: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    left: 0 !important;
     width: min(420px, calc(100vw - 34px));
+    max-height: calc(100dvh - 34px);
+    margin: auto !important;
     box-sizing: border-box;
     padding: 0;
+    overflow: auto;
     border: 1px solid hsl(var(--bck-hue), 24%, 31%);
     border-radius: 6px;
     color: #eef2f3;
@@ -167,5 +176,25 @@
     }
     .estack-level-lock-button {
         min-width: 118px;
+    }
+}
+
+@media (max-width: 520px) {
+    .estack-master-safety-dialog {
+        width: calc(100vw - 20px);
+        max-height: calc(100dvh - 20px);
+    }
+
+    .estack-master-safety-head,
+    .estack-master-safety-dialog > p,
+    .estack-master-pin-label,
+    .estack-master-safety-actions {
+        padding-left: 12px;
+        padding-right: 12px;
+    }
+
+    .estack-master-safety-actions button {
+        flex: 1;
+        min-height: 42px;
     }
 }
