@@ -1,0 +1,171 @@
+/* E-Stack Control safety/lock visuals. Fader vertical geometry is untouched. */
+
+/* Visually separate MASTER from the calibrated output-way gains. */
+.estack-mixer-strip.master {
+    margin-right: 24px;
+}
+
+.estack-mixer-strip.master::after {
+    content: "";
+    position: absolute;
+    right: -13px;
+    top: 14px;
+    bottom: 14px;
+    width: 1px;
+    background: hsla(0,0%,100%,.10);
+}
+
+.estack-level-lock-button {
+    min-width: 132px;
+}
+
+.estack-level-lock-button.active {
+    color: #ffd78a;
+    border-color: rgba(255,195,82,.48);
+    background: rgba(110,73,18,.26);
+    box-shadow: inset 0 0 8px rgba(255,184,67,.08);
+}
+
+.estack-level-lock-button.active strong {
+    color: #ffd78a;
+}
+
+/* Keep meters live while making the editable gain controls visibly fixed. */
+.estack-mixer-strip.level-locked .estack-gain-rail,
+.estack-mixer-strip.level-locked .estack-fader-handle,
+.estack-mixer-strip.level-locked .estack-gain-scale,
+.estack-mixer-strip.level-locked .estack-fader-number-wrap {
+    opacity: .36;
+}
+
+.estack-mixer-strip.level-locked .estack-meter-core {
+    cursor: not-allowed;
+}
+
+.estack-mixer-strip.level-locked .estack-fader-number {
+    cursor: not-allowed;
+    color: #7f898c;
+}
+
+.estack-master-safety-dialog {
+    width: min(420px, calc(100vw - 34px));
+    box-sizing: border-box;
+    padding: 0;
+    border: 1px solid hsl(var(--bck-hue), 24%, 31%);
+    border-radius: 6px;
+    color: #eef2f3;
+    background: hsl(var(--bck-hue), 30%, 12%);
+    box-shadow: 0 18px 60px rgba(0,0,0,.60);
+    font-family: "Abel", sans-serif;
+}
+
+.estack-master-safety-dialog::backdrop {
+    background: rgba(2,7,8,.72);
+}
+
+.estack-master-safety-head {
+    min-height: 46px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 15px;
+    border-bottom: 1px solid hsla(0,0%,100%,.10);
+}
+
+.estack-master-safety-head strong {
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: .03em;
+}
+
+.estack-master-safety-head span {
+    color: #ffd78a;
+    font-size: 10px;
+}
+
+.estack-master-safety-dialog > p {
+    margin: 0;
+    padding: 14px 15px 10px;
+    color: hsla(0,0%,100%,.62);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+.estack-master-pin-label {
+    display: grid;
+    gap: 6px;
+    padding: 0 15px;
+}
+
+.estack-master-pin-label > span {
+    color: hsla(0,0%,100%,.42);
+    font-size: 9px;
+    letter-spacing: .05em;
+}
+
+#estackMasterSafetyPin {
+    width: 100%;
+    height: 36px;
+    box-sizing: border-box;
+    padding: 4px 10px;
+    border: 1px solid hsl(var(--bck-hue), 18%, 31%);
+    border-radius: 3px;
+    outline: none;
+    color: #f5f7f7;
+    background: #090d0e;
+    font-family: inherit;
+    font-size: 16px;
+    letter-spacing: .12em;
+}
+
+#estackMasterSafetyPin:focus {
+    border-color: hsl(var(--bck-hue), 52%, 52%);
+}
+
+.estack-master-safety-status {
+    min-height: 27px;
+    box-sizing: border-box;
+    margin: 0 15px;
+    padding: 7px 0 4px;
+    color: hsla(0,0%,100%,.42);
+    font-size: 10px;
+}
+
+.estack-master-safety-status[data-state="error"] { color: #ff9b9b; }
+.estack-master-safety-status[data-state="ok"] { color: #8fd9b8; }
+
+.estack-master-safety-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 7px;
+    padding: 10px 15px 14px;
+    border-top: 1px solid hsla(0,0%,100%,.07);
+}
+
+.estack-master-safety-actions button {
+    min-width: 82px;
+    height: 31px;
+    border: 1px solid hsl(var(--bck-hue), 20%, 29%);
+    border-radius: 3px;
+    color: hsla(0,0%,100%,.65);
+    background: hsl(var(--bck-hue), 28%, 15%);
+    font-family: inherit;
+    font-size: 10px;
+    cursor: pointer;
+}
+
+.estack-master-safety-actions button.primary {
+    color: hsl(var(--bck-hue), 62%, 84%);
+    border-color: hsl(var(--bck-hue), 42%, 42%);
+    background: hsl(var(--bck-hue), 42%, 18%);
+}
+
+@media (max-width: 900px) {
+    .estack-mixer-strip.master {
+        margin-right: 14px;
+    }
+    .estack-level-lock-button {
+        min-width: 118px;
+    }
+}
