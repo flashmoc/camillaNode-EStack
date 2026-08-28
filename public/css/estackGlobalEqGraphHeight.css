@@ -1,0 +1,18 @@
+/* E-Stack Input Processing — taller Global EQ graph.
+   Visual only: keeps the +/-12 dB scale and DSP behaviour unchanged. */
+
+body.global-eq-v4 .global-v2-canvas-wrap {
+    height: 300px !important;
+}
+
+@media (max-width: 1100px) {
+    body.global-eq-v4 .global-v2-canvas-wrap {
+        height: 260px !important;
+    }
+}
+
+@media (max-width: 700px) {
+    body.global-eq-v4 .global-v2-canvas-wrap {
+        height: 220px !important;
+    }
+}
