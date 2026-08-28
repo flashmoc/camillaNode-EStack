@@ -15,13 +15,14 @@ RUNTIME_PATHS=(
     camillaNodeConfig.json
     currentConfig.json
     savedConfigs.dat
+    startupConfig.json
     config
     setupFiles/spectrum_preview.yml
     setupFiles/spectrum_real.yml
     setupFiles/spectrum_real.yml.bak
     setupFiles/spectrum_white.yml
 )
-RUNTIME_PATTERN='^(camillaNodeConfig\.json|currentConfig\.json|savedConfigs\.dat|config(/|$)|setupFiles/spectrum_(preview|real|white)\.yml(\.bak)?)$'
+RUNTIME_PATTERN='^(camillaNodeConfig\.json|currentConfig\.json|savedConfigs\.dat|startupConfig\.json|config(/|$)|setupFiles/spectrum_(preview|real|white)\.yml(\.bak)?)$'
 # package-lock.json is repository-owned, not runtime state. Old npm versions or
 # previous installs can leave it locally modified; it is safe to discard because
 # the update restores the canonical lockfile from Git before running npm ci.
@@ -144,5 +145,5 @@ fi
 printf '\nUpdate complete.\n'
 printf 'Previous commit : %s\n' "$PREVIOUS_HEAD"
 printf 'Current commit  : %s\n' "$(git rev-parse HEAD)"
-echo "Runtime configs/presets and local spectrum variants were preserved."
+echo "Runtime configs/presets, startup preset state and local spectrum variants were preserved."
 echo "CamillaDSP, ALSA and DSP YAML were not modified."
