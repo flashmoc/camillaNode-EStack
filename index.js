@@ -12,6 +12,7 @@ const CONFIG_DIR = path.join(ROOT, 'config');
 const APP_CONFIG_FILE = path.join(ROOT, 'camillaNodeConfig.json');
 const CURRENT_CONFIG_FILE = path.join(ROOT, 'currentConfig.json');
 const SAVED_CONFIGS_FILE = path.join(ROOT, 'savedConfigs.dat');
+const STARTUP_CONFIG_FILE = path.join(ROOT, 'startupConfig.json');
 const DEFAULT_APP_CONFIG = { port: 80 };
 
 fs.mkdirSync(CONFIG_DIR, { recursive: true });
@@ -36,6 +37,7 @@ const PORT = Number.parseInt(process.env.CAMILLANODE_PORT || appConfig.port || D
 const DSP_HOST = process.env.CAMILLADSP_PROXY_HOST || '127.0.0.1';
 const DSP_PORT = Number.parseInt(process.env.CAMILLADSP_PORT || '1234', 10);
 const SPECTRUM_PORT = Number.parseInt(process.env.CAMILLA_SPECTRUM_PORT || '6413', 10);
+const DEMO_MODE = process.env.ESTACK_DEMO === '1';
 
 const app = express();
 app.disable('x-powered-by');
@@ -56,11 +58,11 @@ app.get('/preferences', sendPage('preferences.html'));
 
 app.get('/api/runtime', (_req, res) => {
     res.json({
-        mode: process.env.ESTACK_DEMO === '1' ? 'demo' : 'hardware',
+        mode: DEMO_MODE ? 'demo' : 'hardware',
         httpPort: PORT,
         dspPort: DSP_PORT,
         spectrumPort: SPECTRUM_PORT,
-        camillaGuiProxy: process.env.ESTACK_DEMO === '1' ? '/camillagui/gui/index.html' : null
+        camillaGuiProxy: DEMO_MODE ? '/camillagui/gui/index.html' : null
     });
 });
 
@@ -72,9 +74,22 @@ require('./server/signalGenerator')(app, {
     port: DSP_PORT
 });
 
+// Startup recall is server-side so a selected System Configuration is restored
+// at Raspberry boot even when no browser is open. It changes DSP processing only;
+// live hardware devices and mixer routing remain owned by the boot YAML.
+const startupConfiguration = require('./server/startupConfiguration')(app, {
+    WebSocket,
+    host: DSP_HOST,
+    port: DSP_PORT,
+    root: ROOT,
+    stateFile: STARTUP_CONFIG_FILE,
+    savedConfigsFile: SAVED_CONFIGS_FILE,
+    demo: DEMO_MODE
+});
+
 // Codespaces only: keep CamillaGUI on the CamillaNode origin. Raspberry installs
 // use CamillaGUI directly and never enter this proxy path.
-const camillaGuiProxyEnabled = process.env.ESTACK_DEMO === '1';
+const camillaGuiProxyEnabled = DEMO_MODE;
 const camillaGuiProxyHost = process.env.CAMILLAGUI_PROXY_HOST || '127.0.0.1';
 const camillaGuiProxyPort = Number.parseInt(process.env.CAMILLAGUI_PORT || '5005', 10);
 
@@ -315,6 +330,7 @@ server.on('upgrade', (request, socket, head) => {
 });
 
 server.listen(PORT, () => {
-    const mode = process.env.ESTACK_DEMO === '1' ? ' [E-Stack demo]' : '';
+    const mode = DEMO_MODE ? ' [E-Stack demo]' : '';
     console.log(`CamillaNode is running on port ${PORT}${mode}...`);
+    startupConfiguration.scheduleBootApply();
 });
