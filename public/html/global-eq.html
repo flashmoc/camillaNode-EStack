@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Global EQ</title>
+    <title>Input Processing</title>
     <link rel="stylesheet" href="/css/main.css">
     <link rel="stylesheet" href="/css/estackEqV4.css">
     <link rel="stylesheet" href="/css/estackEqKnobGeometry.css">
     <link rel="stylesheet" href="/css/estackEqResponsive.css">
     <link rel="stylesheet" href="/css/estackTheme.css">
+    <link rel="stylesheet" href="/css/estackInputProcessing.css">
 
+    <script src="/src/estackInputDelay.js" defer></script>
     <script src="/src/estackGlobalEq.js" defer></script>
     <script src="/src/estackGlobalEqCanvasFix.js" defer></script>
     <script src="/src/estackGlobalEqV2.js" defer></script>
@@ -17,16 +19,47 @@
 </head>
 <body class="global-eq-v4 global-v2-page">
     <div class="global-v2-head">
-        <div class="global-v2-title"><strong>GLOBAL EQ</strong></div>
+        <div class="global-v2-title"><strong>INPUT PROCESSING</strong></div>
         <div class="global-v2-badges">
             <span>INPUT L/R</span>
             <span>PRE-ROUTING</span>
-            <span id="globalEqActiveCount">0 ACTIVE</span>
+            <span>GUARDED</span>
         </div>
     </div>
 
+    <section class="input-processing-delay" aria-label="Global input delay">
+        <div class="input-delay-head">
+            <div class="input-delay-head-copy">
+                <strong>INPUT DELAY</strong>
+                <span>GLOBAL L/R · preserves all relative output delays</span>
+            </div>
+            <span id="inputDelayState">BYPASS</span>
+        </div>
+
+        <div class="input-delay-body">
+            <div class="input-delay-range-wrap">
+                <input id="inputDelayRange" class="input-delay-control" type="range" min="0" max="500" step="0.1" value="0" aria-label="Input delay quick range">
+                <output id="inputDelayReadout">0.0 ms</output>
+            </div>
+
+            <div class="input-delay-nudge" aria-label="Input delay nudges">
+                <button type="button" class="input-delay-control" data-delay-step="-10">−10</button>
+                <button type="button" class="input-delay-control" data-delay-step="-1">−1</button>
+                <button type="button" class="input-delay-control" data-delay-step="1">+1</button>
+                <button type="button" class="input-delay-control" data-delay-step="10">+10</button>
+            </div>
+
+            <div class="input-delay-number-wrap">
+                <input id="inputDelayNumber" class="input-delay-control" type="number" min="0" max="2000" step="0.1" inputmode="decimal" value="0.0" aria-label="Input delay in milliseconds">
+                <span>ms</span>
+                <button type="button" id="inputDelayReset" class="input-delay-control">RESET</button>
+            </div>
+        </div>
+        <div id="inputDelayStatus" class="input-delay-status">Connecting to CamillaDSP…</div>
+    </section>
+
     <div class="global-v2-graph-panel">
-        <div class="global-v2-graph-head"><strong>RESPONSE / ANALYZER</strong></div>
+        <div class="global-v2-graph-head"><strong>GLOBAL EQ · RESPONSE / ANALYZER</strong></div>
         <div class="global-v2-canvas-wrap">
             <canvas id="globalEqCanvas"></canvas>
         </div>
