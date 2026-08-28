@@ -73,8 +73,7 @@
         overflow: hidden;
     }
 
-    /* Mobile navigation becomes a compact horizontal tab strip. Only the seven
-       primary pages are shown; desktop-only tools do not steal vertical space. */
+    /* Mobile navigation becomes a compact horizontal tab strip. */
     #sectionLeft {
         box-sizing: border-box;
         display: flex !important;
@@ -95,21 +94,17 @@
         scrollbar-width: none;
     }
 
-    #sectionLeft::-webkit-scrollbar {
-        display: none;
-    }
-
-    #sectionLeft > * {
-        display: none !important;
-    }
+    #sectionLeft::-webkit-scrollbar { display: none; }
+    #sectionLeft > * { display: none !important; }
 
     #sectionLeft > .navigate[target="/connections"],
     #sectionLeft > .navigate[target="/basic"],
+    #sectionLeft > .navigate[target="/html/loudness.html"],
     #sectionLeft > .navigate[target="/html/global-eq.html"],
     #sectionLeft > .navigate[target="/equalizer"],
     #sectionLeft > .navigate[target="/advanced"],
-    #sectionLeft > .navigate[target="/room"],
-    #sectionLeft > .navigate[target="/preferences"] {
+    #sectionLeft > .navigate[target="/preferences"],
+    #sectionLeft > #manageConfigsNav {
         box-sizing: border-box;
         display: flex !important;
         flex: 0 0 auto;
@@ -176,17 +171,49 @@
         top: 50% !important;
         transform: translate(-50%, -50%) !important;
     }
+
+    #manageConfigs {
+        padding: 14px !important;
+        overflow: auto !important;
+    }
+
+    #manageConfigs #configName {
+        box-sizing: border-box;
+        width: 100% !important;
+        min-height: 44px;
+        margin: 7px 0 10px;
+        padding: 8px 10px;
+        font-size: 16px;
+    }
+
+    #manageConfigs #configList {
+        max-height: 40dvh;
+        margin-bottom: 10px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #manageConfigs > .navigate {
+        box-sizing: border-box;
+        display: flex !important;
+        width: 100% !important;
+        min-height: 44px !important;
+        margin: 5px 0 !important;
+        padding: 9px 11px !important;
+        align-items: center;
+    }
 }
 
 @media (max-width: 390px) {
     #title span { font-size: 21px; }
     #sectionLeft > .navigate[target="/connections"],
     #sectionLeft > .navigate[target="/basic"],
+    #sectionLeft > .navigate[target="/html/loudness.html"],
     #sectionLeft > .navigate[target="/html/global-eq.html"],
     #sectionLeft > .navigate[target="/equalizer"],
     #sectionLeft > .navigate[target="/advanced"],
-    #sectionLeft > .navigate[target="/room"],
-    #sectionLeft > .navigate[target="/preferences"] {
+    #sectionLeft > .navigate[target="/preferences"],
+    #sectionLeft > #manageConfigsNav {
         padding-inline: 9px !important;
     }
 }
