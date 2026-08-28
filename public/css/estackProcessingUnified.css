@@ -85,6 +85,13 @@ body.global-eq-v4 {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 12px;
+}
+.global-eq-v4 .global-v2-graph-head > span {
+    color: hsla(0,0%,100%,.40);
+    font-size: 10px;
+    font-weight: 400;
+    text-align: right;
 }
 
 .global-eq-v4 .global-v2-canvas-wrap {
@@ -98,8 +105,15 @@ body.global-eq-v4 {
 .global-eq-v4 .global-v2-console.estack-peq-console.estack-eq8-console {
     display: grid !important;
     grid-template-columns: minmax(0, 1fr) 170px !important;
+    grid-template-areas: "peq analyzer" !important;
     gap: 8px !important;
     padding: 0 !important;
+}
+.global-eq-v4 .estack-peq-equalizer {
+    grid-area: peq;
+}
+.global-eq-v4 .estack-eq8-analyzer {
+    grid-area: analyzer;
 }
 
 .global-eq-v4 .estack-peq-equalizer,
@@ -178,7 +192,7 @@ body.global-eq-v4 {
     border-left: 1px solid hsla(0,0%,100%,.09) !important;
 }
 
-/* Delay is deliberately last: acoustic/global timing after the EQ editing rack. */
+/* The global delay is visually placed after the EQ rack as requested. */
 .global-eq-v4 .input-processing-delay {
     margin-top: 2px !important;
 }
@@ -439,7 +453,10 @@ body.global-eq-v4 {
 }
 
 @media (max-width: 1120px) {
-    .global-eq-v4 .global-v2-console.estack-peq-console.estack-eq8-console,
+    .global-eq-v4 .global-v2-console.estack-peq-console.estack-eq8-console {
+        grid-template-columns: 1fr !important;
+        grid-template-areas: "peq" "analyzer" !important;
+    }
     .estack-eq-v4 .estack-peq-console.estack-eq8-console {
         grid-template-columns: 1fr !important;
         grid-template-areas: "xovers" "peq" "analyzer" !important;
@@ -473,6 +490,14 @@ body.global-eq-v4 {
         width: calc(100% - 16px) !important;
         margin-left: 8px !important;
         margin-right: 8px !important;
+    }
+    .global-eq-v4 .global-v2-graph-head {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 2px;
+    }
+    .global-eq-v4 .global-v2-graph-head > span {
+        text-align: left;
     }
     .global-eq-v4 .global-v2-canvas-wrap,
     .estack-eq-v4 .venu-graph-wrap {
