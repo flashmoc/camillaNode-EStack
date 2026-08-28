@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+ROOT_DIR="${ESTACK_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 BRANCH="${ESTACK_BRANCH:-camilladsp-4.1-estack}"
 REPO="${ESTACK_REPO:-https://github.com/flashmoc/camillaNode-EStack.git}"
 cd "$ROOT_DIR"
