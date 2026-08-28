@@ -1,0 +1,236 @@
+/* E-Stack Global EQ import/preset UI — aligned with Control/Processing styling. */
+
+.global-eq-preset-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 5px;
+    margin-left: auto;
+}
+
+.global-eq-tool-button,
+.global-eq-preset-actions #globalEqResetAll {
+    min-height: 29px !important;
+    padding: 0 10px !important;
+    border: 1px solid hsla(0,0%,100%,.15) !important;
+    border-radius: 3px !important;
+    color: hsla(0,0%,100%,.68) !important;
+    background: hsl(var(--bck-hue), 25%, 12%) !important;
+    font-family: "Abel", sans-serif !important;
+    font-size: 9px !important;
+    font-weight: 600 !important;
+    letter-spacing: .02em;
+    cursor: pointer;
+}
+
+.global-eq-tool-button:hover,
+.global-eq-preset-actions #globalEqResetAll:hover {
+    color: #f2f5f6 !important;
+    border-color: hsl(var(--bck-hue), 40%, 39%) !important;
+}
+
+.global-eq-tool-dialog {
+    width: min(640px, calc(100vw - 36px));
+    max-height: min(720px, calc(100vh - 36px));
+    box-sizing: border-box;
+    padding: 0;
+    border: 1px solid hsl(var(--bck-hue), 22%, 30%);
+    border-radius: 6px;
+    color: #eef2f3;
+    background: hsl(var(--bck-hue), 30%, 11%);
+    box-shadow: 0 20px 70px rgba(0,0,0,.62);
+    font-family: "Abel", sans-serif;
+}
+
+.global-eq-tool-dialog::backdrop {
+    background: rgba(2,7,8,.72);
+}
+
+.global-eq-dialog-head {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 0 14px;
+    border-bottom: 1px solid hsla(0,0%,100%,.10);
+}
+
+.global-eq-dialog-head strong {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.global-eq-dialog-head > button {
+    width: 30px;
+    height: 30px;
+    border: 0;
+    color: hsla(0,0%,100%,.55);
+    background: transparent;
+    font-size: 22px;
+    cursor: pointer;
+}
+
+.global-eq-tool-dialog > p {
+    margin: 0;
+    padding: 13px 14px 9px;
+    color: hsla(0,0%,100%,.58);
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.global-eq-tool-dialog code {
+    color: hsl(var(--bck-hue), 55%, 75%);
+}
+
+#globalEqImportText {
+    display: block;
+    width: calc(100% - 28px);
+    min-height: 260px;
+    box-sizing: border-box;
+    margin: 0 14px;
+    padding: 10px;
+    resize: vertical;
+    border: 1px solid hsl(var(--bck-hue), 17%, 27%);
+    border-radius: 3px;
+    outline: none;
+    color: #e9eeee;
+    background: #080d0e;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+#globalEqImportText:focus,
+#globalEqPresetName:focus {
+    border-color: hsl(var(--bck-hue), 48%, 46%);
+}
+
+.global-eq-dialog-status {
+    min-height: 30px;
+    box-sizing: border-box;
+    padding: 8px 14px 5px;
+    color: hsla(0,0%,100%,.48);
+    font-size: 10px;
+}
+.global-eq-dialog-status[data-state="busy"] { color: #ffd37a; }
+.global-eq-dialog-status[data-state="ok"] { color: #8fd9b8; }
+.global-eq-dialog-status[data-state="error"] { color: #ff9b9b; }
+
+.global-eq-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    padding: 10px 14px 14px;
+    border-top: 1px solid hsla(0,0%,100%,.07);
+}
+
+.global-eq-dialog-actions button,
+.global-eq-preset-name-row button {
+    min-width: 86px;
+    height: 32px;
+    border: 1px solid hsl(var(--bck-hue), 20%, 29%);
+    border-radius: 3px;
+    color: hsla(0,0%,100%,.66);
+    background: hsl(var(--bck-hue), 28%, 15%);
+    font-family: inherit;
+    font-size: 9px;
+    cursor: pointer;
+}
+
+.global-eq-dialog-actions button.primary {
+    color: hsl(var(--bck-hue), 60%, 84%);
+    border-color: hsl(var(--bck-hue), 42%, 42%);
+    background: hsl(var(--bck-hue), 42%, 18%);
+}
+
+.global-eq-preset-name-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 7px;
+    padding: 13px 14px 10px;
+}
+
+#globalEqPresetName {
+    width: 100%;
+    height: 34px;
+    box-sizing: border-box;
+    padding: 4px 9px;
+    border: 1px solid hsl(var(--bck-hue), 18%, 28%);
+    border-radius: 3px;
+    outline: none;
+    color: #f0f3f4;
+    background: #090d0e;
+    font-family: inherit;
+    font-size: 12px;
+}
+
+.global-eq-preset-list {
+    min-height: 180px;
+    max-height: 360px;
+    overflow-y: auto;
+    margin: 0 14px;
+    border-top: 1px solid hsla(0,0%,100%,.08);
+    border-bottom: 1px solid hsla(0,0%,100%,.08);
+}
+
+.global-eq-preset-item {
+    width: 100%;
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 0 8px;
+    border: 0;
+    border-bottom: 1px solid hsla(0,0%,100%,.06);
+    color: hsla(0,0%,100%,.68);
+    background: transparent;
+    font-family: inherit;
+    cursor: pointer;
+}
+
+.global-eq-preset-item strong {
+    font-size: 12px;
+    font-weight: 500;
+}
+.global-eq-preset-item span {
+    color: hsla(0,0%,100%,.36);
+    font-size: 9px;
+}
+.global-eq-preset-item:hover,
+.global-eq-preset-item.selected {
+    color: #fff;
+    background: hsla(var(--bck-hue), 45%, 28%, .24);
+}
+.global-eq-preset-item.selected {
+    box-shadow: inset 2px 0 0 hsl(var(--bck-hue), 60%, 60%);
+}
+
+.global-eq-preset-empty {
+    padding: 20px 8px;
+    color: hsla(0,0%,100%,.40);
+    font-size: 11px;
+}
+
+@media (max-width: 700px) {
+    .global-eq-preset-actions {
+        width: 100%;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+    }
+    .global-eq-tool-button,
+    .global-eq-preset-actions #globalEqResetAll,
+    .global-eq-dialog-actions button,
+    .global-eq-preset-name-row button {
+        min-height: 40px !important;
+        font-size: 11px !important;
+    }
+    .global-eq-preset-name-row {
+        grid-template-columns: 1fr;
+    }
+    #globalEqImportText {
+        min-height: 220px;
+        font-size: 12px;
+    }
+}
