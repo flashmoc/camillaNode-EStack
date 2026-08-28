@@ -11,8 +11,17 @@ if [[ ! -d .git ]]; then
     exit 1
 fi
 
-RUNTIME_PATHS=(camillaNodeConfig.json currentConfig.json savedConfigs.dat config)
-RUNTIME_PATTERN='^(camillaNodeConfig\.json|currentConfig\.json|savedConfigs\.dat|config(/|$))'
+RUNTIME_PATHS=(
+    camillaNodeConfig.json
+    currentConfig.json
+    savedConfigs.dat
+    config
+    setupFiles/spectrum_preview.yml
+    setupFiles/spectrum_real.yml
+    setupFiles/spectrum_real.yml.bak
+    setupFiles/spectrum_white.yml
+)
+RUNTIME_PATTERN='^(camillaNodeConfig\.json|currentConfig\.json|savedConfigs\.dat|config(/|$)|setupFiles/spectrum_(preview|real|white)\.yml(\.bak)?)$'
 BACKUP_DIR="$(mktemp -d)"
 trap 'rm -rf "$BACKUP_DIR"' EXIT
 
@@ -41,7 +50,9 @@ printf 'Repository : %s\n' "$REPO"
 printf 'Branch     : %s\n\n' "$BRANCH"
 
 # Runtime files are allowed to differ. Any local code modification aborts the
-# update rather than being silently overwritten.
+# update rather than being silently overwritten. The Raspberry-specific
+# spectrum variants are runtime configuration too; the tracked spectrum.yml is
+# only a template and is never treated as machine-local state.
 while IFS= read -r line; do
     [[ -z "$line" ]] && continue
     file="${line:3}"
@@ -56,10 +67,9 @@ done < <(git status --porcelain=v1)
 backup_runtime
 PREVIOUS_HEAD="$(git rev-parse HEAD)"
 
-# Before this cleanup release, runtime files were tracked by Git. Normalize only
-# the tracked working tree after the backup so the first fast-forward can delete
-# those legacy tracked files without Git rejecting the update. Untracked runtime
-# presets remain untouched and the complete runtime snapshot is restored below.
+# Before the cleanup release some runtime files were tracked by Git. Normalize
+# only the tracked working tree after the backup so the first fast-forward can
+# delete those legacy tracked files without losing the local runtime copy.
 git reset --hard HEAD >/dev/null
 
 git remote set-url origin "$REPO"
@@ -118,4 +128,5 @@ fi
 printf '\nUpdate complete.\n'
 printf 'Previous commit : %s\n' "$PREVIOUS_HEAD"
 printf 'Current commit  : %s\n' "$(git rev-parse HEAD)"
-echo "Runtime configs/presets were preserved. CamillaDSP, ALSA and DSP YAML were not modified."
+echo "Runtime configs/presets and local spectrum variants were preserved."
+echo "CamillaDSP, ALSA and DSP YAML were not modified."
