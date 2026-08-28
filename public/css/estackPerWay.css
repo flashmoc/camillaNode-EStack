@@ -7,6 +7,31 @@ body.estack-per-way {
     font-size: 14px;
 }
 
+/* main.css is shared with the parent shell and contains generic `main` and
+   `section` rules for the outer CamillaNode frame. Per Way is itself loaded
+   inside that frame, so those rules must be neutralised here. Without this,
+   the page gets the 220px navigation grid again and every inner section is
+   forced to 100% height, producing the huge blank blocks seen in Codespaces. */
+body.estack-per-way main.per-way-shell {
+    width: 98%;
+    margin: 0 1%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: auto;
+    gap: 10px;
+    height: auto;
+    min-height: 0;
+}
+body.estack-per-way main.per-way-shell > section {
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+    padding-block: 0;
+}
+body.estack-per-way #processingCards {
+    border-top: 0;
+}
+
 .per-way-page-title {
     width: 98%;
     margin: 8px 1% 10px;
