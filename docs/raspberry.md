@@ -6,6 +6,19 @@ The deployment scripts in this repository manage **CamillaNode only**. They do n
 
 ## Existing E-Stack Raspberry
 
+### First update from a legacy checkout
+
+Older E-Stack checkouts tracked runtime files such as `camillaNodeConfig.json` and saved configs. They also do not yet contain the new safe updater. Bootstrap the first cleanup update directly from the current branch while explicitly pointing it at the existing checkout:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/flashmoc/camillaNode-EStack/camilladsp-4.1-estack/scripts/pi-update.sh \
+  | ESTACK_ROOT="$HOME/camillanode" bash
+```
+
+The updater first accepts differences only in known runtime paths, backs those files up, normalizes the old tracked copies, fast-forwards Git, then restores the runtime snapshot. Unknown application-code edits still abort the migration.
+
+### Normal updates after migration
+
 From the existing checkout:
 
 ```bash
@@ -17,12 +30,13 @@ The update sequence is:
 
 1. abort if local application code has uncommitted edits;
 2. copy machine-local runtime files to a temporary backup;
-3. fast-forward the `camilladsp-4.1-estack` branch;
-4. restore runtime state;
-5. run `npm ci --omit=dev`;
-6. run `npm run check`;
-7. restart `camillanode.service` if it exists;
-8. verify the local `/api/runtime` endpoint.
+3. normalize legacy tracked runtime files when needed;
+4. fast-forward the `camilladsp-4.1-estack` branch;
+5. restore runtime state;
+6. run `npm ci --omit=dev`;
+7. run `npm run check`;
+8. restart `camillanode.service` if it exists;
+9. verify the local `/api/runtime` endpoint.
 
 Runtime files preserved by the updater:
 
