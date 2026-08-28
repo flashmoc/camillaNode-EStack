@@ -28,6 +28,7 @@ function checkRequired(relative) {
 const required = [
     'index.js',
     'server/signalGenerator.js',
+    'server/startupConfiguration.js',
     'public/html/main.html',
     'public/html/basic.html',
     'public/html/loudness.html',
@@ -77,7 +78,7 @@ for (const forbidden of forbiddenTracked) {
     }
 }
 
-for (const runtime of ['camillaNodeConfig.json', 'currentConfig.json', 'savedConfigs.dat']) {
+for (const runtime of ['camillaNodeConfig.json', 'currentConfig.json', 'savedConfigs.dat', 'startupConfig.json']) {
     if (tracked.includes(runtime)) fail(`runtime file must not be tracked: ${runtime}`);
 }
 for (const file of tracked.filter(file => file.startsWith('config/') && file !== 'config/.gitkeep')) {
@@ -103,16 +104,23 @@ const mainHtml = fs.readFileSync(path.join(PUBLIC, 'html', 'main.html'), 'utf8')
 if (!mainHtml.includes('target="/signal-generator"')) fail('main navigation is missing /signal-generator');
 if (mainHtml.includes('target="/per-way"')) fail('main navigation still exposes legacy /per-way');
 if (!mainHtml.includes('System Configurations')) fail('main navigation is missing system configuration manager label');
+if (!mainHtml.includes('id="presetInd"')) fail('header is missing active preset indicator');
 if (mainHtml.includes('estackOutputPresetGuard.js')) fail('obsolete page-scoped output preset layer is still loaded');
 
 const serverSource = fs.readFileSync(path.join(ROOT, 'index.js'), 'utf8');
 if (!serverSource.includes("app.get('/signal-generator'")) fail('server is missing /signal-generator route');
 if (!serverSource.includes("app.get('/per-way'")) fail('legacy /per-way redirect is missing');
 if (!serverSource.includes("require('./server/signalGenerator')")) fail('signal generator backend is not isolated under server/');
+if (!serverSource.includes("require('./server/startupConfiguration')")) fail('startup configuration backend is not registered');
+
+const configManagerSource = fs.readFileSync(path.join(PUBLIC, 'src', 'estackConfigManagerFix.js'), 'utf8');
+if (!configManagerSource.includes('/api/startup-config')) fail('system configuration UI is missing startup configuration API');
+if (!configManagerSource.includes('/api/startup-config/active')) fail('system configuration UI is missing active preset tracking');
 
 for (const file of [
     'index.js',
     'server/signalGenerator.js',
+    'server/startupConfiguration.js',
     'scripts/repo-check.js',
     'public/src/estackConfigManagerFix.js'
 ]) {
@@ -131,5 +139,6 @@ if (failures) {
 ok('active UI assets resolve');
 ok('legacy duplicate paths are not tracked');
 ok('runtime state is repository-independent');
+ok('startup configuration integration is present');
 ok('server-side JavaScript parses');
 console.log('\nE-Stack repository check passed.');
