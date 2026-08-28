@@ -1,0 +1,490 @@
+/* E-Stack Processing pages — visual hierarchy aligned with Control.
+   Scope is intentionally limited to Input/Output Processing. */
+
+body.global-eq-v4,
+body.estack-eq-v4 {
+    margin: 0 !important;
+    padding: 0 0 24px !important;
+    color: #f0f3f4;
+    background: hsl(var(--bck-hue), 30%, 11%) !important;
+    font-family: "Abel", sans-serif !important;
+    font-size: 14px;
+}
+
+.processing-page-title {
+    margin: 8px 1% 10px;
+    font-size: 30px;
+    font-weight: 400;
+    line-height: 1.2;
+}
+.processing-page-title img {
+    height: 30px;
+    padding-right: 15px;
+    filter: invert(1);
+    transform: translateY(5px);
+}
+
+.processing-section-head,
+.global-v2-graph-head,
+.estack-peq-eq-head,
+.estack-eq8-analyzer-head,
+.estack-peq-xover-title,
+.estack-v2-card > header,
+.input-delay-head {
+    min-height: 36px !important;
+    box-sizing: border-box;
+    padding: 5px 2px 6px !important;
+    border: 0 !important;
+    border-bottom: 1px solid hsla(0,0%,100%,.10) !important;
+    background: transparent !important;
+}
+
+.global-v2-graph-head strong,
+.estack-peq-eq-head strong,
+.estack-eq8-analyzer-head strong,
+.estack-peq-xover-title strong,
+.estack-v2-card > header strong,
+.input-delay-head-copy strong {
+    color: #f0f3f4 !important;
+    font-size: 14px !important;
+    font-weight: 600 !important;
+    letter-spacing: .015em;
+}
+
+.estack-peq-eq-head span,
+.estack-peq-xover-title span,
+.estack-v2-card > header span,
+.input-delay-head-copy span {
+    color: hsla(0,0%,100%,.40) !important;
+    font-size: 9px !important;
+    font-weight: 400 !important;
+}
+
+/* ---------------- Input Processing ---------------- */
+body.global-eq-v4 {
+    padding-inline: 0 !important;
+}
+
+.global-eq-v4 .global-v2-head {
+    display: none !important;
+}
+
+.global-eq-v4 .global-v2-graph-panel,
+.global-eq-v4 .global-v2-console,
+.global-eq-v4 .input-processing-delay,
+.global-eq-v4 .global-v2-statusbar {
+    width: 98% !important;
+    margin: 0 1% 9px !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.global-eq-v4 .global-v2-graph-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.global-eq-v4 .global-v2-canvas-wrap {
+    height: 238px !important;
+    margin: 6px 0 0 !important;
+    border: 1px solid hsla(0,0%,100%,.10) !important;
+    border-radius: 2px;
+    background: hsl(var(--bck-hue), 24%, 8%) !important;
+}
+
+.global-eq-v4 .global-v2-console.estack-peq-console.estack-eq8-console {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 170px !important;
+    gap: 8px !important;
+    padding: 0 !important;
+}
+
+.global-eq-v4 .estack-peq-equalizer,
+.global-eq-v4 .estack-eq8-analyzer,
+.global-eq-v4 .input-processing-delay {
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.global-eq-v4 .global-v2-bands.estack-peq-strips {
+    min-width: 0 !important;
+    display: grid !important;
+    grid-template-columns: repeat(10, minmax(92px, 1fr)) !important;
+    gap: 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+    overflow-x: auto;
+}
+
+.global-eq-v4 .global-v2-band.estack-peq-strip {
+    min-height: 222px !important;
+    padding: 0 7px 7px !important;
+    background: transparent !important;
+    border-right: 1px solid hsla(0,0%,100%,.09) !important;
+}
+.global-eq-v4 .global-v2-band.estack-peq-strip:first-child {
+    border-left: 1px solid hsla(0,0%,100%,.09) !important;
+}
+
+.global-eq-v4 .estack-peq-strip-head {
+    min-height: 32px !important;
+    margin: 0 -7px 5px !important;
+    padding: 4px 7px !important;
+}
+.global-eq-v4 .estack-peq-strip-head strong {
+    width: 21px !important;
+    height: 21px !important;
+    font-size: 10px !important;
+}
+
+.global-eq-v4 .estack-eq8-knob {
+    width: 50px !important;
+    height: 50px !important;
+}
+.global-eq-v4 .estack-eq8-knob-marker {
+    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-17px) !important;
+}
+.global-eq-v4 .estack-eq8-knob-label,
+.global-eq-v4 .estack-eq8-q-label,
+.global-eq-v4 .global-v2-analyzer-label {
+    font-size: 9px !important;
+}
+.global-eq-v4 .estack-eq8-number {
+    width: 62px !important;
+    height: 24px !important;
+    font-size: 11px !important;
+}
+.global-eq-v4 .estack-eq8-q-value {
+    min-width: 36px !important;
+    font-size: 10px !important;
+}
+.global-eq-v4 .estack-eq8-type button,
+.global-eq-v4 .estack-eq8-reset,
+.global-eq-v4 .global-v2-analyzer-modes button,
+.global-eq-v4 .global-v2-analyzer-button,
+.global-eq-v4 .global-v2-reset-all {
+    min-height: 25px !important;
+    font-size: 9px !important;
+}
+
+.global-eq-v4 .estack-eq8-analyzer {
+    gap: 9px !important;
+    padding: 0 0 8px 8px !important;
+    border-left: 1px solid hsla(0,0%,100%,.09) !important;
+}
+
+/* Delay is deliberately last: acoustic/global timing after the EQ editing rack. */
+.global-eq-v4 .input-processing-delay {
+    margin-top: 2px !important;
+}
+.global-eq-v4 .input-delay-head {
+    min-height: 38px !important;
+}
+.global-eq-v4 #inputDelayState {
+    min-width: 58px;
+    padding: 4px 8px;
+    font-size: 9px;
+    border: 1px solid hsla(0,0%,100%,.16);
+    background: transparent;
+}
+.global-eq-v4 .input-delay-body {
+    grid-template-columns: minmax(240px, 1fr) auto auto !important;
+    gap: 10px !important;
+    padding: 9px 2px !important;
+}
+.global-eq-v4 #inputDelayReadout {
+    font-size: 12px !important;
+}
+.global-eq-v4 .input-delay-nudge button,
+.global-eq-v4 #inputDelayReset {
+    height: 30px !important;
+    min-width: 44px;
+    font-size: 9px !important;
+}
+.global-eq-v4 #inputDelayNumber {
+    height: 30px !important;
+    font-size: 12px !important;
+}
+.global-eq-v4 .input-delay-number-wrap > span {
+    font-size: 9px !important;
+}
+.global-eq-v4 .input-delay-status,
+.global-eq-v4 .global-v2-statusbar {
+    min-height: 22px !important;
+    padding: 3px 2px !important;
+    border: 0 !important;
+    border-top: 1px solid hsla(0,0%,100%,.07) !important;
+    color: hsla(0,0%,100%,.42) !important;
+    background: transparent !important;
+    font-size: 9px !important;
+}
+
+/* ---------------- Output Processing ---------------- */
+.estack-eq-v4 .eq-v4-shell {
+    width: 98% !important;
+    margin: 0 1% !important;
+    gap: 8px !important;
+}
+
+.estack-eq-v4 .eq-v4-topbar {
+    min-height: 42px !important;
+    grid-template-columns: auto minmax(0,1fr) auto !important;
+    gap: 10px !important;
+    padding: 4px 2px 6px !important;
+    border: 0 !important;
+    border-bottom: 1px solid hsla(0,0%,100%,.10) !important;
+    background: transparent !important;
+}
+.estack-eq-v4 .eq-v4-context {
+    display: none !important;
+}
+.estack-eq-v4 .venu-module-tabs {
+    gap: 4px !important;
+}
+.estack-eq-v4 .venu-module-tabs button,
+.estack-eq-v4 .venu-system-edit {
+    min-width: 92px !important;
+    height: 31px !important;
+    padding: 0 12px !important;
+    font-size: 10px !important;
+    border-radius: 3px !important;
+}
+.estack-eq-v4 .venu-module-tabs button[data-module="outputProtection"] {
+    min-width: 150px !important;
+}
+.estack-eq-v4 .venu-graph-legend {
+    justify-content: flex-end !important;
+    gap: 5px !important;
+}
+.estack-eq-v4 .estack-channel-legend {
+    height: 29px !important;
+    padding: 0 8px !important;
+    font-size: 10px !important;
+}
+.estack-eq-v4 .estack-channel-legend b {
+    font-size: 10px !important;
+}
+
+.estack-eq-v4 .venu-workspace {
+    border: 0 !important;
+    background: transparent !important;
+}
+.estack-eq-v4 .venu-graph-wrap {
+    height: 238px !important;
+    margin: 0 0 8px !important;
+    border: 1px solid hsla(0,0%,100%,.10) !important;
+    border-radius: 2px;
+    background: hsl(var(--bck-hue),24%,8%) !important;
+}
+.estack-eq-v4 .venu-controls {
+    border: 0 !important;
+    background: transparent !important;
+}
+.estack-eq-v4 .venu-statusbar {
+    min-height: 24px !important;
+    padding: 4px 2px !important;
+    border: 0 !important;
+    border-top: 1px solid hsla(0,0%,100%,.07) !important;
+    background: transparent !important;
+    font-size: 9px !important;
+}
+
+/* EQ mode: crossovers are one compact row, PEQ gets the full width underneath. */
+.estack-eq-v4 .estack-peq-console.estack-eq8-console {
+    display: grid !important;
+    grid-template-columns: minmax(0,1fr) 170px !important;
+    grid-template-areas:
+        "xovers analyzer"
+        "peq analyzer" !important;
+    gap: 8px !important;
+    padding: 0 !important;
+    background: transparent !important;
+}
+.estack-eq-v4 .estack-peq-xovers {
+    grid-area: xovers;
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+    grid-template-rows: auto !important;
+    gap: 8px !important;
+}
+.estack-eq-v4 .estack-peq-equalizer {
+    grid-area: peq;
+}
+.estack-eq-v4 .estack-eq8-analyzer {
+    grid-area: analyzer;
+}
+.estack-eq-v4 .estack-peq-xover-card,
+.estack-eq-v4 .estack-peq-equalizer,
+.estack-eq-v4 .estack-eq8-analyzer,
+.estack-eq-v4 .estack-v2-card {
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.estack-eq-v4 .estack-v2-xover-body {
+    min-height: 72px !important;
+    display: grid !important;
+    grid-template-columns: 60px minmax(120px,1fr) minmax(150px,1.2fr) !important;
+    align-items: center !important;
+    gap: 10px !important;
+    padding: 7px 8px !important;
+    border-bottom: 1px solid hsla(0,0%,100%,.06);
+}
+.estack-eq-v4 .estack-v2-xover .estack-eq8-knob {
+    width: 46px !important;
+    height: 46px !important;
+}
+.estack-eq-v4 .estack-v2-xover .estack-eq8-knob-marker {
+    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-15px) !important;
+}
+.estack-eq-v4 .estack-v2-xover-options {
+    margin: 0 !important;
+    gap: 4px !important;
+}
+.estack-eq-v4 .estack-v2-xover-options > span {
+    font-size: 9px !important;
+}
+.estack-eq-v4 .estack-v2-segmented button {
+    height: 27px !important;
+    font-size: 9px !important;
+}
+
+.estack-eq-v4 .estack-peq-eq-head {
+    min-height: 38px !important;
+}
+.estack-eq-v4 .estack-peq-dynamic-strips,
+.estack-eq-v4 .estack-peq-strips {
+    min-width: 0 !important;
+    background: transparent !important;
+}
+.estack-eq-v4 .estack-peq-dynamic-strips {
+    display: flex !important;
+    align-items: stretch;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+}
+.estack-eq-v4 .estack-peq-dynamic-strips > .estack-peq-strip {
+    flex: 0 0 118px;
+    min-height: 218px !important;
+}
+.estack-eq-v4 .estack-peq-empty-state {
+    min-height: 105px !important;
+    display: flex !important;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 5px;
+    padding: 12px !important;
+    color: hsla(0,0%,100%,.52);
+    font-size: 11px !important;
+}
+.estack-eq-v4 .estack-peq-empty-state strong {
+    color: #f0f3f4;
+    font-size: 13px !important;
+    font-weight: 600;
+}
+.estack-eq-v4 .estack-peq-add-button {
+    min-height: 29px !important;
+    padding: 0 10px !important;
+    font-size: 9px !important;
+}
+
+.estack-eq-v4 .estack-eq8-knob-label,
+.estack-eq-v4 .estack-eq8-q-label,
+.estack-eq-v4 .estack-eq8-analyzer-row > span {
+    font-size: 9px !important;
+}
+.estack-eq-v4 .estack-eq8-number,
+.estack-eq-v4 .estack-eq8-q-value,
+.estack-eq-v4 .estack-eq8-analyzer select {
+    font-size: 10px !important;
+}
+.estack-eq-v4 .estack-eq8-type button,
+.estack-eq-v4 .estack-eq8-reset,
+.estack-eq-v4 .estack-eq8-analyzer-modes button {
+    min-height: 24px !important;
+    font-size: 9px !important;
+}
+
+/* Output / Protection mode remains compact and readable. */
+.estack-eq-v4 .estack-v2-output-console {
+    grid-template-columns: minmax(360px,.82fr) minmax(520px,1.18fr) !important;
+    gap: 8px !important;
+}
+.estack-eq-v4 .estack-v2-output-body {
+    min-height: 145px !important;
+    padding: 10px 12px !important;
+}
+.estack-eq-v4 .estack-v2-protection-body {
+    gap: 8px !important;
+    padding: 8px !important;
+}
+.estack-eq-v4 .estack-v2-protection-module {
+    min-height: 132px !important;
+    background: transparent !important;
+}
+.estack-eq-v4 .estack-v2-protection-module > strong,
+.estack-eq-v4 .estack-v2-dynamics-grid span {
+    font-size: 9px !important;
+}
+.estack-eq-v4 .estack-v2-dynamics-grid strong {
+    font-size: 11px !important;
+}
+
+@media (max-width: 1120px) {
+    .global-eq-v4 .global-v2-console.estack-peq-console.estack-eq8-console,
+    .estack-eq-v4 .estack-peq-console.estack-eq8-console {
+        grid-template-columns: 1fr !important;
+        grid-template-areas: "xovers" "peq" "analyzer" !important;
+    }
+    .global-eq-v4 .estack-eq8-analyzer,
+    .estack-eq-v4 .estack-eq8-analyzer {
+        border-left: 0 !important;
+        border-top: 1px solid hsla(0,0%,100%,.08) !important;
+        padding: 8px 0 !important;
+    }
+    .estack-eq-v4 .estack-v2-output-console {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+@media (max-width: 760px) {
+    .processing-page-title {
+        margin: 8px 8px 10px;
+        font-size: 24px;
+    }
+    .processing-page-title img {
+        height: 24px;
+        padding-right: 10px;
+        transform: translateY(4px);
+    }
+    .global-eq-v4 .global-v2-graph-panel,
+    .global-eq-v4 .global-v2-console,
+    .global-eq-v4 .input-processing-delay,
+    .global-eq-v4 .global-v2-statusbar,
+    .estack-eq-v4 .eq-v4-shell {
+        width: calc(100% - 16px) !important;
+        margin-left: 8px !important;
+        margin-right: 8px !important;
+    }
+    .global-eq-v4 .global-v2-canvas-wrap,
+    .estack-eq-v4 .venu-graph-wrap {
+        height: 205px !important;
+    }
+    .estack-eq-v4 .estack-peq-xovers {
+        grid-template-columns: 1fr !important;
+    }
+    .estack-eq-v4 .estack-v2-xover-body {
+        grid-template-columns: 56px 1fr 1fr !important;
+    }
+    .global-eq-v4 .input-delay-body {
+        grid-template-columns: 1fr !important;
+    }
+}
