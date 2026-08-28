@@ -1,16 +1,14 @@
-// E-Stack configuration manager fixes.
-// Makes the legacy dialog mobile-friendly/reliable and teaches it the E-Stack
-// pages that live under /html/*.  Input-side presets are restored through the
-// strict config guard so they cannot overwrite routing or speaker protection.
+// E-Stack system configuration manager.
+// The sidebar "Configurations" action stores/restores complete DSP processing
+// snapshots independent of the page currently open. Hardware I/O devices and
+// mixer routing remain owned by the live Raspberry configuration.
 
 (function installEStackConfigManagerFix() {
-    const GLOBAL_PREFIX = "GLOBAL_EQ_";
-    const GLOBAL_STEP = "E-Stack global input EQ";
-    const DELAY_FILTER = "ESTACK_INPUT_DELAY";
-    const DELAY_STEP = "E-Stack input delay";
-    const LOUDNESS_FILTER = "ESTACK_LOUDNESS";
-    const LOUDNESS_STEP = "E-Stack loudness input stage";
-
+    const SYSTEM_TYPE = "estack-system";
+    const VERSION = 1;
+    const CHANNELS = [0, 1, 2, 3, 4, 5];
+    const PEQ_SLOTS = 10;
+    const GLOBAL_SLOTS = 10;
     const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
 
     function activePage() {
@@ -46,198 +44,113 @@
         el.style.color = state === "error" ? "#ff9b9b" : state === "ok" ? "#7fd8b2" : state === "busy" ? "#ffd37a" : "";
     }
 
-    function relevantInputStep(step) {
-        return step?.type === "Filter" && (
-            step?.description === GLOBAL_STEP ||
-            step?.description === DELAY_STEP ||
-            (step.names || []).some(name => String(name).startsWith(GLOBAL_PREFIX) || name === DELAY_FILTER)
-        );
+    function snapshotUiState() {
+        const peq = [];
+        for (const channel of CHANNELS) {
+            for (let slot = 0; slot < PEQ_SLOTS; slot++) {
+                peq.push({
+                    channel,
+                    slot,
+                    disabled: window.localStorage.getItem(`estack.peq.disabled.${channel}.${slot}`) === "true",
+                    lastGain: Number(window.localStorage.getItem(`estack.peq.lastgain.${channel}.${slot}`) || 0)
+                });
+            }
+        }
+        return {
+            peq,
+            globalDisabled: Array.from({ length: GLOBAL_SLOTS }, (_, slot) =>
+                window.localStorage.getItem(`estack.globalEq.disabled.${slot}`) === "true"
+            ),
+            loudnessPreset: window.localStorage.getItem("estack.loudness.preset") || "reference"
+        };
     }
 
-    function relevantLoudnessStep(step) {
-        return step?.type === "Filter" && (
-            step?.description === LOUDNESS_STEP ||
-            (step.names || []).includes(LOUDNESS_FILTER)
-        );
+    function restoreUiState(ui) {
+        if (Array.isArray(ui?.peq)) {
+            for (const item of ui.peq) {
+                const channel = Number(item.channel);
+                const slot = Number(item.slot);
+                if (!CHANNELS.includes(channel) || slot < 0 || slot >= PEQ_SLOTS) continue;
+                window.localStorage.setItem(`estack.peq.disabled.${channel}.${slot}`, String(!!item.disabled));
+                window.localStorage.setItem(`estack.peq.lastgain.${channel}.${slot}`, String(Number(item.lastGain) || 0));
+            }
+        }
+        if (Array.isArray(ui?.globalDisabled)) {
+            ui.globalDisabled.slice(0, GLOBAL_SLOTS).forEach((disabled, slot) =>
+                window.localStorage.setItem(`estack.globalEq.disabled.${slot}`, String(!!disabled))
+            );
+        }
+        if (typeof ui?.loudnessPreset === "string") {
+            window.localStorage.setItem("estack.loudness.preset", ui.loudnessPreset);
+        }
     }
 
-    async function serializePage(page) {
+    function validateProcessingSnapshot(processing, liveMixers) {
+        if (!processing || typeof processing !== "object") throw new Error("Invalid system configuration");
+        if (!processing.filters || typeof processing.filters !== "object") throw new Error("Saved filters are missing");
+        if (!Array.isArray(processing.pipeline)) throw new Error("Saved pipeline is missing");
+
+        const filters = processing.filters;
+        const processors = processing.processors || {};
+        const mixerNames = new Set(Object.keys(liveMixers || {}));
+
+        for (const step of processing.pipeline) {
+            if (step?.type === "Mixer" && !mixerNames.has(step.name)) {
+                throw new Error(`Saved configuration expects unavailable mixer '${step.name}'`);
+            }
+            if (step?.type === "Filter") {
+                for (const name of (step.names || [])) {
+                    if (!filters[name]) throw new Error(`Saved pipeline references missing filter '${name}'`);
+                }
+            }
+            if (step?.type === "Processor") {
+                for (const name of (step.names || [])) {
+                    if (!processors[name]) throw new Error(`Saved pipeline references missing processor '${name}'`);
+                }
+            }
+        }
+    }
+
+    async function serializeSystemConfiguration() {
         const DSP = window.DSP;
         if (!DSP) throw new Error("CamillaDSP is not connected");
-        const frameDocument = document.getElementById("mainframe")?.contentWindow?.document;
-
-        if (page === "connections") {
-            return {
-                server: frameDocument?.getElementById("server")?.value || "",
-                port: frameDocument?.getElementById("port")?.value || "",
-                spectrumPort: frameDocument?.getElementById("spectrumPort")?.value || ""
-            };
-        }
-
         await DSP.downloadConfig();
-        const cfg = DSP.config;
+        const cfg = DSP.config || {};
 
-        if (page === "loudness") {
-            return {
-                filter: clone(cfg.filters?.[LOUDNESS_FILTER] || null),
-                step: clone((cfg.pipeline || []).find(relevantLoudnessStep) || null),
-                preset: window.localStorage.getItem("estack.loudness.preset") || "reference"
-            };
-        }
-
-        if (page === "input-processing") {
-            const filters = {};
-            for (const [name, filter] of Object.entries(cfg.filters || {})) {
-                if (name.startsWith(GLOBAL_PREFIX) || name === DELAY_FILTER) filters[name] = clone(filter);
-            }
-            return {
-                filters,
-                steps: clone((cfg.pipeline || []).filter(relevantInputStep)),
-                globalDisabled: Array.from({ length: 10 }, (_, slot) =>
-                    window.localStorage.getItem(`estack.globalEq.disabled.${slot}`) === "true"
-                )
-            };
-        }
-
-        if (page === "basic") {
-            const filters = {};
-            for (const name of ["__subBass", "__bass", "__mids", "__upperMids", "__treble"]) {
-                if (cfg.filters?.[name]) filters[name] = clone(cfg.filters[name]);
-            }
-            return {
-                volume: await DSP.sendDSPMessage("GetVolume"),
-                balance: await DSP.getBalance(),
-                crossfeed: await DSP.getCrossfeed(),
-                filters,
-                mixers: clone(cfg.mixers)
-            };
-        }
-
-        if (page === "equalizer") {
-            return {
-                title: cfg.title,
-                filters: clone(cfg.filters),
-                mixers: clone(cfg.mixers),
-                pipeline: clone(cfg.pipeline)
-            };
-        }
-
-        throw new Error(`Saving '${page || "this page"}' is not supported yet`);
+        return {
+            version: VERSION,
+            sourcePage: activePage(),
+            processing: {
+                title: cfg.title || "",
+                filters: clone(cfg.filters || {}),
+                pipeline: clone(cfg.pipeline || []),
+                processors: clone(cfg.processors || {})
+            },
+            ui: snapshotUiState()
+        };
     }
 
-    function removeAllowedInputState(cfg) {
-        for (const name of Object.keys(cfg.filters || {})) {
-            if (name.startsWith(GLOBAL_PREFIX) || name === DELAY_FILTER) delete cfg.filters[name];
-        }
-        for (const step of (cfg.pipeline || [])) {
-            if (step?.type !== "Filter" || !Array.isArray(step.names)) continue;
-            step.names = step.names.filter(name => !String(name).startsWith(GLOBAL_PREFIX) && name !== DELAY_FILTER);
-        }
-        cfg.pipeline = (cfg.pipeline || []).filter(step => !(
-            (step?.description === GLOBAL_STEP || step?.description === DELAY_STEP) && (step.names || []).length === 0
-        ));
-    }
-
-    function insertStepsBeforeMixer(cfg, steps) {
-        const mixerIndex = (cfg.pipeline || []).findIndex(step => step?.type === "Mixer");
-        if (mixerIndex < 0) throw new Error("Mixer stage missing");
-        const safeSteps = (steps || []).map(step => clone(step));
-        cfg.pipeline.splice(mixerIndex, 0, ...safeSteps);
-    }
-
-    async function restoreInputProcessing(data) {
+    async function restoreSystemConfiguration(data, configName) {
         const DSP = window.DSP;
+        if (!DSP) throw new Error("CamillaDSP is not connected");
+        if (!data?.processing) throw new Error("This is not a full E-Stack system configuration");
+
         await DSP.downloadConfig();
-        const before = DSP.estackConfigSnapshot?.() || clone(DSP.config);
-        removeAllowedInputState(DSP.config);
-        Object.assign(DSP.config.filters, clone(data?.filters || {}));
-        insertStepsBeforeMixer(DSP.config, data?.steps || []);
+        validateProcessingSnapshot(data.processing, DSP.config?.mixers);
 
-        if (Array.isArray(data?.globalDisabled)) {
-            data.globalDisabled.forEach((disabled, slot) => {
-                window.localStorage.setItem(`estack.globalEq.disabled.${slot}`, String(!!disabled));
-            });
-        }
+        // Intentionally preserve the live Raspberry hardware layer:
+        // devices/chunksize/ALSA settings and mixer routing are not recalled.
+        DSP.config.filters = clone(data.processing.filters || {});
+        DSP.config.pipeline = clone(data.processing.pipeline || []);
+        DSP.config.processors = clone(data.processing.processors || {});
+        DSP.config.title = configName;
 
-        await DSP.uploadConfigGuarded(before, {
-            name: "Input Processing preset",
-            allowedFilterNames: [DELAY_FILTER],
-            allowedFilterPrefixes: [GLOBAL_PREFIX],
-            allowedStepDescriptions: [GLOBAL_STEP, DELAY_STEP]
-        });
+        await DSP.uploadConfig();
         await DSP.downloadConfig();
-    }
+        restoreUiState(data.ui || {});
 
-    async function restoreLoudness(data) {
-        const DSP = window.DSP;
-        await DSP.downloadConfig();
-        const before = DSP.estackConfigSnapshot?.() || clone(DSP.config);
-
-        for (const step of (DSP.config.pipeline || [])) {
-            if (step?.type === "Filter" && Array.isArray(step.names)) {
-                step.names = step.names.filter(name => name !== LOUDNESS_FILTER);
-            }
-        }
-        DSP.config.pipeline = (DSP.config.pipeline || []).filter(step =>
-            !(step?.description === LOUDNESS_STEP && (step.names || []).length === 0)
-        );
-        delete DSP.config.filters?.[LOUDNESS_FILTER];
-
-        if (data?.filter && data?.step) {
-            DSP.config.filters[LOUDNESS_FILTER] = clone(data.filter);
-            insertStepsBeforeMixer(DSP.config, [data.step]);
-        }
-
-        await DSP.uploadConfigGuarded(before, {
-            name: "Loudness preset",
-            allowedFilterNames: [LOUDNESS_FILTER],
-            allowedStepDescriptions: [LOUDNESS_STEP]
-        });
-        await DSP.downloadConfig();
-        window.localStorage.setItem("estack.loudness.preset", data?.preset || "reference");
-    }
-
-    async function restoreLegacyPage(page, data, configName) {
-        const DSP = window.DSP;
-        const frameWindow = document.getElementById("mainframe")?.contentWindow;
-
-        if (page === "connections") {
-            const doc = frameWindow?.document;
-            if (doc) {
-                if (doc.getElementById("server")) doc.getElementById("server").value = data.server;
-                if (doc.getElementById("port")) doc.getElementById("port").value = data.port;
-                if (doc.getElementById("spectrumPort")) doc.getElementById("spectrumPort").value = data.spectrumPort;
-            }
-            return;
-        }
-
-        if (page === "basic") {
-            await DSP.downloadConfig();
-            if (Number.isFinite(Number(data.volume))) await DSP.sendDSPMessage({ SetVolume: Number(data.volume) });
-            await DSP.setBalance(data.balance);
-            await DSP.setCrossfeed(data.crossfeed);
-            DSP.clearFilters();
-            DSP.config.title = configName;
-            DSP.addFilters(data.filters || {});
-            await DSP.uploadConfig();
-            await frameWindow?.loadData?.();
-            return;
-        }
-
-        if (page === "equalizer") {
-            await DSP.downloadConfig();
-            // Keep current hardware routing. Legacy saved configs may contain an
-            // old mixer snapshot; restoring it blindly is unsafe on E-Stack.
-            DSP.clearFilters();
-            DSP.config.title = configName;
-            DSP.addFilters(data.filters || {});
-            await DSP.uploadConfig();
-            await frameWindow?.loadFiltersFromConfig?.();
-            frameWindow?.plotConfig?.();
-            return;
-        }
-
-        throw new Error(`Opening '${page || "this page"}' is not supported yet`);
+        const frame = document.getElementById("mainframe");
+        if (frame) frame.src = frame.getAttribute("src") || frame.src;
     }
 
     window.getActivePage = activePage;
@@ -246,16 +159,16 @@
         const mod = document.getElementById("manageConfigs");
         const configList = document.getElementById("configList");
         const configName = document.getElementById("configName");
-        const page = activePage();
         if (!mod || !configList || !configName) return;
 
         configName.value = "";
         configName.removeAttribute("configId");
-        status(`Scope: ${page.replaceAll("-", " ")}`);
-        try { await window.loadConfigs(page, configList); }
+        status("SYSTEM CONFIG · all DSP processing · hardware routing preserved");
+        try { await window.loadConfigs(SYSTEM_TYPE, configList); }
         catch (error) { status(`ERROR: ${error?.message || error}`, "error"); }
 
-        configName.oninput = () => window.loadConfigs(page, configList, configName.value).catch(error => status(error.message, "error"));
+        configName.oninput = () => window.loadConfigs(SYSTEM_TYPE, configList, configName.value)
+            .catch(error => status(error.message, "error"));
         configName.onkeydown = event => {
             if (event.key === "Enter") {
                 event.preventDefault();
@@ -266,7 +179,6 @@
     };
 
     window.saveConfigurationClick = async function() {
-        const page = activePage();
         const configName = document.getElementById("configName");
         const configList = document.getElementById("configList");
         const name = String(configName?.value || "").trim();
@@ -277,9 +189,14 @@
         }
 
         try {
-            status(`Saving '${name}'…`, "busy");
-            const data = await serializePage(page);
-            const record = { type: page, name, createdDate: new Date().toISOString(), data };
+            status(`Saving full system configuration '${name}'…`, "busy");
+            const data = await serializeSystemConfiguration();
+            const record = {
+                type: SYSTEM_TYPE,
+                name,
+                createdDate: new Date().toISOString(),
+                data
+            };
             try {
                 await window.configsObject.saveConfigRemote(record, false);
             } catch (error) {
@@ -292,45 +209,36 @@
                 await window.configsObject.saveConfigRemote(record, true);
             }
 
-            await window.loadConfigs(page, configList);
+            await window.loadConfigs(SYSTEM_TYPE, configList);
             configName.value = "";
             configName.removeAttribute("configId");
-            status(`'${name}' saved`, "ok");
+            status(`'${name}' saved · XO / PEQ / gain / delay / polarity / phase / dynamics`, "ok");
         } catch (error) {
-            console.error("Configuration save failed", error);
+            console.error("System configuration save failed", error);
             status(`SAVE ERROR: ${error?.message || error}`, "error");
         }
     };
 
     window.openConfigurationClick = async function() {
-        const page = activePage();
         const configName = document.getElementById("configName");
         const id = configName?.getAttribute("configId");
         if (!id) {
-            status("Select a saved configuration first", "error");
+            status("Select a saved system configuration first", "error");
             return;
         }
 
         try {
-            status(`Opening '${configName.value}'…`, "busy");
+            status(`Applying full system configuration '${configName.value}'…`, "busy");
             const config = await window.configsObject.getConfigByIdRemote(id);
             if (!config) throw new Error("Saved configuration not found");
-            if (config.type !== page) throw new Error(`Preset belongs to ${config.type}`);
+            if (config.type !== SYSTEM_TYPE) throw new Error("Legacy page preset cannot be opened as a system configuration");
 
-            if (page === "input-processing") await restoreInputProcessing(config.data);
-            else if (page === "loudness") await restoreLoudness(config.data);
-            else await restoreLegacyPage(page, config.data, configName.value);
-
+            await restoreSystemConfiguration(config.data || {}, configName.value);
             window.configsObject.saveLastConfigLocal(configName.value);
             status(`'${configName.value}' applied`, "ok");
             document.getElementById("manageConfigs")?.close();
-
-            if (page === "input-processing" || page === "loudness") {
-                const frame = document.getElementById("mainframe");
-                if (frame) frame.src = frame.getAttribute("src") || frame.src;
-            }
         } catch (error) {
-            console.error("Configuration open failed", error);
+            console.error("System configuration open failed", error);
             status(`OPEN ERROR: ${error?.message || error}`, "error");
         }
     };
@@ -338,9 +246,8 @@
     window.deleteConfigurationClick = async function() {
         const configName = document.getElementById("configName");
         const id = configName?.getAttribute("configId");
-        const page = activePage();
         if (!id) {
-            status("Select a saved configuration first", "error");
+            status("Select a saved system configuration first", "error");
             return;
         }
         if (!confirm(`Delete '${configName.value}'?`)) return;
@@ -351,10 +258,10 @@
             if (!deleted) throw new Error("Configuration was not found");
             configName.value = "";
             configName.removeAttribute("configId");
-            await window.loadConfigs(page, document.getElementById("configList"));
-            status("Configuration deleted", "ok");
+            await window.loadConfigs(SYSTEM_TYPE, document.getElementById("configList"));
+            status("System configuration deleted", "ok");
         } catch (error) {
-            console.error("Configuration delete failed", error);
+            console.error("System configuration delete failed", error);
             status(`DELETE ERROR: ${error?.message || error}`, "error");
         }
     };
