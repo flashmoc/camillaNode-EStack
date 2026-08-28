@@ -173,8 +173,11 @@ module.exports = function installEStackSignalGenerator(app, options = {}) {
 
     async function restoreFromRecord(record, reason = 'manual stop') {
         if (!record?.snapshot) return false;
-        clearTimer();
+        // Do not cancel the existing safety timer until the normal configuration
+        // has actually been accepted by CamillaDSP. A temporary DSP outage must
+        // never silently disarm the automatic restore path.
         await setConfig(record.snapshot);
+        clearTimer();
         clearSnapshotFile();
         state = {
             active: false,
@@ -191,7 +194,6 @@ module.exports = function installEStackSignalGenerator(app, options = {}) {
     }
 
     async function stopInternal(reason = 'manual stop') {
-        clearTimer();
         const record = readSnapshotFile();
         if (!record?.snapshot) {
             state.active = false;
@@ -202,9 +204,18 @@ module.exports = function installEStackSignalGenerator(app, options = {}) {
 
     function scheduleRestore(durationSeconds) {
         clearTimer();
+        const retryRestore = () => {
+            restoreTimer = setTimeout(() => {
+                queueTransition(() => stopInternal('automatic timeout')).catch(error => {
+                    console.error('E-Stack signal generator automatic restore failed; retrying:', error.message);
+                    retryRestore();
+                });
+            }, 1000);
+        };
         restoreTimer = setTimeout(() => {
             queueTransition(() => stopInternal('automatic timeout')).catch(error => {
-                console.error('E-Stack signal generator automatic restore failed:', error.message);
+                console.error('E-Stack signal generator automatic restore failed; retrying:', error.message);
+                retryRestore();
             });
         }, durationSeconds * 1000);
     }
@@ -315,11 +326,12 @@ module.exports = function installEStackSignalGenerator(app, options = {}) {
 
     // Crash/restart recovery: if a snapshot exists and CamillaDSP is still on
     // SignalGenerator, restore the saved normal configuration. If the DSP is
-    // already normal, discard the stale snapshot.
-    setTimeout(() => {
+    // already normal, discard the stale snapshot. Retry while CamillaDSP is
+    // still starting so a Node restart cannot strand the generator.
+    function recoverAfterRestart(attempt = 1) {
         queueTransition(async () => {
             const record = readSnapshotFile();
-            if (!record?.snapshot) return;
+            if (!record?.snapshot) return true;
             try {
                 const current = await getConfig();
                 if (current?.devices?.capture?.type === 'SignalGenerator') {
@@ -328,11 +340,19 @@ module.exports = function installEStackSignalGenerator(app, options = {}) {
                 } else {
                     clearSnapshotFile();
                 }
+                return true;
             } catch (error) {
-                console.error('E-Stack signal generator startup recovery failed:', error.message);
+                console.error(`E-Stack signal generator startup recovery attempt ${attempt} failed:`, error.message);
+                return false;
             }
+        }).then(done => {
+            if (!done && attempt < 15) setTimeout(() => recoverAfterRestart(attempt + 1), 2000);
+        }).catch(error => {
+            console.error('E-Stack signal generator startup recovery failed:', error.message);
+            if (attempt < 15) setTimeout(() => recoverAfterRestart(attempt + 1), 2000);
         });
-    }, 1500);
+    }
+    setTimeout(() => recoverAfterRestart(), 1500);
 
     return { getStatus: publicStatus, stop: () => queueTransition(() => stopInternal('external stop')) };
 };
