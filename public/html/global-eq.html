@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="/css/estackEqResponsive.css">
     <link rel="stylesheet" href="/css/estackTheme.css">
     <link rel="stylesheet" href="/css/estackInputProcessing.css">
+    <link rel="stylesheet" href="/css/estackProcessingUnified.css">
 
     <script src="/src/estackInputDelay.js" defer></script>
     <script src="/src/estackGlobalEq.js" defer></script>
@@ -19,20 +20,47 @@
     <script src="/src/estackEqV4.js" defer></script>
 </head>
 <body class="global-eq-v4 global-v2-page">
-    <div class="global-v2-head">
-        <div class="global-v2-title"><strong>INPUT PROCESSING</strong></div>
-        <div class="global-v2-badges">
-            <span>INPUT L/R</span>
-            <span>PRE-ROUTING</span>
-            <span>GUARDED</span>
+    <div id="sectionMainTitle" class="processing-page-title"><img src="/img/icon/equalizer.png" class="icon">Input Processing</div>
+
+    <div class="global-v2-graph-panel">
+        <div class="global-v2-graph-head">
+            <strong>Global EQ</strong>
+            <span>Response / Analyzer · shared Input L/R · pre-routing</span>
         </div>
+        <div class="global-v2-canvas-wrap">
+            <canvas id="globalEqCanvas"></canvas>
+        </div>
+    </div>
+
+    <div class="global-v2-console estack-peq-console estack-eq8-console">
+        <div class="estack-peq-equalizer global-v2-equalizer">
+            <div class="estack-peq-eq-head global-v2-eq-head">
+                <div><strong>Parametric EQ</strong><span>10 bands · shared L/R</span></div>
+                <button type="button" id="globalEqResetAll" class="global-v2-reset-all">RESET ALL</button>
+            </div>
+            <div id="globalEqBands" class="estack-peq-strips global-v2-bands"></div>
+        </div>
+
+        <aside class="estack-eq8-analyzer global-v2-analyzer">
+            <div class="estack-eq8-analyzer-head">
+                <strong>Analyzer</strong><i class="estack-eq8-analyzer-led"></i>
+            </div>
+            <div class="global-v2-analyzer-label">SPEED</div>
+            <div class="global-v2-analyzer-modes">
+                <button type="button" id="globalEqFast" class="active">FAST</button>
+                <button type="button" id="globalEqSlow">SLOW</button>
+            </div>
+            <div class="global-v2-analyzer-label">HOLD</div>
+            <button type="button" id="globalEqInfinite" class="global-v2-analyzer-button active">INFINITE</button>
+            <button type="button" id="globalEqResetInfinite" class="global-v2-analyzer-button">RESET</button>
+        </aside>
     </div>
 
     <section class="input-processing-delay" aria-label="Global input delay">
         <div class="input-delay-head">
             <div class="input-delay-head-copy">
-                <strong>INPUT DELAY</strong>
-                <span>GLOBAL L/R · preserves all relative output delays</span>
+                <strong>Input Delay</strong>
+                <span>Global L/R · preserves all relative output delays</span>
             </div>
             <span id="inputDelayState">BYPASS</span>
         </div>
@@ -58,37 +86,6 @@
         </div>
         <div id="inputDelayStatus" class="input-delay-status">Connecting to CamillaDSP…</div>
     </section>
-
-    <div class="global-v2-graph-panel">
-        <div class="global-v2-graph-head"><strong>GLOBAL EQ · RESPONSE / ANALYZER</strong></div>
-        <div class="global-v2-canvas-wrap">
-            <canvas id="globalEqCanvas"></canvas>
-        </div>
-    </div>
-
-    <div class="global-v2-console estack-peq-console estack-eq8-console">
-        <div class="estack-peq-equalizer global-v2-equalizer">
-            <div class="estack-peq-eq-head global-v2-eq-head">
-                <div><strong>PARAMETRIC EQ</strong><span>10 bands · shared L/R</span></div>
-                <button type="button" id="globalEqResetAll" class="global-v2-reset-all">RESET ALL</button>
-            </div>
-            <div id="globalEqBands" class="estack-peq-strips global-v2-bands"></div>
-        </div>
-
-        <aside class="estack-eq8-analyzer global-v2-analyzer">
-            <div class="estack-eq8-analyzer-head">
-                <strong>ANALYZER</strong><i class="estack-eq8-analyzer-led"></i>
-            </div>
-            <div class="global-v2-analyzer-label">SPEED</div>
-            <div class="global-v2-analyzer-modes">
-                <button type="button" id="globalEqFast" class="active">FAST</button>
-                <button type="button" id="globalEqSlow">SLOW</button>
-            </div>
-            <div class="global-v2-analyzer-label">HOLD</div>
-            <button type="button" id="globalEqInfinite" class="global-v2-analyzer-button active">INFINITE</button>
-            <button type="button" id="globalEqResetInfinite" class="global-v2-analyzer-button">RESET</button>
-        </aside>
-    </div>
 
     <div class="global-v2-statusbar">
         <span id="globalEqStatus">Connecting to CamillaDSP…</span>
