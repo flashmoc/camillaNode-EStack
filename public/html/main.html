@@ -45,18 +45,11 @@
         if (pref?.ui) {
             const defaultPage = pref.ui.find(item => item.id === 'defaultPage');
             if (defaultPage) {
-                defaultPage.options = {
-                    'Control': 'basic',
-                    'Loudness': 'html/loudness.html',
-                    'Input Processing': 'html/global-eq.html',
-                    'Output Processing': 'equalizer',
-                    'Advanced': 'advanced',
-                    'Preferences': 'preferences',
-                    'Connections': 'connections'
-                };
-
-                const oldPage = String(defaultPage.value || '').toLowerCase();
-                if (oldPage === 'connections' || oldPage === 'room') defaultPage.value = 'basic';
+                // E-Stack always boots into Control. Do not allow stale browser
+                // preferences to reopen Preferences or another editor page.
+                defaultPage.options = { 'Control': 'basic' };
+                defaultPage.value = 'basic';
+                defaultPage.enabled = false;
             }
         }
 
@@ -145,7 +138,7 @@
         </section>
 
         <section id="sectionMain">
-            <iframe id="mainframe" src="/preferences" frameborder="0"></iframe>
+            <iframe id="mainframe" src="/basic" frameborder="0"></iframe>
         </section>
     </main>
 
