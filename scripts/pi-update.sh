@@ -89,6 +89,12 @@ if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
 else
     git switch --track -c "$BRANCH" "origin/$BRANCH"
 fi
+
+# Some early Raspberry checkouts tracked an older remote named "estack". Make
+# origin authoritative so ordinary `git status` / `git pull` no longer report
+# misleading ahead/behind counts against that stale remote.
+git branch --set-upstream-to="origin/$BRANCH" "$BRANCH" >/dev/null
+
 git pull --ff-only origin "$BRANCH"
 restore_runtime
 
