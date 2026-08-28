@@ -37,6 +37,7 @@ const required = [
     'public/html/advanced.html',
     'public/html/preferences.html',
     'public/html/connections.html',
+    'public/src/estackConfigManagerFix.js',
     'public/src/estackPeqModel.js',
     'public/src/estackOutputPeq.js',
     'public/src/estackOutputPhase.js',
@@ -52,6 +53,7 @@ const forbiddenTracked = [
     'public/css/estackPerWay.css',
     'public/src/estackPeqIsolationFix.js',
     'public/src/estackDynamicPeq.js',
+    'public/src/estackOutputPresetGuard.js',
     'views',
     'install.sh',
     '_dev.log'
@@ -100,13 +102,20 @@ for (const file of activeHtml) {
 const mainHtml = fs.readFileSync(path.join(PUBLIC, 'html', 'main.html'), 'utf8');
 if (!mainHtml.includes('target="/signal-generator"')) fail('main navigation is missing /signal-generator');
 if (mainHtml.includes('target="/per-way"')) fail('main navigation still exposes legacy /per-way');
+if (!mainHtml.includes('System Configurations')) fail('main navigation is missing system configuration manager label');
+if (mainHtml.includes('estackOutputPresetGuard.js')) fail('obsolete page-scoped output preset layer is still loaded');
 
 const serverSource = fs.readFileSync(path.join(ROOT, 'index.js'), 'utf8');
 if (!serverSource.includes("app.get('/signal-generator'")) fail('server is missing /signal-generator route');
 if (!serverSource.includes("app.get('/per-way'")) fail('legacy /per-way redirect is missing');
 if (!serverSource.includes("require('./server/signalGenerator')")) fail('signal generator backend is not isolated under server/');
 
-for (const file of ['index.js', 'server/signalGenerator.js', 'scripts/repo-check.js']) {
+for (const file of [
+    'index.js',
+    'server/signalGenerator.js',
+    'scripts/repo-check.js',
+    'public/src/estackConfigManagerFix.js'
+]) {
     try {
         execFileSync(process.execPath, ['--check', path.join(ROOT, file)], { stdio: 'pipe' });
     } catch (error) {
