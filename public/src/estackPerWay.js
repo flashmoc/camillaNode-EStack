@@ -29,9 +29,11 @@ function waitForDSP() {
 
 function setPageStatus(message, state = 'info') {
     const el = document.getElementById('signalPageStatus');
+    const bar = el?.closest('.signal-statusbar');
     if (!el) return;
-    el.textContent = message;
+    el.textContent = message || '';
     el.dataset.state = state;
+    if (bar) bar.hidden = !message;
 }
 
 function selectedTargets() {
@@ -113,30 +115,55 @@ function clientSafeCap(type, targets) {
     return white ? -20 : -10;
 }
 
+function setLevel(value) {
+    const number = document.getElementById('testLevel');
+    const slider = document.getElementById('testLevelSlider');
+    const min = Number(number?.min ?? -80);
+    const max = Number(number?.max ?? -10);
+    const next = Math.max(min, Math.min(max, Number(value)));
+    if (number) number.value = String(next);
+    if (slider) slider.value = String(next);
+}
+
 function updateSafety() {
     const type = document.getElementById('testType').value;
     const targets = selectedTargets();
     const cap = clientSafeCap(type, targets);
     const level = document.getElementById('testLevel');
+    const slider = document.getElementById('testLevelSlider');
     level.max = String(cap);
-    if (Number(level.value) > cap) level.value = String(cap);
+    slider.max = String(cap);
+    if (Number(level.value) > cap) setLevel(cap);
 
     const note = document.getElementById('signalSafety');
-    note.textContent = `Safety ceiling: ${cap} dBFS${type === 'WhiteNoise' ? ' in white noise' : ''}. Recommended starting level: -40 dBFS.`;
+    note.textContent = `Ceiling ${cap} dBFS · start around -40 dBFS`;
+}
+
+function updateSignalTypeUI() {
+    const white = document.getElementById('testType').value === 'WhiteNoise';
+    const frequencyField = document.getElementById('signalFrequencyField');
+    const bandwidthField = document.getElementById('signalBandwidthField');
+    const quickBlock = document.getElementById('quickFrequencyBlock');
+    const frequency = document.getElementById('testFrequency');
+
+    frequencyField.hidden = white;
+    bandwidthField.hidden = !white;
+    quickBlock.hidden = white;
+    frequency.disabled = white || !!testStatus.active;
 }
 
 function renderGeneratorState() {
     const active = !!testStatus.active;
     const type = document.getElementById('testType');
-    const freq = document.getElementById('testFrequency');
     const level = document.getElementById('testLevel');
+    const slider = document.getElementById('testLevelSlider');
     const duration = document.getElementById('testDuration');
     const start = document.getElementById('startTestSignal');
     const stop = document.getElementById('stopTestSignal');
 
-    [type, level, duration, start].forEach(el => { el.disabled = active; });
-    freq.disabled = active || type.value === 'WhiteNoise';
+    [type, level, slider, duration, start].forEach(el => { el.disabled = active; });
     stop.disabled = !active;
+    updateSignalTypeUI();
 
     document.querySelectorAll('#signalTargets button').forEach(button => {
         button.disabled = active;
@@ -150,10 +177,10 @@ function renderGeneratorState() {
         const remaining = Math.max(0, Math.ceil(Number(testStatus.remainingMs || 0) / 1000));
         const signal = testStatus.type === 'Sine'
             ? `${Math.round(Number(testStatus.freq))} Hz SINE`
-            : 'WHITE NOISE';
-        state.innerHTML = `<strong>TEST ACTIVE</strong><span>${signal} · ${Number(testStatus.level).toFixed(1)} dBFS · ${(testStatus.targets || []).map(wayName).join(' + ')} · ${remaining}s</span>`;
+            : 'WHITE NOISE · FULL BAND';
+        state.innerHTML = `<strong>TEST ACTIVE · ${signal} · ${Number(testStatus.level).toFixed(0)} dBFS · ${remaining}s</strong>`;
     } else {
-        state.innerHTML = '<strong>NORMAL INPUT</strong><span>WiiM / USB capture path restored</span>';
+        state.innerHTML = '<strong>NORMAL INPUT</strong>';
     }
     updateSafety();
 }
@@ -191,14 +218,14 @@ async function startSignal() {
     if (type === 'Sine') payload.freq = Number(document.getElementById('testFrequency').value);
 
     try {
-        setPageStatus('Starting protected test signal…', 'busy');
+        setPageStatus('Starting test signal…', 'busy');
         testStatus = await fetchJson('/api/test-signal/start', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
         renderGeneratorState();
-        setPageStatus(`Signal active on ${(testStatus.targets || []).map(wayName).join(' + ')}.`, 'ok');
+        setPageStatus('');
     } catch (error) {
         setPageStatus(`START ERROR: ${error.message}`, 'error');
         await refreshStatus();
@@ -207,7 +234,7 @@ async function startSignal() {
 
 async function stopSignal({ silent = false } = {}) {
     try {
-        if (!silent) setPageStatus('Stopping signal and restoring normal input…', 'busy');
+        if (!silent) setPageStatus('Restoring normal input…', 'busy');
         await fetchJson('/api/test-signal/stop', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -218,7 +245,7 @@ async function stopSignal({ silent = false } = {}) {
         renderTargets();
         renderQuickFrequencies();
         renderGeneratorState();
-        if (!silent) setPageStatus('Normal input and original routing restored.', 'ok');
+        if (!silent) setPageStatus('');
         return true;
     } catch (error) {
         if (!silent) setPageStatus(`STOP ERROR: ${error.message}`, 'error');
@@ -233,17 +260,30 @@ async function initSignalGenerator() {
     renderTargets();
     renderQuickFrequencies();
 
-    document.getElementById('testType').addEventListener('change', () => {
-        const white = document.getElementById('testType').value === 'WhiteNoise';
-        document.getElementById('testFrequency').disabled = white || !!testStatus.active;
+    const type = document.getElementById('testType');
+    const level = document.getElementById('testLevel');
+    const slider = document.getElementById('testLevelSlider');
+
+    type.addEventListener('change', () => {
+        updateSignalTypeUI();
         updateSafety();
     });
-    document.getElementById('testLevel').addEventListener('change', updateSafety);
+    level.addEventListener('input', () => {
+        setLevel(level.value);
+        updateSafety();
+    });
+    level.addEventListener('change', () => {
+        setLevel(level.value);
+        updateSafety();
+    });
+    slider.addEventListener('input', () => setLevel(slider.value));
+    slider.addEventListener('change', updateSafety);
     document.getElementById('startTestSignal').addEventListener('click', startSignal);
     document.getElementById('stopTestSignal').addEventListener('click', () => stopSignal());
 
     await refreshStatus();
-    setPageStatus('Ready. The internal generator enters before mixer, crossover, EQ, alignment and protection.', 'info');
+    updateSignalTypeUI();
+    setPageStatus('');
 
     statusTimer = setInterval(async () => {
         const wasActive = !!testStatus.active;
@@ -252,7 +292,7 @@ async function initSignalGenerator() {
             try { await DSP.downloadConfig(); } catch (_) {}
             renderTargets();
             renderQuickFrequencies();
-            setPageStatus('Auto-stop completed; normal input restored.', 'ok');
+            setPageStatus('');
         }
     }, 1000);
 
