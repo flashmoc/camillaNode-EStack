@@ -1,6 +1,6 @@
 // E-Stack Control safety layer.
-// Keeps per-output calibration gains fixed on demand and requires a session
-// unlock before increasing MASTER above the configured safety threshold.
+// Locks calibrated output gains on demand and protects upward MASTER moves
+// above -15 dB with a session-only safety unlock.
 
 (() => {
     const OUTPUT_LOCK_KEY = "estack.control.outputLevelsLocked";
@@ -14,14 +14,10 @@
     let pendingMasterTarget = null;
     let scanScheduled = false;
 
-    function getMasterPin() {
-        return window.localStorage.getItem(MASTER_PIN_KEY) || DEFAULT_MASTER_PIN;
-    }
+    const getMasterPin = () => window.localStorage.getItem(MASTER_PIN_KEY) || DEFAULT_MASTER_PIN;
 
     function syncMasterVisual(fader, value) {
-        if (typeof window.estackSyncControlFaderVisual === "function") {
-            window.estackSyncControlFaderVisual(fader);
-        }
+        window.estackSyncControlFaderVisual?.(fader);
         const numeric = fader.closest(".estack-mixer-strip")?.querySelector(".estack-fader-number");
         if (numeric) numeric.value = Number(value).toFixed(1);
     }
@@ -68,7 +64,6 @@
 
         masterUnlockPromise = new Promise(resolve => {
             let finished = false;
-
             const finish = allowed => {
                 if (finished) return;
                 finished = true;
@@ -80,18 +75,15 @@
                 masterUnlockPromise = null;
                 resolve(allowed);
             };
-
             const tryUnlock = () => {
                 if (pin.value === getMasterPin()) {
                     masterUnlockedForSession = true;
-                    status.textContent = "MASTER unlocked for this session";
-                    status.dataset.state = "ok";
                     finish(true);
-                    return;
+                } else {
+                    status.textContent = "Incorrect safety code";
+                    status.dataset.state = "error";
+                    pin.select();
                 }
-                status.textContent = "Incorrect safety code";
-                status.dataset.state = "error";
-                pin.select();
             };
 
             unlock.onclick = tryUnlock;
@@ -125,8 +117,8 @@
             const wanted = Number(fader.value);
             if (!Number.isFinite(wanted)) return;
 
-            // Moving downward is always allowed. Only an upward move in the
-            // protected region asks for the code.
+            // Any downward move is safe. Only an upward move in the protected
+            // region needs authorization.
             if (masterUnlockedForSession || wanted <= MASTER_THRESHOLD_DB || wanted <= lastAccepted) {
                 lastAccepted = wanted;
                 return;
@@ -166,12 +158,23 @@
             root.appendChild(button);
         }
 
+        const state = outputLevelsLocked ? "locked" : "free";
         button.classList.toggle("active", outputLevelsLocked);
         button.setAttribute("aria-pressed", String(outputLevelsLocked));
-        button.innerHTML = `<span>OUTPUT LEVELS</span><strong>${outputLevelsLocked ? "LOCKED" : "FREE"}</strong>`;
         button.title = outputLevelsLocked
             ? "Output calibration gains are locked. MASTER remains adjustable."
             : "Output calibration gains are editable.";
+
+        // Do not rebuild child nodes on every MutationObserver pass.
+        if (button.dataset.state !== state) {
+            button.dataset.state = state;
+            button.replaceChildren();
+            const label = document.createElement("span");
+            const value = document.createElement("strong");
+            label.textContent = "OUTPUT LEVELS";
+            value.textContent = outputLevelsLocked ? "LOCKED" : "FREE";
+            button.append(label, value);
+        }
     }
 
     function applyOutputLevelLock() {
@@ -223,7 +226,6 @@
     };
 
     const observer = new MutationObserver(scheduleScan);
-
     const start = () => {
         observer.observe(document.body, { childList: true, subtree: true });
         scheduleScan();
