@@ -1,0 +1,145 @@
+/* Phase / XO Align graph modes for Output Processing. */
+.estack-graph-modebar {
+    display: grid;
+    grid-template-columns: auto minmax(180px, 1fr) auto;
+    align-items: center;
+    gap: 6px;
+    min-height: 31px;
+    margin: 4px 5px 0;
+    padding: 3px 4px;
+    border: 1px solid var(--eq-border, rgba(255,255,255,.14));
+    border-bottom: 0;
+    background: hsl(var(--bck-hue), 24%, 11%);
+}
+
+.estack-graph-modes {
+    display: flex;
+    gap: 2px;
+}
+
+.estack-graph-modes button,
+.estack-xo-pair-select {
+    height: 23px;
+    border: 1px solid var(--eq-border, rgba(255,255,255,.14)) !important;
+    border-radius: 2px !important;
+    color: var(--eq-muted, rgba(238,242,244,.6)) !important;
+    background: var(--eq-control, hsl(var(--bck-hue),18%,22%)) !important;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: .02em;
+}
+
+.estack-graph-modes button {
+    min-width: 70px;
+    padding: 0 8px;
+}
+
+.estack-graph-modes button.active {
+    border-color: var(--eq-accent, #59d5e3) !important;
+    color: #102124 !important;
+    background: var(--eq-accent, #59d5e3) !important;
+}
+
+.estack-xo-controls {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    min-width: 0;
+}
+
+.estack-xo-controls.visible { display: flex; }
+
+.estack-xo-controls > span {
+    color: var(--eq-dim, rgba(238,242,244,.35));
+    font-size: 6px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.estack-xo-pair-select {
+    min-width: 150px;
+    padding: 0 5px;
+    color: var(--eq-accent, #59d5e3) !important;
+    background: #142326 !important;
+}
+
+.estack-phase-source-note {
+    justify-self: end;
+    color: var(--eq-dim, rgba(238,242,244,.35));
+    font-size: 6px;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.estack-xo-readout {
+    display: none;
+    grid-template-columns: repeat(5, minmax(90px, 1fr));
+    gap: 3px;
+    margin: 0 5px;
+    padding: 4px;
+    border: 1px solid var(--eq-border, rgba(255,255,255,.14));
+    border-top: 0;
+    background: hsl(var(--bck-hue), 24%, 10%);
+}
+
+.estack-xo-readout.visible { display: grid; }
+
+.estack-xo-metric {
+    min-width: 0;
+    padding: 4px 6px;
+    border: 1px solid var(--eq-border, rgba(255,255,255,.12));
+    background: rgba(255,255,255,.018);
+}
+
+.estack-xo-metric span,
+.estack-xo-metric strong {
+    display: block;
+}
+
+.estack-xo-metric span {
+    color: var(--eq-dim, rgba(238,242,244,.35));
+    font-size: 6px;
+    font-weight: 700;
+}
+
+.estack-xo-metric strong {
+    margin-top: 1px;
+    color: var(--eq-text, #f4f6f7);
+    font-size: 9px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.estack-xo-metric.delta.good strong { color: #7fd8b2; }
+.estack-xo-metric.delta.warn strong { color: #f1c36d; }
+.estack-xo-metric.delta.bad strong { color: #df7777; }
+
+.venu-graph-wrap.estack-phase-graph {
+    margin-top: 0 !important;
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+}
+
+@media (max-width: 1050px) {
+    .estack-graph-modebar {
+        grid-template-columns: 1fr auto;
+    }
+    .estack-xo-controls {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        justify-content: flex-start;
+    }
+    .estack-phase-source-note { white-space: normal; }
+    .estack-xo-readout { grid-template-columns: repeat(3, minmax(90px, 1fr)); }
+}
+
+@media (max-width: 700px) {
+    .estack-graph-modebar { grid-template-columns: 1fr; }
+    .estack-phase-source-note { justify-self: start; text-align: left; }
+    .estack-graph-modes { overflow-x: auto; }
+    .estack-xo-readout { grid-template-columns: repeat(2, minmax(90px, 1fr)); }
+}
