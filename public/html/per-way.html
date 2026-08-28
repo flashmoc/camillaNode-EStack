@@ -14,21 +14,14 @@
         <div>
             <img src="/img/icon/advanced.png" alt="">
             <strong>Signal Generator</strong>
-            <small>measurement utility</small>
         </div>
         <div id="signalRuntimeState" class="signal-runtime-state">
             <strong>NORMAL INPUT</strong>
-            <span>Generator off</span>
         </div>
     </div>
 
     <main class="signal-page">
         <section class="signal-panel">
-            <header>
-                <strong>INTERNAL TEST SIGNAL</strong>
-                <span>CamillaDSP capture source · protected output routing</span>
-            </header>
-
             <div class="signal-controls">
                 <label class="signal-field">
                     <span>Signal</span>
@@ -48,10 +41,7 @@
 
                 <div id="signalBandwidthField" class="signal-field signal-bandwidth-field" hidden>
                     <span>Bandwidth</span>
-                    <div class="signal-bandwidth-value">
-                        <strong>FULL BAND</strong>
-                        <small>Broadband white noise · no frequency setting</small>
-                    </div>
+                    <div class="signal-bandwidth-value">FULL BAND</div>
                 </div>
 
                 <label class="signal-field signal-level-field">
@@ -77,34 +67,24 @@
             </div>
 
             <div class="signal-block">
-                <div class="signal-block-head">
-                    <strong>OUTPUTS</strong>
-                    <span>Select one or several ways, for example both sides of a crossover.</span>
-                </div>
+                <div class="signal-block-head"><strong>OUTPUTS</strong></div>
                 <div id="signalTargets" class="signal-targets"></div>
             </div>
 
             <div id="quickFrequencyBlock" class="signal-block">
-                <div class="signal-block-head">
-                    <strong>QUICK FREQUENCIES</strong>
-                    <span>Includes actual crossover frequencies from the selected outputs.</span>
-                </div>
+                <div class="signal-block-head"><strong>QUICK FREQUENCIES</strong></div>
                 <div id="quickFrequencies" class="quick-frequencies"></div>
             </div>
 
             <div class="signal-actions">
-                <div class="signal-safety">
-                    <strong id="signalSafety">Recommended starting level: -40 dBFS.</strong>
-                    <span>Signal stops automatically and the exact normal capture/routing configuration is restored.</span>
-                </div>
+                <strong id="signalSafety" class="signal-safety">Recommended starting level: -40 dBFS.</strong>
                 <button id="startTestSignal" class="signal-start">START TEST</button>
                 <button id="stopTestSignal" class="signal-stop" disabled>STOP ALL TEST SIGNAL</button>
             </div>
         </section>
 
-        <div class="signal-statusbar">
-            <span id="signalPageStatus">Connecting to CamillaDSP…</span>
-            <span>Internal generator → full DSP chain · For REW sweeps, leave generator OFF</span>
+        <div class="signal-statusbar" hidden>
+            <span id="signalPageStatus"></span>
         </div>
     </main>
 </body>
