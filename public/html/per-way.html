@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Per Way</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/estackTheme.css">
+    <link rel="stylesheet" href="/css/estackPerWay.css">
+    <script src="/src/estackPerWay.js" defer></script>
+</head>
+<body class="estack-per-way">
+    <div class="per-way-page-title">
+        <div>
+            <img src="/img/icon/merge.png" class="icon" alt="">
+            <span>Per Way</span>
+            <small>speaker management</small>
+        </div>
+        <button id="systemEditToggle" class="per-way-system-edit" aria-pressed="false">EDIT SYSTEM</button>
+    </div>
+
+    <main class="per-way-shell">
+        <section class="per-way-waybar">
+            <div class="per-way-current">
+                <strong id="perWayTitle">SUB</strong>
+                <span id="perWayMeta">OUT 1</span>
+            </div>
+            <nav id="wayTabs" class="per-way-tabs" aria-label="E-Stack outputs"></nav>
+        </section>
+
+        <section class="per-way-generator">
+            <header>
+                <div>
+                    <strong>SIGNAL GENERATOR</strong>
+                    <small>Injected as CamillaDSP capture/input → mixer → XO → PEQ → gain/delay/phase → protection → output</small>
+                </div>
+                <div id="testSignalStatus" class="test-signal-status">
+                    <strong>NORMAL INPUT</strong><span>Generator off</span>
+                </div>
+            </header>
+
+            <div class="generator-grid">
+                <label class="generator-field">
+                    <span>Signal</span>
+                    <select id="testType">
+                        <option value="Sine">Sine</option>
+                        <option value="WhiteNoise">White noise</option>
+                    </select>
+                </label>
+                <label class="generator-field">
+                    <span>Frequency</span>
+                    <div class="generator-number"><input id="testFrequency" type="number" min="10" max="20000" step="1" value="130"><span>Hz</span></div>
+                </label>
+                <label class="generator-field">
+                    <span>Level</span>
+                    <div class="generator-number"><input id="testLevel" type="number" min="-80" max="-10" step="1" value="-40"><span>dBFS</span></div>
+                </label>
+                <label class="generator-field">
+                    <span>Auto stop</span>
+                    <select id="testDuration">
+                        <option value="10">10 s</option>
+                        <option value="30" selected>30 s</option>
+                        <option value="60">60 s</option>
+                        <option value="120">120 s</option>
+                    </select>
+                </label>
+            </div>
+
+            <div class="generator-row">
+                <div class="generator-row-label"><strong>OUTPUTS</strong><small>Select one or several ways for crossover alignment.</small></div>
+                <div id="testTargets" class="test-targets"></div>
+            </div>
+
+            <div class="generator-row quick-row">
+                <div class="generator-row-label"><strong>QUICK FREQUENCIES</strong><small>Includes the selected way's actual crossover frequencies.</small></div>
+                <div id="quickFrequencies" class="quick-frequencies"></div>
+            </div>
+
+            <div class="generator-actions">
+                <div>
+                    <strong id="testSafetyNote">Start low; -40 dBFS is the normal measurement starting point.</strong>
+                    <small>For REW frequency/phase/impulse sweeps: leave this generator OFF and send the REW sweep through the normal E-Stack input.</small>
+                </div>
+                <button id="startTestSignal" class="generator-start">START TEST</button>
+                <button id="stopTestSignal" class="generator-stop" disabled>STOP ALL TEST SIGNAL</button>
+            </div>
+        </section>
+
+        <section id="processingCards" class="per-way-cards"></section>
+
+        <div class="per-way-statusbar">
+            <span id="perWayStatus">Connecting to CamillaDSP…</span>
+            <span>System parameters require EDIT SYSTEM · PEQ remains user-editable</span>
+        </div>
+    </main>
+</body>
+</html>
