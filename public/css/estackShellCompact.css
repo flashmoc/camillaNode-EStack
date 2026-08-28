@@ -72,6 +72,56 @@ header {
     border-color: var(--estack-border-soft);
 }
 
+#presetInd {
+    min-width: 150px;
+    font-weight: 600;
+}
+
+#presetInd[data-state="warning"] {
+    color: #ffd37a;
+}
+
+#presetInd[data-state="error"] {
+    color: #ff9b9b;
+}
+
+#startupConfigControls {
+    margin: 10px 0;
+    padding: 10px;
+    border: 1px solid var(--estack-border-soft);
+    border-radius: 7px;
+}
+
+#startupConfigStatus {
+    margin-bottom: 8px;
+    font-size: 12px;
+    opacity: .85;
+}
+
+#startupConfigStatus[data-state="error"] {
+    color: #ff9b9b;
+}
+
+.startupConfigButtons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.startupConfigButtons button {
+    min-height: 30px;
+    padding: 5px 9px;
+    border: 1px solid var(--estack-border-soft);
+    border-radius: 5px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.startupConfigButtons button:hover {
+    border-color: currentColor;
+}
+
 main {
     margin-top: 0 !important;
     height: calc(100vh - 46px) !important;
@@ -115,6 +165,10 @@ main {
     .indicator {
         min-width: 62px;
         padding-inline: 7px;
+    }
+
+    #presetInd {
+        min-width: 132px;
     }
 
     main {
