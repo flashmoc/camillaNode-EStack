@@ -1,16 +1,19 @@
 {
   "name": "camillanode",
   "version": "1.0.0",
-  "description": "node based web interface for CamillaDSP",
+  "private": true,
+  "description": "E-Stack speaker-management and measurement UI for CamillaDSP",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "nodemon index.js",
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "check": "node scripts/repo-check.js",
+    "test": "npm run check",
     "demo": "bash dev/start-demo.sh",
     "demo:bg": "bash dev/start-demo.sh --background"
   },
-  "author": "IAtaman",
-  "license": "ISC",
+  "author": "Ismail Ataman; E-Stack modifications",
+  "license": "MIT",
   "dependencies": {
     "express": "^4.19.2",
     "ws": "^8.13.0"

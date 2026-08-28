@@ -1,4 +1,11 @@
-/* Phase / XO Align graph modes for Output Processing. */
+/* Phase controls, phase graph and XO Align mode for Output Processing. */
+
+.estack-v2-output-body.estack-phase-enabled {
+    grid-template-columns: 92px 92px 92px minmax(150px, 1fr);
+}
+
+.estack-output-phase .estack-eq8-number { width: 58px; }
+
 .estack-graph-modebar {
     display: grid;
     grid-template-columns: auto minmax(180px, 1fr) auto;
@@ -47,9 +54,7 @@
     gap: 5px;
     min-width: 0;
 }
-
 .estack-xo-controls.visible { display: flex; }
-
 .estack-xo-controls > span {
     color: var(--eq-dim, rgba(238,242,244,.35));
     font-size: 6px;
@@ -82,7 +87,6 @@
     border-top: 0;
     background: hsl(var(--bck-hue), 24%, 10%);
 }
-
 .estack-xo-readout.visible { display: grid; }
 
 .estack-xo-metric {
@@ -91,18 +95,13 @@
     border: 1px solid var(--eq-border, rgba(255,255,255,.12));
     background: rgba(255,255,255,.018);
 }
-
 .estack-xo-metric span,
-.estack-xo-metric strong {
-    display: block;
-}
-
+.estack-xo-metric strong { display: block; }
 .estack-xo-metric span {
     color: var(--eq-dim, rgba(238,242,244,.35));
     font-size: 6px;
     font-weight: 700;
 }
-
 .estack-xo-metric strong {
     margin-top: 1px;
     color: var(--eq-text, #f4f6f7);
@@ -113,7 +112,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
-
 .estack-xo-metric.delta.good strong { color: #7fd8b2; }
 .estack-xo-metric.delta.warn strong { color: #f1c36d; }
 .estack-xo-metric.delta.bad strong { color: #df7777; }
@@ -124,10 +122,14 @@
     border-top-right-radius: 0 !important;
 }
 
-@media (max-width: 1050px) {
-    .estack-graph-modebar {
-        grid-template-columns: 1fr auto;
+@media (max-width: 1120px) {
+    .estack-v2-output-body.estack-phase-enabled {
+        grid-template-columns: repeat(3, 92px) minmax(145px, 1fr);
     }
+}
+
+@media (max-width: 1050px) {
+    .estack-graph-modebar { grid-template-columns: 1fr auto; }
     .estack-xo-controls {
         grid-column: 1 / -1;
         grid-row: 2;
@@ -135,6 +137,14 @@
     }
     .estack-phase-source-note { white-space: normal; }
     .estack-xo-readout { grid-template-columns: repeat(3, minmax(90px, 1fr)); }
+}
+
+@media (max-width: 760px) {
+    .estack-v2-output-body.estack-phase-enabled {
+        grid-template-columns: repeat(2, minmax(120px, 1fr));
+        justify-items: center;
+    }
+    .estack-v2-output-body.estack-phase-enabled .estack-v2-switches { width: 100%; }
 }
 
 @media (max-width: 700px) {

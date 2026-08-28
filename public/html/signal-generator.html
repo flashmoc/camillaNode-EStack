@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Signal Generator</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/estackTheme.css">
+    <link rel="stylesheet" href="/css/estackSignalGenerator.css">
+    <script src="/src/estackSignalGeneratorPage.js" defer></script>
+</head>
+<body class="estack-signal-generator">
+    <div class="signal-page-title">
+        <div>
+            <img src="/img/icon/advanced.png" alt="">
+            <strong>Signal Generator</strong>
+        </div>
+        <div id="signalRuntimeState" class="signal-runtime-state">
+            <strong>NORMAL INPUT</strong>
+        </div>
+    </div>
+
+    <main class="signal-page">
+        <section class="signal-panel">
+            <div class="signal-controls">
+                <label class="signal-field">
+                    <span>Signal</span>
+                    <select id="testType">
+                        <option value="Sine">Sine</option>
+                        <option value="WhiteNoise">White noise</option>
+                    </select>
+                </label>
+
+                <label id="signalFrequencyField" class="signal-field">
+                    <span>Frequency</span>
+                    <div class="signal-number">
+                        <input id="testFrequency" type="number" min="10" max="20000" step="1" value="130">
+                        <span>Hz</span>
+                    </div>
+                </label>
+
+                <div id="signalBandwidthField" class="signal-field signal-bandwidth-field" hidden>
+                    <span>Bandwidth</span>
+                    <div class="signal-bandwidth-value">FULL BAND</div>
+                </div>
+
+                <label class="signal-field signal-level-field">
+                    <span>Level</span>
+                    <div class="signal-level-control">
+                        <input id="testLevelSlider" class="signal-level-slider" type="range" min="-80" max="-10" step="1" value="-40" aria-label="Signal level in dBFS">
+                        <div class="signal-number signal-level-number">
+                            <input id="testLevel" type="number" min="-80" max="-10" step="1" value="-40">
+                            <span>dBFS</span>
+                        </div>
+                    </div>
+                </label>
+
+                <label class="signal-field">
+                    <span>Auto stop</span>
+                    <select id="testDuration">
+                        <option value="10">10 s</option>
+                        <option value="30" selected>30 s</option>
+                        <option value="60">60 s</option>
+                        <option value="120">120 s</option>
+                    </select>
+                </label>
+            </div>
+
+            <div class="signal-block">
+                <div class="signal-block-head"><strong>OUTPUTS</strong></div>
+                <div id="signalTargets" class="signal-targets"></div>
+            </div>
+
+            <div id="quickFrequencyBlock" class="signal-block">
+                <div class="signal-block-head"><strong>QUICK FREQUENCIES</strong></div>
+                <div id="quickFrequencies" class="quick-frequencies"></div>
+            </div>
+
+            <div class="signal-actions">
+                <strong id="signalSafety" class="signal-safety">Recommended starting level: -40 dBFS.</strong>
+                <button id="startTestSignal" class="signal-start">START TEST</button>
+                <button id="stopTestSignal" class="signal-stop" disabled>STOP ALL TEST SIGNAL</button>
+            </div>
+        </section>
+
+        <div class="signal-statusbar" hidden>
+            <span id="signalPageStatus"></span>
+        </div>
+    </main>
+</body>
+</html>

@@ -1,0 +1,115 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+BRANCH="${ESTACK_BRANCH:-camilladsp-4.1-estack}"
+REPO="${ESTACK_REPO:-https://github.com/flashmoc/camillaNode-EStack.git}"
+cd "$ROOT_DIR"
+
+if [[ ! -d .git ]]; then
+    echo "ERROR: $ROOT_DIR is not a Git checkout." >&2
+    exit 1
+fi
+
+RUNTIME_PATHS=(camillaNodeConfig.json currentConfig.json savedConfigs.dat config)
+RUNTIME_PATTERN='^(camillaNodeConfig\.json|currentConfig\.json|savedConfigs\.dat|config(/|$))'
+BACKUP_DIR="$(mktemp -d)"
+trap 'rm -rf "$BACKUP_DIR"' EXIT
+
+backup_runtime() {
+    for item in "${RUNTIME_PATHS[@]}"; do
+        if [[ -e "$item" ]]; then
+            mkdir -p "$BACKUP_DIR/$(dirname "$item")"
+            cp -a "$item" "$BACKUP_DIR/$item"
+        fi
+    done
+}
+
+restore_runtime() {
+    for item in "${RUNTIME_PATHS[@]}"; do
+        if [[ -e "$BACKUP_DIR/$item" ]]; then
+            rm -rf "$item"
+            mkdir -p "$(dirname "$item")"
+            cp -a "$BACKUP_DIR/$item" "$item"
+        fi
+    done
+    mkdir -p config
+}
+
+printf '\nE-Stack Raspberry update\n'
+printf 'Repository : %s\n' "$REPO"
+printf 'Branch     : %s\n\n' "$BRANCH"
+
+# Runtime files are allowed to differ. Any local code modification aborts the
+# update rather than being silently overwritten.
+while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    file="${line:3}"
+    file="${file##* -> }"
+    if [[ ! "$file" =~ $RUNTIME_PATTERN ]]; then
+        echo "ERROR: local code/content changes detected; update aborted:" >&2
+        git status --short >&2
+        exit 1
+    fi
+done < <(git status --porcelain=v1)
+
+backup_runtime
+PREVIOUS_HEAD="$(git rev-parse HEAD)"
+
+git remote set-url origin "$REPO"
+git fetch --prune origin "$BRANCH"
+if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
+    git switch "$BRANCH"
+else
+    git switch --track -c "$BRANCH" "origin/$BRANCH"
+fi
+git pull --ff-only origin "$BRANCH"
+restore_runtime
+
+# Deterministic production dependencies only. CamillaDSP itself is not touched.
+npm ci --omit=dev --no-audit --no-fund
+npm run check
+
+if command -v systemctl >/dev/null 2>&1 && systemctl cat camillanode.service >/dev/null 2>&1; then
+    echo "Restarting camillanode.service..."
+    sudo systemctl restart camillanode.service
+
+    if ! sudo systemctl is-active --quiet camillanode.service; then
+        echo "ERROR: camillanode.service did not become active." >&2
+        sudo systemctl --no-pager --full status camillanode.service || true
+        exit 1
+    fi
+
+    PORT="$(node -e "const fs=require('fs');let p=80;try{p=JSON.parse(fs.readFileSync('camillaNodeConfig.json','utf8')).port||p}catch(_){};process.stdout.write(String(p))")"
+    HEALTH_OK=0
+    for _ in {1..12}; do
+        if node - "$PORT" <<'NODE' >/dev/null 2>&1
+const http = require('http');
+const port = Number(process.argv[2]);
+const req = http.get({ host: '127.0.0.1', port, path: '/api/runtime', timeout: 800 }, res => {
+  res.resume();
+  process.exit(res.statusCode === 200 ? 0 : 1);
+});
+req.on('timeout', () => { req.destroy(); process.exit(1); });
+req.on('error', () => process.exit(1));
+NODE
+        then
+            HEALTH_OK=1
+            break
+        fi
+        sleep 1
+    done
+
+    if [[ "$HEALTH_OK" -ne 1 ]]; then
+        echo "ERROR: CamillaNode service is active but /api/runtime is not healthy on port $PORT." >&2
+        sudo journalctl -u camillanode.service -n 60 --no-pager || true
+        exit 1
+    fi
+else
+    echo "NOTE: camillanode.service not found; repository updated but no service was restarted."
+fi
+
+printf '\nUpdate complete.\n'
+printf 'Previous commit : %s\n' "$PREVIOUS_HEAD"
+printf 'Current commit  : %s\n' "$(git rev-parse HEAD)"
+echo "Runtime configs/presets were preserved. CamillaDSP, ALSA and DSP YAML were not modified."

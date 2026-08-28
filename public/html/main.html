@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -15,14 +14,13 @@
     <link rel="stylesheet" href="/css/estackShellCompact.css">
     <link rel="shortcut icon" href="/img/favicon.ico" type="image/x-icon">
 </head>
-
 <body id="mainBody">
     <script type="module">
-        import camillaDSP from "/src/camillaDSP.js";
-        import installEStackCompatibility from "/src/estackCompat.js";
-        import installEStackConfigGuard from "/src/estackConfigGuard.js";
-        import installEStackConnectionDecouple from "/src/estackConnectionDecouple.js";
-        import savedConfigs from "/src/savedConfigs.js";
+        import camillaDSP from '/src/camillaDSP.js';
+        import installEStackCompatibility from '/src/estackCompat.js';
+        import installEStackConfigGuard from '/src/estackConfigGuard.js';
+        import installEStackConnectionDecouple from '/src/estackConnectionDecouple.js';
+        import savedConfigs from '/src/savedConfigs.js';
         import preferences from '/src/preferences.js';
 
         installEStackCompatibility(camillaDSP);
@@ -41,45 +39,6 @@
             window.open(target, '_blank', 'noopener,noreferrer');
         };
 
-        const pref = window.preferences.preferenceObject;
-        if (pref?.ui) {
-            const defaultPage = pref.ui.find(item => item.id === 'defaultPage');
-            if (defaultPage) {
-                // E-Stack always boots into Control. Do not allow stale browser
-                // preferences to reopen Preferences or another editor page.
-                defaultPage.options = { 'Control': 'basic' };
-                defaultPage.value = 'basic';
-                defaultPage.enabled = false;
-            }
-        }
-
-        if (pref?.sections) {
-            pref.sections.general = 'E-Stack Preferences';
-            pref.sections.ui = 'User Interface Preferences';
-            pref.sections.basic = 'Control Preferences';
-            pref.sections.equalizer = 'Output Processing Preferences';
-        }
-
-        const dcProtection = pref?.general?.find(item => item.id === 'DCProtection');
-        if (dcProtection) {
-            dcProtection.value = false;
-            dcProtection.enabled = false;
-            dcProtection.name = 'Legacy DC Protection (disabled for E-Stack)';
-        }
-
-        if (Array.isArray(pref?.basic)) {
-            pref.basic = pref.basic.filter(item => item.id === 'showBasicSpectrum');
-            const spectrumItem = pref.basic.find(item => item.id === 'showBasicSpectrum');
-            if (spectrumItem) spectrumItem.name = 'Show spectrum analyzer in Control';
-        }
-
-        if (Array.isArray(pref?.equalizer)) {
-            pref.equalizer = pref.equalizer.filter(item => item.id === 'showEqualizerSpectrum');
-            const spectrumItem = pref.equalizer.find(item => item.id === 'showEqualizerSpectrum');
-            if (spectrumItem) spectrumItem.name = 'Show spectrum analyzer in Output Processing';
-        }
-
-        window.preferences.saveSettings();
         document.addEventListener('DOMContentLoaded', mainBodyOnLoad);
     </script>
 
@@ -91,12 +50,12 @@
             </div>
         </div>
         <div id="indicators">
-            <div class="indicator indicator-on" id="samplingRateInd">41,400</div>
-            <div class="indicator indicator-on" id="uzilizationInd">20%</div>
-            <div class="indicator" id="clippingInd">No Clipping</div>
+            <div class="indicator indicator-on" id="samplingRateInd">—</div>
+            <div class="indicator indicator-on" id="uzilizationInd">—</div>
+            <div class="indicator" id="clippingInd">No clipping</div>
             <div class="indicator" id="limiterInd">Limiter Off</div>
-            <div class="indicator" id="balanceInd">0 Center</div>
-            <div class="indicator" id="crossfeedInd">0dB</div>
+            <div class="indicator" id="balanceInd">0 Centre</div>
+            <div class="indicator" id="crossfeedInd">x-feed off</div>
             <div class="indicator" id="filtersInd">filters</div>
             <div class="indicator" id="spectrumInd">Spectrum On</div>
             <div class="indicator" id="DSPstateInd">Running</div>
@@ -112,7 +71,7 @@
             <div class="navigate" target="/html/loudness.html"><img src="/img/icon/equalizer.png" class="icon">Loudness</div>
             <div class="navigate" target="/html/global-eq.html"><img src="/img/icon/equalizer.png" class="icon">Input Processing</div>
             <div class="navigate" target="/equalizer"><img src="/img/icon/merge.png" class="icon">Output Processing</div>
-            <div class="navigate" target="/per-way"><img src="/img/icon/advanced.png" class="icon">Signal Generator</div>
+            <div class="navigate" target="/signal-generator"><img src="/img/icon/advanced.png" class="icon">Signal Generator</div>
             <div class="navigate" target="/advanced"><img src="/img/icon/advanced.png" class="icon">Advanced</div>
             <div class="navigate" target="/preferences"><img src="/img/icon/preferences.png" class="icon">Preferences</div>
             <div class="navigate" target="/connections"><img src="/img/icon/connections.png" class="icon">Connections</div>
@@ -155,7 +114,7 @@
     </dialog>
 
     <dialog id="manageConfigs">
-        <span>Name : </span><input type="text" name="" id="configName" autocomplete="off"><br>
+        <span>Name : </span><input type="text" id="configName" autocomplete="off"><br>
         <div id="configList"></div>
         <div class="navigate" onclick="openConfigurationClick()" target=""><img src="/img/icon/open.png" class="icon">Open</div>
         <div class="navigate" onclick="saveConfigurationClick()" target=""><img src="/img/icon/save.png" class="icon">Save</div>
@@ -163,5 +122,4 @@
         <div class="navigate" onclick="this.parentElement.close()" target=""><img src="/img/icon/remove.png" class="icon">Close</div>
     </dialog>
 </body>
-
 </html>

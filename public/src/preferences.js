@@ -1,288 +1,221 @@
-
 class preferences {
-    defaultSettings;
-
-    
-    preferenceObject;
-    
-
     constructor() {
-        this.loadSettings();
-        return this;    
+        this.preferenceObject = this.loadSettings();
     }
 
     getDefaults() {
-        let tmpPref =  new Object();
-        tmpPref["sections"] = {"general":"Generel Preferences","ui":"User Interface Preferences","basic":"Basic Section Preferences","equalizer":"Equalizer Section Preferences"}
-        tmpPref["general"] = [
-            {"id":"DCProtection",
-            "name":"Enable DC Protection",        
-            "value":true,
-            "type":"boolean",
-            "enabled":true,
+        return {
+            sections: {
+                general: 'E-Stack Preferences',
+                ui: 'User Interface',
+                basic: 'Control',
+                equalizer: 'Output Processing'
             },
-
-            {"id":"enableSpectrum",
-            "name":"Enable Spectrum Analyzer",        
-            "value":true,
-            "type":"boolean",
-            "enabled":true,
-            },       
-
-            {"id":"loadLastOnStartup",
-            "name":"Load last config on startup",        
-            "value":true,
-            "type":"boolean",
-            "enabled":true,
-            },       
-
-            
-        ]
-
-        tmpPref["ui"] = [
-            {"id":"defaultPage",            
-            "name":"Default page on load",            
-            "value":"Equalizer",
-            "type":"select",
-            "options":{"Connections":"connections","Basic":"basic","Equalizer":"equalizer","Advanced":"advanced","Room EQ":"room","Preferences":"preferences"},            
-            "enabled":true,
-            },
-
-            {"id":"backgroundHue",
-            "name":"Backround hue",
-            "value":180,
-            "type":"range",        
-            "options":{"min":0,"max":330,"step":1},
-            "enabled":true,
-            "callback":"backgroundHueChange",                                
-            },        
-        ]
-
-        tmpPref["basic"] = [
-            
-            {"id":"showBasicSpectrum",
-            "name":"Show spectrum analyzer in Basic section",
-            "value":false,
-            "type":"boolean",                
-            "dependsOn":"enableSpectrum",
-            "enabled":false,
-            },        
-
-            {"id":"subBassFreq",
-            "name":"Sub bass knob frequency",
-            "value":70,
-            "type":"text",                            
-            "enabled":true,
-            },        
-
-            {"id":"bassFreq",
-            "name":"Bass knob frequency",
-            "value":200,
-            "type":"text",                            
-            "enabled":true,
-            },        
-
-            {"id":"midsFreq",
-            "name":"Mids knob frequency",
-            "value":1000,
-            "type":"text",                            
-            "enabled":true,
-            },        
-
-            {"id":"upperMidsFreq",
-            "name":"Upper mids knob frequency",
-            "value":3000,
-            "type":"text",                            
-            "enabled":true,
-            },        
-
-            {"id":"trebleFreq",
-            "name":"Treble frequency",
-            "value":8000,
-            "type":"text",                            
-            "enabled":true,
-            },        
-
-            
-        ]
-
-        tmpPref["equalizer"] = [
-            {"id":"showEqualizerSpectrum",
-            "name":"Show spectrum analyzer in Equalizer section",
-            "value":true,
-            "type":"boolean",            
-            "dependsOn":"enableSpectrum",    
-            "enabled":false,
-            },        
-
-            {"id":"autoPreampGain",
-            "name":"Set preamp gain automatically based on filters",
-            "value":false,
-            "type":"boolean",                        
-            "enabled":true,
-            },        
-
-            {"id":"peqDualChannel",
-            "name":"Seperate filters for Right and Left channels",
-            "value":false,
-            "type":"boolean",                        
-            "enabled":true,
-            },        
-
-            {"id":"peqSingleLine",
-            "name":"Show PEQ filters in a single line in single channel mode",
-            "value":true,
-            "type":"boolean",                        
-            "enabled":true,
-            },        
-
-        ]  
-        return tmpPref;
+            general: [
+                {
+                    id: 'enableSpectrum',
+                    name: 'Enable spectrum analyzers',
+                    value: true,
+                    type: 'boolean',
+                    enabled: true
+                },
+                {
+                    id: 'loadLastOnStartup',
+                    name: 'Load last configuration on startup',
+                    value: true,
+                    type: 'boolean',
+                    enabled: true
+                }
+            ],
+            ui: [
+                {
+                    id: 'defaultPage',
+                    name: 'Default page',
+                    value: 'basic',
+                    type: 'select',
+                    options: { Control: 'basic' },
+                    enabled: false
+                },
+                {
+                    id: 'backgroundHue',
+                    name: 'Background hue',
+                    value: 180,
+                    type: 'range',
+                    options: { min: 0, max: 330, step: 1 },
+                    enabled: true,
+                    callback: 'backgroundHueChange'
+                }
+            ],
+            basic: [
+                {
+                    id: 'showBasicSpectrum',
+                    name: 'Show spectrum analyzer in Control',
+                    value: false,
+                    type: 'boolean',
+                    dependsOn: 'enableSpectrum',
+                    enabled: true
+                }
+            ],
+            equalizer: [
+                {
+                    id: 'showEqualizerSpectrum',
+                    name: 'Show spectrum analyzer in Output Processing',
+                    value: true,
+                    type: 'boolean',
+                    dependsOn: 'enableSpectrum',
+                    enabled: true
+                }
+            ]
+        };
     }
 
+    migrateStored(stored) {
+        const next = this.getDefaults();
+        if (!stored || typeof stored !== 'object') return next;
 
-    createPreferencesElements(parentElement) {
-        let sectionElement, subElement, subTitleElement, optionElement, lineElement;
-        for (let section of Object.keys(this.preferenceObject.sections)) {
-            sectionElement=document.createElement("div");
-            sectionElement.setAttribute("id",section);
-            sectionElement.setAttribute("label",this.preferenceObject.sections[section]);
-            sectionElement.className="preferenceSection";
-            for (let item of this.preferenceObject[section]) {
-                // console.log(section,item);
-
-                // Preference line
-                lineElement=document.createElement("div"); 
-                lineElement.className = "preferenceItem";
-
-                // Title of the item
-                subTitleElement = document.createElement("div");
-                subTitleElement.innerText=item.name;
-                subTitleElement.className="preferenceName"
-                lineElement.appendChild(subTitleElement);
-
-                                
-                switch (item.type) {
-                    case "boolean":
-                        subElement = document.createElement("input");
-                        subElement.setAttribute("type","checkbox")
-                        subElement.checked = item.value;
-                        break;
-                    case "select":
-                        subElement = document.createElement("select");
-                        for (let option of Object.keys(item.options)) {
-                            optionElement = document.createElement("option");
-                            optionElement.innerText=option;
-                            optionElement.setAttribute("value",item.options[option]);
-                            subElement.appendChild(optionElement);
-                        }
-                        break;
-                    case "text":
-                        subElement = document.createElement("input");
-                        subElement.setAttribute("type","text")
-                        subElement.value=item.value;
-                        subElement.style.width="50px";
-                        break;
-                    case "range":
-                        subElement = document.createElement("input");
-                        subElement.setAttribute("type","range")
-                        subElement.setAttribute("min",item.options.min);
-                        subElement.setAttribute("max",item.options.max);
-                        subElement.setAttribute("step",item.options.step);
-                        subElement.setAttribute("value",item.value);
-                        break;
-                }
-
-                subElement.disabled=!item.enabled;                
-                subElement.setAttribute("id",item.id);                
-
-                // Process dependency 
-                if (item.dependsOn!=undefined) {
-                    document.getElementById(item.dependsOn).addEventListener("change",function(){
-                        const targetElement = document.getElementById(item.id);
-                        if (this.checked==false) targetElement.checked=false;
-                        targetElement.disabled = !this.checked;
-                    })
-                    subElement.disabled = !document.getElementById(item.dependsOn).checked;
-                }
-
-                // Process special callback event > calls the function named item.callback 
-                if (item.callback!=undefined) subElement.addEventListener("callback",window[item.callback]);                                       
-                
-                subElement.preferences=this;
-                subElement.section=section;
-                subElement.addEventListener("change",function(){
-                    // console.log("Event default.",item);
-                    let value;
-                    if (this.type=="checkbox") value=this.checked; else value=this.value;                    
-                    this.preferences.applySetting(section,this.id,value)                                         
-                    this.preferences.saveSettings();
-                    this.dispatchEvent(new Event("callback"));
-                    window.parent.activeSettings = window.preferences.getPreferences();
-                });
-                lineElement.appendChild(subElement);
-                sectionElement.appendChild(lineElement);
+        for (const section of Object.keys(next.sections)) {
+            const previous = Array.isArray(stored[section]) ? stored[section] : [];
+            for (const item of next[section]) {
+                const old = previous.find(candidate => candidate?.id === item.id);
+                if (old && old.value !== undefined) item.value = old.value;
             }
-
-            parentElement.appendChild(sectionElement);
         }
-        return true;
-    }
 
-    applySetting(section,setting,value) {       
-        // console.log("Apply Setting",section,setting,value)
-        this.preferenceObject[section].filter((e)=>e.id==setting)[0].value = value;
-        // console.log(this.preferenceObject[section])
-    }
-    
-    getSettingValue(section,setting) {
-        this.loadSettings();        
-        return this.preferenceObject[section].filter((e)=>e.id==setting)[0].value;
+        // E-Stack always starts on Control. Old CamillaNode preferences may
+        // still contain Equalizer/Room/Preferences as the default page.
+        const defaultPage = next.ui.find(item => item.id === 'defaultPage');
+        defaultPage.value = 'basic';
+        return next;
     }
 
     loadSettings() {
-        this.preferenceObject = window.localStorage.getItem("preferences");
-        if (this.preferenceObject==undefined || this.preferenceObject==null) this.preferenceObject=this.getDefaults(); else this.preferenceObject=JSON.parse(this.preferenceObject);
-        // console.log(this.preferenceObject);
+        let stored = null;
+        try {
+            const raw = window.localStorage.getItem('preferences');
+            if (raw) stored = JSON.parse(raw);
+        } catch (_) {}
+
+        this.preferenceObject = this.migrateStored(stored);
+        this.saveSettings();
+        return this.preferenceObject;
     }
 
     saveSettings() {
-        window.localStorage.setItem("preferences",JSON.stringify(this.preferenceObject))
+        window.localStorage.setItem('preferences', JSON.stringify(this.preferenceObject));
         return true;
     }
 
-    setSettingValue(setting,value) {
-        
+    createPreferencesElements(parentElement) {
+        parentElement.replaceChildren();
+        const controls = new Map();
+
+        for (const section of Object.keys(this.preferenceObject.sections)) {
+            const sectionElement = document.createElement('div');
+            sectionElement.id = section;
+            sectionElement.setAttribute('label', this.preferenceObject.sections[section]);
+            sectionElement.className = 'preferenceSection';
+
+            for (const item of this.preferenceObject[section]) {
+                const line = document.createElement('div');
+                line.className = 'preferenceItem';
+
+                const name = document.createElement('div');
+                name.className = 'preferenceName';
+                name.textContent = item.name;
+
+                let control;
+                if (item.type === 'boolean') {
+                    control = document.createElement('input');
+                    control.type = 'checkbox';
+                    control.checked = Boolean(item.value);
+                } else if (item.type === 'select') {
+                    control = document.createElement('select');
+                    for (const [label, value] of Object.entries(item.options || {})) {
+                        const option = document.createElement('option');
+                        option.textContent = label;
+                        option.value = value;
+                        control.appendChild(option);
+                    }
+                    control.value = String(item.value);
+                } else if (item.type === 'range') {
+                    control = document.createElement('input');
+                    control.type = 'range';
+                    control.min = item.options.min;
+                    control.max = item.options.max;
+                    control.step = item.options.step;
+                    control.value = item.value;
+                } else {
+                    control = document.createElement('input');
+                    control.type = 'text';
+                    control.value = item.value ?? '';
+                }
+
+                control.id = item.id;
+                control.disabled = !item.enabled;
+                control.addEventListener('change', () => {
+                    const value = control.type === 'checkbox' ? control.checked : control.value;
+                    this.applySetting(section, item.id, value);
+                    this.saveSettings();
+                    window.parent.activeSettings = this.getPreferences();
+                    if (item.callback && typeof window[item.callback] === 'function') {
+                        window[item.callback].call(control);
+                    }
+                    this.applyDependencies(controls);
+                });
+
+                controls.set(item.id, { control, item });
+                line.append(name, control);
+                sectionElement.appendChild(line);
+            }
+            parentElement.appendChild(sectionElement);
+        }
+
+        this.applyDependencies(controls);
+        return true;
     }
 
-    
-    reset () {
-        this.preferenceObject=this.getDefaults();
+    applyDependencies(controls) {
+        for (const { control, item } of controls.values()) {
+            if (!item.dependsOn) continue;
+            const source = controls.get(item.dependsOn)?.control || document.getElementById(item.dependsOn);
+            const allowed = source ? Boolean(source.checked) : true;
+            control.disabled = !item.enabled || !allowed;
+            if (!allowed && control.type === 'checkbox') control.checked = false;
+        }
+    }
+
+    applySetting(section, setting, value) {
+        const item = this.preferenceObject?.[section]?.find(candidate => candidate.id === setting);
+        if (item) item.value = value;
+    }
+
+    getSettingValue(section, setting) {
+        const item = this.preferenceObject?.[section]?.find(candidate => candidate.id === setting);
+        if (item) return item.value;
+        const fallback = this.getDefaults()?.[section]?.find(candidate => candidate.id === setting);
+        return fallback?.value;
+    }
+
+    reset() {
+        this.preferenceObject = this.getDefaults();
         this.saveSettings();
+        return true;
     }
 
-    applyBackgroundHue(document,hue) {
-        if (document==null) return;
-        document.documentElement.style.setProperty('--bck-hue',parseInt(hue));
-        document.documentElement.style.setProperty('--hue-rotate',parseInt(hue)-230+"deg");                        
+    applyBackgroundHue(doc, hue) {
+        if (!doc) return;
+        const value = Number.parseInt(hue, 10);
+        doc.documentElement.style.setProperty('--bck-hue', value);
+        doc.documentElement.style.setProperty('--hue-rotate', `${value - 230}deg`);
     }
 
     getPreferences() {
-        let returnObject= new Object();
-        
-        if (this.preferenceObject.sections==undefined) this.reset()
-
-        for (let section of Object.keys(this.preferenceObject.sections)) {
-            for (let item of this.preferenceObject[section]) {                                
-                returnObject[item.id]=item.value;
-            }
+        const result = {};
+        for (const section of Object.keys(this.preferenceObject.sections || {})) {
+            for (const item of this.preferenceObject[section] || []) result[item.id] = item.value;
         }
-        // console.log("Preferences :",returnObject);
-        return returnObject;
+        return result;
     }
-
-
 }
-
 
 export default preferences;

@@ -1,96 +1,79 @@
-//// Global Objects
+'use strict';
+
 const express = require('express');
-const http = require('http');
-const { json } = require('express');
-const app = express();
 const fs = require('fs');
+const http = require('http');
+const path = require('path');
 const WebSocket = require('ws');
-const configsFile = "savedConfigs.dat";
 
-//// Global variables
-let strAppConfig;
+const ROOT = __dirname;
+const PUBLIC_DIR = path.join(ROOT, 'public');
+const CONFIG_DIR = path.join(ROOT, 'config');
+const APP_CONFIG_FILE = path.join(ROOT, 'camillaNodeConfig.json');
+const CURRENT_CONFIG_FILE = path.join(ROOT, 'currentConfig.json');
+const SAVED_CONFIGS_FILE = path.join(ROOT, 'savedConfigs.dat');
+const DEFAULT_APP_CONFIG = { port: 80 };
 
-if (fs.existsSync('camillaNodeConfig.json')) {
-    strAppConfig = fs.readFileSync('camillaNodeConfig.json');
-} else {
-    strAppConfig = JSON.stringify({"port":80});
-    fs.writeFileSync('camillaNodeConfig.json',strAppConfig);
+fs.mkdirSync(CONFIG_DIR, { recursive: true });
+
+function loadAppConfig() {
+    if (!fs.existsSync(APP_CONFIG_FILE)) {
+        fs.writeFileSync(APP_CONFIG_FILE, JSON.stringify(DEFAULT_APP_CONFIG), { mode: 0o600 });
+        return { ...DEFAULT_APP_CONFIG };
+    }
+
+    try {
+        const parsed = JSON.parse(fs.readFileSync(APP_CONFIG_FILE, 'utf8'));
+        return { ...DEFAULT_APP_CONFIG, ...parsed };
+    } catch (error) {
+        console.error('Invalid camillaNodeConfig.json; using defaults:', error.message);
+        return { ...DEFAULT_APP_CONFIG };
+    }
 }
-let appConfig = JSON.parse(strAppConfig);
 
-// Hardware keeps using camillaNodeConfig.json. The development launcher can
-// override the HTTP port without modifying the Raspberry Pi configuration.
-const PORT = Number.parseInt(process.env.CAMILLANODE_PORT || appConfig.port || 80, 10);
-let currentConfigName="";
+const appConfig = loadAppConfig();
+const PORT = Number.parseInt(process.env.CAMILLANODE_PORT || appConfig.port || DEFAULT_APP_CONFIG.port, 10);
+const DSP_HOST = process.env.CAMILLADSP_PROXY_HOST || '127.0.0.1';
+const DSP_PORT = Number.parseInt(process.env.CAMILLADSP_PORT || '1234', 10);
+const SPECTRUM_PORT = Number.parseInt(process.env.CAMILLA_SPECTRUM_PORT || '6413', 10);
 
-//// Global settings
-app.use(express.static(__dirname+'/public/'));
+const app = express();
+app.disable('x-powered-by');
+app.use(express.static(PUBLIC_DIR));
 
-//// Default gets
-app.get('/connections',(req,res)=>{
-    res.sendFile(__dirname+'/public/html/connections.html');
-});
+function sendPage(file) {
+    return (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'html', file));
+}
 
-app.get('/basic',(req,res)=>{
-    res.sendFile(__dirname+'/public/html/basic.html');
-});
+app.get('/', sendPage('main.html'));
+app.get('/basic', sendPage('basic.html'));
+app.get('/connections', sendPage('connections.html'));
+app.get('/equalizer', sendPage('equalizer.html'));
+app.get('/signal-generator', sendPage('signal-generator.html'));
+app.get('/per-way', (_req, res) => res.redirect(308, '/signal-generator'));
+app.get('/advanced', sendPage('advanced.html'));
+app.get('/preferences', sendPage('preferences.html'));
 
-app.get('/',(req,res)=>{
-    res.sendFile(__dirname+'/public/html/main.html');
-});
-
-app.get('/equalizer',(req,res)=>{
-    res.sendFile(__dirname+'/public/html/equalizer.html');
-});
-
-app.get('/per-way',(req,res)=>{
-    res.sendFile(__dirname+'/public/html/per-way.html');
-});
-
-app.get('/advanced',(req,res)=>{
-    res.sendFile(__dirname+'/public/html/advanced.html');
-});
-
-app.get('/room',(req,res)=>{
-    res.sendFile(__dirname+'/public/html/room.html');
-});
-
-app.get('/preferences',(req,res)=>{
-    res.sendFile(__dirname+'/public/html/preferences.html');
-});
-
-app.get('/spectrum',(req,res)=>{
-    res.sendFile(__dirname+'/public/html/spectrum.html');
-});
-
-// Small diagnostic endpoint used by the cloud development environment. It is
-// intentionally harmless on the Raspberry and exposes no configuration data.
-app.get('/api/runtime',(req,res)=>{
+app.get('/api/runtime', (_req, res) => {
     res.json({
         mode: process.env.ESTACK_DEMO === '1' ? 'demo' : 'hardware',
         httpPort: PORT,
-        dspPort: Number.parseInt(process.env.CAMILLADSP_PORT || '1234', 10),
-        spectrumPort: Number.parseInt(process.env.CAMILLA_SPECTRUM_PORT || '6413', 10),
+        dspPort: DSP_PORT,
+        spectrumPort: SPECTRUM_PORT,
         camillaGuiProxy: process.env.ESTACK_DEMO === '1' ? '/camillagui/gui/index.html' : null
     });
 });
 
-// Register the E-Stack measurement generator before the generic /api proxy used
-// by CamillaGUI in Codespaces. The backend owns the normal-config snapshot and
-// automatic restore, so a browser/tab failure cannot leave a test route active
-// indefinitely once CamillaNode is running again.
-require('./estackSignalGenerator')(app, {
+// The measurement generator owns its exact normal-config snapshot and automatic
+// restore. Register it before the generic /api proxy used by CamillaGUI in demo.
+require('./server/signalGenerator')(app, {
     WebSocket,
-    host: process.env.CAMILLADSP_PROXY_HOST || '127.0.0.1',
-    port: Number.parseInt(process.env.CAMILLADSP_PORT || '1234', 10)
+    host: DSP_HOST,
+    port: DSP_PORT
 });
 
-// In Codespaces, opening port 5005 directly creates a second github.dev origin
-// and a second forwarding/auth lifecycle. CamillaGUI then becomes vulnerable to
-// tab suspension/reconnect glitches. Keep the browser on CamillaNode's 8080
-// origin instead and reverse-proxy the official CamillaGUI backend over loopback.
-// This is DEMO ONLY; Raspberry deployments keep using CamillaGUI directly on
-// port 5005 and are not affected by this proxy.
+// Codespaces only: keep CamillaGUI on the CamillaNode origin. Raspberry installs
+// use CamillaGUI directly and never enter this proxy path.
 const camillaGuiProxyEnabled = process.env.ESTACK_DEMO === '1';
 const camillaGuiProxyHost = process.env.CAMILLAGUI_PROXY_HOST || '127.0.0.1';
 const camillaGuiProxyPort = Number.parseInt(process.env.CAMILLAGUI_PORT || '5005', 10);
@@ -108,8 +91,6 @@ function proxyCamillaGuiHttp(req, res, upstreamPath) {
         headers
     }, upstreamRes => {
         const responseHeaders = { ...upstreamRes.headers };
-
-        // Keep redirects on the CamillaNode origin instead of leaking :5005.
         if (responseHeaders.location) {
             try {
                 const location = new URL(responseHeaders.location, `http://${camillaGuiProxyHost}:${camillaGuiProxyPort}`);
@@ -118,7 +99,6 @@ function proxyCamillaGuiHttp(req, res, upstreamPath) {
                 }
             } catch (_) {}
         }
-
         res.writeHead(upstreamRes.statusCode || 502, responseHeaders);
         upstreamRes.pipe(res);
     });
@@ -128,7 +108,6 @@ function proxyCamillaGuiHttp(req, res, upstreamPath) {
         if (!res.headersSent) res.status(502).send('CamillaGUI backend unavailable');
         else res.end();
     });
-
     req.pipe(upstream);
 }
 
@@ -137,130 +116,132 @@ if (camillaGuiProxyEnabled) {
         const upstreamPath = req.originalUrl.replace(/^\/camillagui/, '') || '/';
         proxyCamillaGuiHttp(req, res, upstreamPath);
     });
+    app.use('/api', (req, res) => proxyCamillaGuiHttp(req, res, req.originalUrl));
+}
 
-    // CamillaGUI's production frontend intentionally calls /api on the current
-    // origin. /api/runtime above remains CamillaNode-owned because exact routes
-    // are matched before this middleware; every other /api request goes to 5005.
-    app.use('/api', (req, res) => {
-        proxyCamillaGuiHttp(req, res, req.originalUrl);
+function readBody(req, limitBytes = 2 * 1024 * 1024) {
+    return new Promise((resolve, reject) => {
+        let text = '';
+        req.on('data', chunk => {
+            text += chunk;
+            if (Buffer.byteLength(text, 'utf8') > limitBytes) {
+                reject(new Error('Request body too large'));
+                req.destroy();
+            }
+        });
+        req.on('end', () => resolve(text));
+        req.on('error', reject);
     });
 }
 
-app.post('/saveConfigName',(req,res)=>{
-    let queryResponse="";
-    req.on('data', function(chunk) {queryResponse+=chunk;}).on('end', function(){
-        fs.writeFileSync("currentConfig.json",queryResponse);
-    });
-});
-
-app.get('/getConfigName',(req,res)=>{
-    if (fs.existsSync("currentConfig.json")) {
-        let currentConfig = fs.readFileSync("currentConfig.json");
-        res.write(JSON.stringify(currentConfig.toString('utf-8')));
-    } else {
-        let currentConfig = JSON.stringify({"configName":"","configShortcut":""});
-        res.write(JSON.stringify(currentConfig));
-    }
-    res.end();
-});
-
-app.post('/saveConfig',(req,res)=>{
-    let queryResponse="";
-    req.on('data', function(chunk) {
-        queryResponse+=chunk;
-    }).on('end', function(){
-        let config = JSON.parse(queryResponse);
-        let fileName = './config/'+config.configName+'.json';
-        console.log(fileName);
-        let fileBuffer = Buffer.from(JSON.stringify(config),'utf-8');
-        fs.writeFileSync(fileName,fileBuffer);
-        res.end();
-    });
-});
-
-app.post('/saveConfigFile',(req,res)=>{
-    let queryResponse="";
-    req.on('data', function(chunk) {
-        queryResponse+=chunk;
-    }).on('end', function(){
-        let config = JSON.parse(queryResponse);
-        let fileName = configsFile;
-        let fileBuffer = Buffer.from(JSON.stringify(config),'utf-8');
-        fs.writeFileSync(fileName,fileBuffer,function(err){
-            console.log("Error saving file ",fileName,"\n",err);
-        });
-        res.end();
-    });
-});
-
-app.get('/getConfigFile',function(req,res){
-    let filePath=configsFile;
-    if (!fs.existsSync(filePath)) {
-        res.write(JSON.stringify([]));
-        res.end();
-        return;
-    }
-
-    let config = fs.readFileSync(filePath);
-    res.write(config.toString());
-    res.end();
-});
-
-app.get('/getConfigList',(req,res)=>{
-    let files = fs.readdirSync('./config');
-    let fileList = Array();
-    for (let file of files) {
-        if (file.includes('json')) fileList.push(file.replace('.json',''));
-    }
-    res.write(JSON.stringify(fileList));
-    res.end();
-});
-
-app.get('/getConfig',function(req,res){
-    let filePath='./config/'+req.query.configName+'.json';
-    if (!fs.existsSync(filePath)) { res.write('{"status":"error","reason":"Config not found"}'); res.end(); return; }
-    let config = fs.readFileSync(filePath);
-    res.write(config.toString());
-    res.end();
-});
-
-app.get('/configExists',function(req,res){
-    let filePath='./config/'+req.query.configName+'.json';
-    fs.existsSync(filePath)?res.write('true'):res.write('false');
-    res.end();
-});
-
-app.get('/deleteConfig',function(req,res){
-    let filePath='./config/'+req.query.configName+'.json';
-    if (!fs.existsSync(filePath)) { res.write('{"status":"error","reason":"Config not found"}'); res.end(); return; }
+function parseJson(text, label = 'JSON') {
     try {
-        fs.unlink(filePath,(r)=>{
-            if (r==null) res.write("Deleted");
-            res.end();
-        });
+        return JSON.parse(text);
+    } catch (_) {
+        throw new Error(`Invalid ${label}`);
     }
-    catch(err) {
-        console.log("Error deleting configuration file.");
-        console.log(err);
+}
+
+function safeConfigName(input) {
+    const name = String(input || '').trim();
+    if (!name || name.length > 120 || name === '.' || name === '..' || /[\\/\0]/.test(name)) {
+        throw new Error('Invalid configuration name');
+    }
+    return name;
+}
+
+function configPath(name) {
+    return path.join(CONFIG_DIR, `${safeConfigName(name)}.json`);
+}
+
+app.post('/saveConfigName', async (req, res) => {
+    try {
+        const body = await readBody(req, 64 * 1024);
+        parseJson(body, 'configuration name payload');
+        fs.writeFileSync(CURRENT_CONFIG_FILE, body, { mode: 0o600 });
+        res.end();
+    } catch (error) {
+        res.status(400).json({ status: 'error', reason: error.message });
     }
 });
 
-app.get('/log',function(req,res){
+app.get('/getConfigName', (_req, res) => {
+    const current = fs.existsSync(CURRENT_CONFIG_FILE)
+        ? fs.readFileSync(CURRENT_CONFIG_FILE, 'utf8')
+        : JSON.stringify({ configName: '', configShortcut: '' });
+    // Preserve the historical API shape: a JSON string containing the payload.
+    res.send(JSON.stringify(current));
 });
 
-app.get('/restartService',function(req,res){
+app.post('/saveConfig', async (req, res) => {
+    try {
+        const config = parseJson(await readBody(req), 'configuration payload');
+        const file = configPath(config.configName);
+        fs.writeFileSync(file, JSON.stringify(config), { mode: 0o600 });
+        res.end();
+    } catch (error) {
+        res.status(400).json({ status: 'error', reason: error.message });
+    }
 });
 
-// Same-origin WebSocket proxy for E-Stack.
-// Browser clients only talk to CamillaNode. CamillaNode then talks to the local
-// CamillaDSP processes over loopback. This works on the Raspberry and through
-// the HTTPS/WSS URL provided by GitHub Codespaces.
+app.post('/saveConfigFile', async (req, res) => {
+    try {
+        const config = parseJson(await readBody(req, 8 * 1024 * 1024), 'saved configuration payload');
+        fs.writeFileSync(SAVED_CONFIGS_FILE, JSON.stringify(config), { mode: 0o600 });
+        res.end();
+    } catch (error) {
+        res.status(400).json({ status: 'error', reason: error.message });
+    }
+});
+
+app.get('/getConfigFile', (_req, res) => {
+    if (!fs.existsSync(SAVED_CONFIGS_FILE)) return res.send(JSON.stringify([]));
+    res.type('application/json').send(fs.readFileSync(SAVED_CONFIGS_FILE, 'utf8'));
+});
+
+app.get('/getConfigList', (_req, res) => {
+    const list = fs.readdirSync(CONFIG_DIR)
+        .filter(file => file.endsWith('.json'))
+        .map(file => file.slice(0, -5));
+    res.json(list);
+});
+
+app.get('/getConfig', (req, res) => {
+    try {
+        const file = configPath(req.query.configName);
+        if (!fs.existsSync(file)) return res.status(404).json({ status: 'error', reason: 'Config not found' });
+        res.type('application/json').send(fs.readFileSync(file, 'utf8'));
+    } catch (error) {
+        res.status(400).json({ status: 'error', reason: error.message });
+    }
+});
+
+app.get('/configExists', (req, res) => {
+    try {
+        res.send(String(fs.existsSync(configPath(req.query.configName))));
+    } catch (_) {
+        res.send('false');
+    }
+});
+
+app.get('/deleteConfig', (req, res) => {
+    try {
+        const file = configPath(req.query.configName);
+        if (!fs.existsSync(file)) return res.status(404).json({ status: 'error', reason: 'Config not found' });
+        fs.unlinkSync(file);
+        res.send('Deleted');
+    } catch (error) {
+        res.status(400).json({ status: 'error', reason: error.message });
+    }
+});
+
+// Same-origin WebSocket proxy. Browser clients talk only to CamillaNode; the
+// server forwards to the local CamillaDSP processes over loopback.
 const server = http.createServer(app);
 const proxyWss = new WebSocket.Server({ noServer: true });
-const proxyHost = process.env.CAMILLADSP_PROXY_HOST || '127.0.0.1';
 const proxyTargets = {
-    '/ws/dsp': Number.parseInt(process.env.CAMILLADSP_PORT || '1234', 10),
-    '/ws/spectrum': Number.parseInt(process.env.CAMILLA_SPECTRUM_PORT || '6413', 10)
+    '/ws/dsp': DSP_PORT,
+    '/ws/spectrum': SPECTRUM_PORT
 };
 
 function bridgeWebSocket(client, upstream) {
@@ -270,16 +251,17 @@ function bridgeWebSocket(client, upstream) {
     const closeBoth = () => {
         if (closed) return;
         closed = true;
-        try { if (client.readyState === WebSocket.OPEN || client.readyState === WebSocket.CONNECTING) client.close(); } catch (_) {}
-        try { if (upstream.readyState === WebSocket.OPEN || upstream.readyState === WebSocket.CONNECTING) upstream.close(); } catch (_) {}
+        try {
+            if (client.readyState === WebSocket.OPEN || client.readyState === WebSocket.CONNECTING) client.close();
+        } catch (_) {}
+        try {
+            if (upstream.readyState === WebSocket.OPEN || upstream.readyState === WebSocket.CONNECTING) upstream.close();
+        } catch (_) {}
     };
 
     client.on('message', (data, isBinary) => {
-        if (upstream.readyState === WebSocket.OPEN) {
-            upstream.send(data, { binary: isBinary });
-        } else if (upstream.readyState === WebSocket.CONNECTING) {
-            pendingClientMessages.push({ data, isBinary });
-        }
+        if (upstream.readyState === WebSocket.OPEN) upstream.send(data, { binary: isBinary });
+        else if (upstream.readyState === WebSocket.CONNECTING) pendingClientMessages.push({ data, isBinary });
     });
 
     upstream.on('open', () => {
@@ -287,11 +269,9 @@ function bridgeWebSocket(client, upstream) {
             upstream.send(message.data, { binary: message.isBinary });
         }
     });
-
     upstream.on('message', (data, isBinary) => {
         if (client.readyState === WebSocket.OPEN) client.send(data, { binary: isBinary });
     });
-
     upstream.on('error', error => {
         console.error('WebSocket proxy upstream error:', error.message);
         closeBoth();
@@ -310,8 +290,6 @@ server.on('upgrade', (request, socket, head) => {
         return;
     }
 
-    // CamillaGUI may use WebSockets under its absolute /api namespace. Keep
-    // those on the same 8080 origin in Codespaces as well.
     if (camillaGuiProxyEnabled && pathname.startsWith('/api/')) {
         proxyWss.handleUpgrade(request, socket, head, client => {
             const protocolHeader = request.headers['sec-websocket-protocol'];
@@ -319,9 +297,7 @@ server.on('upgrade', (request, socket, head) => {
                 ? String(protocolHeader).split(',').map(value => value.trim()).filter(Boolean)
                 : undefined;
             const upstreamUrl = `ws://${camillaGuiProxyHost}:${camillaGuiProxyPort}${request.url}`;
-            const upstream = protocols?.length
-                ? new WebSocket(upstreamUrl, protocols)
-                : new WebSocket(upstreamUrl);
+            const upstream = protocols?.length ? new WebSocket(upstreamUrl, protocols) : new WebSocket(upstreamUrl);
             bridgeWebSocket(client, upstream);
         });
         return;
@@ -333,9 +309,8 @@ server.on('upgrade', (request, socket, head) => {
         return;
     }
 
-    proxyWss.handleUpgrade(request, socket, head, (client) => {
-        const upstream = new WebSocket(`ws://${proxyHost}:${targetPort}`);
-        bridgeWebSocket(client, upstream);
+    proxyWss.handleUpgrade(request, socket, head, client => {
+        bridgeWebSocket(client, new WebSocket(`ws://${DSP_HOST}:${targetPort}`));
     });
 });
 

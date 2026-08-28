@@ -10,7 +10,6 @@
     <link rel="stylesheet" href="/css/estackEqResponsive.css">
     <link rel="stylesheet" href="/css/estackTheme.css">
     <link rel="stylesheet" href="/css/estackProcessingUnified.css">
-    <link rel="stylesheet" href="/css/estackOutputPhase.css">
     <link rel="stylesheet" href="/css/estackPhaseGraph.css">
 
     <script src="/src/estackEqualizer.js" defer></script>
@@ -18,7 +17,7 @@
     <script src="/src/estackVenuPolish.js" defer></script>
     <script src="/src/estackGlobalGraph.js" defer></script>
     <script src="/src/estackEditorRestore.js" defer></script>
-    <script src="/src/estackPeqRack.js" defer></script>
+    <script src="/src/estackPeqModel.js" defer></script>
     <script src="/src/estackPeqPipelineOrder.js" defer></script>
     <script src="/src/estackOutputScope.js" defer></script>
     <script src="/src/estackSpectrumPro.js" defer></script>
@@ -27,8 +26,7 @@
     <script src="/src/estackOutputPhase.js" defer></script>
     <script src="/src/estackEqZeroSnap.js" defer></script>
     <script src="/src/estackEqV4.js" defer></script>
-    <script src="/src/estackPeqIsolationFix.js" defer></script>
-    <script src="/src/estackDynamicPeq.js" defer></script>
+    <script src="/src/estackOutputPeq.js" defer></script>
     <script src="/src/estackPhaseGraph.js" defer></script>
 </head>
 <body class="estack-eq-v4">
@@ -57,7 +55,6 @@
             </div>
 
             <div class="venu-graph-legend" aria-label="Select output to edit"></div>
-
             <button id="systemEditToggle" class="venu-system-edit" aria-pressed="false">EDIT SYSTEM</button>
         </div>
 
@@ -65,10 +62,8 @@
             <div class="venu-graph-wrap" aria-label="System response and live analyzer">
                 <canvas id="responseCanvas"></canvas>
             </div>
-
             <div id="bandSelector" class="venu-band-selector"></div>
             <div id="moduleControls" class="venu-controls"></div>
-
             <div class="venu-statusbar">
                 <span id="estackEqStatus">Loading DSP…</span>
                 <span id="estackEqCount"></span>
