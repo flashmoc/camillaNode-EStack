@@ -19,9 +19,7 @@ module.exports = function registerMeasurementBatch(app, options = {}) {
     fs.mkdirSync(runtimeDir, { recursive: true });
     let transition = Promise.resolve();
 
-    function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
     function currentBootId() {
         try { return fs.readFileSync('/proc/sys/kernel/random/boot_id', 'utf8').trim(); }
@@ -52,14 +50,8 @@ module.exports = function registerMeasurementBatch(app, options = {}) {
         atomicWrite(batchFile, model.normalizeBatch(batch));
     }
 
-    function readSession() {
-        return readJsonFile(sessionFile, null);
-    }
-
-    function writeSession(session) {
-        atomicWrite(sessionFile, session);
-    }
-
+    const readSession = () => readJsonFile(sessionFile, null);
+    const writeSession = session => atomicWrite(sessionFile, session);
     function clearSession() {
         try { fs.unlinkSync(sessionFile); }
         catch (error) { if (error.code !== 'ENOENT') throw error; }
@@ -67,25 +59,21 @@ module.exports = function registerMeasurementBatch(app, options = {}) {
 
     function readBody(req, limitBytes = 2 * 1024 * 1024) {
         return new Promise((resolve, reject) => {
-            let text = '';
+            let body = '';
             req.on('data', chunk => {
-                text += chunk;
-                if (Buffer.byteLength(text, 'utf8') > limitBytes) {
+                body += chunk;
+                if (Buffer.byteLength(body, 'utf8') > limitBytes) {
                     reject(new Error('Measurement batch request is too large'));
                     req.destroy();
                 }
             });
             req.on('end', () => {
-                if (!text.trim()) return resolve({});
-                try { resolve(JSON.parse(text)); }
+                if (!body.trim()) return resolve({});
+                try { resolve(JSON.parse(body)); }
                 catch (_) { reject(new Error('Invalid JSON body')); }
             });
             req.on('error', reject);
         });
-    }
-
-    function commandName(command) {
-        return typeof command === 'string' ? command : Object.keys(command || {})[0];
     }
 
     function openDsp(timeoutMs = 2500) {
@@ -107,7 +95,7 @@ module.exports = function registerMeasurementBatch(app, options = {}) {
     }
 
     function dspRequest(ws, command, timeoutMs = 4000) {
-        const expected = commandName(command);
+        const expected = typeof command === 'string' ? command : Object.keys(command || {})[0];
         if (!expected) return Promise.reject(new Error('Invalid CamillaDSP command'));
         return new Promise((resolve, reject) => {
             const timer = setTimeout(() => {
@@ -165,11 +153,9 @@ module.exports = function registerMeasurementBatch(app, options = {}) {
         let restoreVolume = null;
         let volumeRestored = false;
         try {
-            const rawVolume = Number(await dspRequest(ws, 'GetVolume'));
-            if (Number.isFinite(rawVolume)) restoreVolume = rawVolume;
-            const transitionVolume = restoreVolume == null
-                ? SAFE_TRANSITION_VOLUME_DB
-                : Math.min(restoreVolume, SAFE_TRANSITION_VOLUME_DB);
+            const volume = Number(await dspRequest(ws, 'GetVolume'));
+            if (Number.isFinite(volume)) restoreVolume = volume;
+            const transitionVolume = restoreVolume == null ? SAFE_TRANSITION_VOLUME_DB : Math.min(restoreVolume, SAFE_TRANSITION_VOLUME_DB);
             await dspRequest(ws, { SetVolume: transitionVolume });
 
             const live = await dspRequest(ws, 'GetConfigJson');
@@ -190,7 +176,6 @@ module.exports = function registerMeasurementBatch(app, options = {}) {
             }
             try { ws.close(); } catch (_) {}
         }
-
         if (settleMs > 0) await sleep(settleMs);
     }
 
@@ -204,9 +189,7 @@ module.exports = function registerMeasurementBatch(app, options = {}) {
         }
     }
 
-    function sessionBatch(session) {
-        return session?.batch ? model.normalizeBatch(session.batch) : null;
-    }
+    const sessionBatch = session => session?.batch ? model.normalizeBatch(session.batch) : null;
 
     function messageForState(batch, session) {
         if (!batch) return 'NO BATCH · import a Measurement Batch JSON file';
@@ -227,10 +210,14 @@ module.exports = function registerMeasurementBatch(app, options = {}) {
         const batch = session ? sessionBatch(session) : storedBatch;
         const total = batch?.steps?.length || 0;
         const active = !!session && !!batch;
-        const current = active ? model.describeStep(batch.steps[session.currentIndex], session.currentIndex, total) : null;
-        const nextIndex = active && session.currentIndex + 1 < total ? session.currentIndex + 1 : null;
-        const next = nextIndex == null ? null : model.describeStep(batch.steps[nextIndex], nextIndex, total);
-        const completed = active && Array.isArray(session.completed) ? [...new Set(session.completed.map(Number))].filter(Number.isInteger) : [];
+        const completed = active && Array.isArray(session.completed)
+            ? [...new Set(session.completed.map(Number))].filter(Number.isInteger).sort((a, b) => a - b)
+            : [];
+        const sequence = batch
+            ? batch.steps.map((step, index) => model.describeStep(step, index, total))
+            : [];
+        const current = active ? sequence[session.currentIndex] : null;
+        const next = active && session.currentIndex + 1 < total ? sequence[session.currentIndex + 1] : null;
 
         return {
             ok: !loadError,
@@ -244,6 +231,7 @@ module.exports = function registerMeasurementBatch(app, options = {}) {
                 total,
                 defaults: model.clone(batch.defaults)
             } : null,
+            sequence,
             active,
             progress: {
                 currentIndex: active ? session.currentIndex : null,
@@ -287,8 +275,7 @@ module.exports = function registerMeasurementBatch(app, options = {}) {
         writeSession(session);
 
         try {
-            const target = model.applyStep(baselineConfig, batch, 0);
-            await applyProcessing(target, batch.defaults.settleMs);
+            await applyProcessing(model.applyStep(baselineConfig, batch, 0), batch.defaults.settleMs);
             return publicState({ applied: true });
         } catch (error) {
             try { await applyProcessing(baselineConfig, 0); } catch (_) {}
@@ -302,8 +289,7 @@ module.exports = function registerMeasurementBatch(app, options = {}) {
         if (!session) throw new Error('No active measurement batch');
         const batch = sessionBatch(session);
         if (!Number.isInteger(index) || index < 0 || index >= batch.steps.length) throw new Error('Measurement index is out of range');
-        const target = model.applyStep(session.baselineConfig, batch, index);
-        await applyProcessing(target, batch.defaults.settleMs);
+        await applyProcessing(model.applyStep(session.baselineConfig, batch, index), batch.defaults.settleMs);
         session.currentIndex = index;
         session.completed = [...new Set((completed || session.completed || []).map(Number))]
             .filter(value => Number.isInteger(value) && value >= 0 && value < batch.steps.length)
@@ -317,36 +303,34 @@ module.exports = function registerMeasurementBatch(app, options = {}) {
         if (!session) return startInternal();
         const batch = sessionBatch(session);
         const completed = [...new Set([...(session.completed || []), session.currentIndex])].sort((a, b) => a - b);
-
-        if (session.currentIndex >= batch.steps.length - 1) {
-            await applyProcessing(session.baselineConfig, batch.defaults.settleMs);
-            clearSession();
-            return {
-                ...publicState(),
-                phase: 'complete',
-                active: false,
-                restored: true,
-                completed: true,
-                progress: {
-                    currentIndex: null,
-                    currentNumber: null,
-                    total: batch.steps.length,
-                    completedCount: batch.steps.length,
-                    completed: Array.from({ length: batch.steps.length }, (_, index) => index)
-                },
-                message: `COMPLETE · ${batch.name} · ${batch.steps.length}/${batch.steps.length} · normal DSP processing restored`
-            };
+        if (session.currentIndex < batch.steps.length - 1) {
+            return applyIndexInternal(session.currentIndex + 1, completed);
         }
 
-        return applyIndexInternal(session.currentIndex + 1, completed);
+        await applyProcessing(session.baselineConfig, batch.defaults.settleMs);
+        clearSession();
+        return {
+            ...publicState(),
+            phase: 'complete',
+            active: false,
+            restored: true,
+            completed: true,
+            progress: {
+                currentIndex: null,
+                currentNumber: null,
+                total: batch.steps.length,
+                completedCount: batch.steps.length,
+                completed: Array.from({ length: batch.steps.length }, (_, index) => index)
+            },
+            message: `COMPLETE · ${batch.name} · ${batch.steps.length}/${batch.steps.length} · normal DSP processing restored`
+        };
     }
 
     async function previousInternal() {
         const session = readSession();
         if (!session) throw new Error('No active measurement batch');
         const target = Math.max(0, session.currentIndex - 1);
-        const completed = (session.completed || []).filter(index => Number(index) < target);
-        return applyIndexInternal(target, completed);
+        return applyIndexInternal(target, (session.completed || []).filter(index => Number(index) < target));
     }
 
     async function retryInternal() {
@@ -362,8 +346,7 @@ module.exports = function registerMeasurementBatch(app, options = {}) {
         let index = body?.index != null ? Number(body.index) : null;
         if (index == null && body?.number != null) index = Number(body.number) - 1;
         if (!Number.isInteger(index) || index < 0 || index >= batch.steps.length) throw new Error('Provide a valid measurement index or 1-based number');
-        const completed = (session.completed || []).filter(value => Number(value) < index);
-        return applyIndexInternal(index, completed);
+        return applyIndexInternal(index, (session.completed || []).filter(value => Number(value) < index));
     }
 
     async function abortInternal(reason = 'manual abort') {
@@ -380,9 +363,11 @@ module.exports = function registerMeasurementBatch(app, options = {}) {
     }
 
     function statusCodeFor(error) {
-        const message = String(error?.message || error);
-        if (/CamillaDSP|GetConfigJson|SetConfigJson|GetVolume|SetVolume|connection timeout|ECONNREFUSED/i.test(message)) return 503;
-        return 400;
+        return /CamillaDSP|GetConfigJson|SetConfigJson|GetVolume|SetVolume|connection timeout|ECONNREFUSED/i.test(String(error?.message || error)) ? 503 : 400;
+    }
+
+    function sendError(res, error) {
+        res.status(statusCodeFor(error)).json({ ok: false, phase: 'error', error: error.message, message: error.message });
     }
 
     app.get('/api/measurement-batch/status', (_req, res) => {
@@ -394,56 +379,41 @@ module.exports = function registerMeasurementBatch(app, options = {}) {
         try {
             if (readSession()) throw new Error('Abort or complete the active measurement batch before importing another batch');
             const body = await readBody(req);
-            const batch = model.normalizeBatch(body.batch ?? body);
-            writeBatch(batch);
+            writeBatch(model.normalizeBatch(body.batch ?? body));
             res.json(publicState({ imported: true }));
-        } catch (error) {
-            res.status(400).json({ ok: false, phase: 'error', error: error.message, message: error.message });
-        }
+        } catch (error) { sendError(res, error); }
     });
 
     app.post('/api/measurement-batch/start', async (_req, res) => {
         try { res.json(await queueTransition(startInternal)); }
-        catch (error) { res.status(statusCodeFor(error)).json({ ok: false, phase: 'error', error: error.message, message: error.message }); }
+        catch (error) { sendError(res, error); }
     });
-
     app.post('/api/measurement-batch/next', async (_req, res) => {
         try { res.json(await queueTransition(nextInternal)); }
-        catch (error) { res.status(statusCodeFor(error)).json({ ok: false, phase: 'error', error: error.message, message: error.message }); }
+        catch (error) { sendError(res, error); }
     });
-
     app.post('/api/measurement-batch/previous', async (_req, res) => {
         try { res.json(await queueTransition(previousInternal)); }
-        catch (error) { res.status(statusCodeFor(error)).json({ ok: false, phase: 'error', error: error.message, message: error.message }); }
+        catch (error) { sendError(res, error); }
     });
-
     app.post('/api/measurement-batch/retry', async (_req, res) => {
         try { res.json(await queueTransition(retryInternal)); }
-        catch (error) { res.status(statusCodeFor(error)).json({ ok: false, phase: 'error', error: error.message, message: error.message }); }
+        catch (error) { sendError(res, error); }
     });
-
     app.post('/api/measurement-batch/goto', async (req, res) => {
-        try {
-            const body = await readBody(req, 64 * 1024);
-            res.json(await queueTransition(() => gotoInternal(body)));
-        } catch (error) {
-            res.status(statusCodeFor(error)).json({ ok: false, phase: 'error', error: error.message, message: error.message });
-        }
+        try { res.json(await queueTransition(() => gotoInternal(await readBody(req, 64 * 1024)))); }
+        catch (error) { sendError(res, error); }
     });
-
     app.post('/api/measurement-batch/abort', async (_req, res) => {
         try { res.json(await queueTransition(() => abortInternal('manual abort'))); }
-        catch (error) { res.status(statusCodeFor(error)).json({ ok: false, phase: 'error', error: error.message, message: error.message }); }
+        catch (error) { sendError(res, error); }
     });
-
     app.post('/api/measurement-batch/clear', async (_req, res) => {
         try {
             if (readSession()) throw new Error('Abort or complete the active batch before clearing it');
             try { fs.unlinkSync(batchFile); } catch (error) { if (error.code !== 'ENOENT') throw error; }
             res.json(publicState({ cleared: true }));
-        } catch (error) {
-            res.status(400).json({ ok: false, phase: 'error', error: error.message, message: error.message });
-        }
+        } catch (error) { sendError(res, error); }
     });
 
     function recoverAfterRestart(attempt = 1) {
