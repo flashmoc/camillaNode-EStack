@@ -1,10 +1,14 @@
 const fs = require('fs');
+const path = require('path');
 
 module.exports = function installEStackSignalGenerator(app, options = {}) {
     const WebSocket = options.WebSocket || require('ws');
     const host = options.host || process.env.CAMILLADSP_PROXY_HOST || '127.0.0.1';
     const port = Number.parseInt(options.port || process.env.CAMILLADSP_PORT || '1234', 10);
     const snapshotPath = options.snapshotPath || process.env.ESTACK_SIGNAL_SNAPSHOT || '/tmp/camillanode-estack-test-signal.json';
+    const measurementSessionPath = options.measurementSessionPath
+        || process.env.ESTACK_MEASUREMENT_SESSION
+        || path.resolve(__dirname, '..', 'config', 'measurement-batch-session.json');
     const OUTPUTS = new Set([0, 1, 2, 3, 4, 5]);
     const MAX_DURATION_SECONDS = 120;
 
@@ -227,6 +231,9 @@ module.exports = function installEStackSignalGenerator(app, options = {}) {
     }
 
     async function startInternal(body) {
+        if (fs.existsSync(measurementSessionPath)) {
+            throw new Error('Measurement Batch is active. Abort or finish it before starting the Signal Generator.');
+        }
         if (state.active || readSnapshotFile()?.snapshot) {
             await stopInternal('replaced by new test signal');
         }
@@ -277,7 +284,7 @@ module.exports = function installEStackSignalGenerator(app, options = {}) {
 
     function publicStatus() {
         const remainingMs = state.active && state.stopsAt ? Math.max(0, state.stopsAt - Date.now()) : 0;
-        return { ...state, remainingMs };
+        return { ...state, remainingMs, blockedByMeasurementBatch: fs.existsSync(measurementSessionPath) };
     }
 
     function readJson(req) {
@@ -296,7 +303,7 @@ module.exports = function installEStackSignalGenerator(app, options = {}) {
         });
     }
 
-    app.get('/api/test-signal/status', (req, res) => {
+    app.get('/api/test-signal/status', (_req, res) => {
         res.json(publicStatus());
     });
 
