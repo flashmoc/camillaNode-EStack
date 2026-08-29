@@ -32,6 +32,8 @@ const required = [
     'server/wiimLoudnessApi.js',
     'scripts/wiim-loudness-service.js',
     'scripts/install-wiim-loudness.sh',
+    'scripts/reapply-startup.js',
+    'scripts/install-startup-recall.sh',
     'wiimLoudnessConfig.example.json',
     'public/html/main.html',
     'public/html/basic.html',
@@ -47,6 +49,7 @@ const required = [
     'public/src/estackOutputPeq.js',
     'public/src/estackOutputPhase.js',
     'public/src/estackPhaseGraph.js',
+    'public/src/estackQInputFix.js',
     'public/css/estackSignalGenerator.css',
     'public/css/estackPhaseGraph.css'
 ];
@@ -130,20 +133,45 @@ const configManagerSource = fs.readFileSync(path.join(PUBLIC, 'src', 'estackConf
 if (!configManagerSource.includes('/api/startup-config')) fail('system configuration UI is missing startup configuration API');
 if (!configManagerSource.includes('/api/startup-config/active')) fail('system configuration UI is missing active preset tracking');
 
+const startupRecallSource = fs.readFileSync(path.join(ROOT, 'scripts', 'reapply-startup.js'), 'utf8');
+if (!startupRecallSource.includes('startupConfiguration.applyRecord(record)')) fail('CamillaDSP restart recall does not reuse guarded startup processing apply');
+if (!startupRecallSource.includes('lastBootIdApplied')) fail('CamillaDSP restart recall does not synchronize boot recall state');
+const startupInstallerSource = fs.readFileSync(path.join(ROOT, 'scripts', 'install-startup-recall.sh'), 'utf8');
+if (!startupInstallerSource.includes('ExecStartPost=')) fail('startup recall installer is missing CamillaDSP ExecStartPost');
+if (!startupInstallerSource.includes('After=camilladsp.service')) fail('startup recall installer is missing CamillaNode boot ordering');
+
+for (const htmlName of ['equalizer.html', 'global-eq.html', 'advanced.html']) {
+    const html = fs.readFileSync(path.join(PUBLIC, 'html', htmlName), 'utf8');
+    if (!html.includes('/src/estackQInputFix.js')) fail(`${htmlName} is missing keyboard Q input fix`);
+}
+const qInputSource = fs.readFileSync(path.join(PUBLIC, 'src', 'estackQInputFix.js'), 'utf8');
+if (!qInputSource.includes("window.estackEq8QControl = function")) fail('Output Processing Q readout is not replaced by an editable control');
+if (!qInputSource.includes("estackCommitPeqValue(slot, 'q'")) fail('Output Processing Q input is missing safe PEQ commit');
+
 for (const file of [
     'index.js',
     'server/signalGenerator.js',
     'server/startupConfiguration.js',
     'server/wiimLoudnessApi.js',
     'scripts/wiim-loudness-service.js',
+    'scripts/reapply-startup.js',
     'scripts/repo-check.js',
     'public/src/estackConfigManagerFix.js',
-    'public/src/estackLoudness.js'
+    'public/src/estackLoudness.js',
+    'public/src/estackQInputFix.js'
 ]) {
     try {
         execFileSync(process.execPath, ['--check', path.join(ROOT, file)], { stdio: 'pipe' });
     } catch (error) {
         fail(`syntax check failed for ${file}: ${String(error.stderr || error.message).trim()}`);
+    }
+}
+
+for (const file of ['scripts/install-wiim-loudness.sh', 'scripts/install-startup-recall.sh']) {
+    try {
+        execFileSync('bash', ['-n', path.join(ROOT, file)], { stdio: 'pipe' });
+    } catch (error) {
+        fail(`shell syntax check failed for ${file}: ${String(error.stderr || error.message).trim()}`);
     }
 }
 
@@ -156,6 +184,8 @@ ok('active UI assets resolve');
 ok('legacy duplicate paths are not tracked');
 ok('runtime state is repository-independent');
 ok('startup configuration integration is present');
+ok('CamillaDSP restart startup recall integration is present');
+ok('keyboard Q entry integration is present');
 ok('WiiM loudness bridge integration is present');
-ok('server-side JavaScript parses');
+ok('JavaScript and installer syntax parse');
 console.log('\nE-Stack repository check passed.');
