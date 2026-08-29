@@ -52,6 +52,7 @@ app.get('/basic', sendPage('basic.html'));
 app.get('/connections', sendPage('connections.html'));
 app.get('/equalizer', sendPage('equalizer.html'));
 app.get('/signal-generator', sendPage('signal-generator.html'));
+app.get('/measurement-batch', sendPage('measurement-batch.html'));
 app.get('/per-way', (_req, res) => res.redirect(308, '/signal-generator'));
 app.get('/advanced', sendPage('advanced.html'));
 app.get('/preferences', sendPage('preferences.html'));
@@ -76,6 +77,17 @@ require('./server/signalGenerator')(app, {
     WebSocket,
     host: DSP_HOST,
     port: DSP_PORT
+});
+
+// Measurement Batch orchestrates repeatable REW campaigns. It never owns the
+// hardware devices or mixer routing: each step is rebuilt from a captured live
+// processing baseline, applied with a safe master-volume transition and restored
+// on completion/abort or after a same-boot CamillaNode restart.
+require('./server/measurementBatch')(app, {
+    WebSocket,
+    host: DSP_HOST,
+    port: DSP_PORT,
+    root: ROOT
 });
 
 // Startup recall is server-side so a selected System Configuration is restored
