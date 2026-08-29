@@ -21,8 +21,18 @@ for (const file of [
 for (const file of [
     'public/html/measurement-batch.html',
     'public/css/estackMeasurementBatch.css',
-    'examples/measurement-batch-kick-mid.example.json'
+    'examples/measurement-batch-kick-mid.example.json',
+    'schemas/measurement-batch.schema.json'
 ]) assert.ok(fs.existsSync(path.join(ROOT, file)), `missing ${file}`);
+
+const exampleBatch = JSON.parse(fs.readFileSync(path.join(ROOT, 'examples/measurement-batch-kick-mid.example.json'), 'utf8'));
+const normalizedExample = model.normalizeBatch(exampleBatch);
+assert.strictEqual(normalizedExample.schema, 'estack.measurement-batch');
+assert.strictEqual(normalizedExample.version, 1);
+assert.ok(normalizedExample.steps.length >= 3, 'example batch is unexpectedly small');
+const schema = JSON.parse(fs.readFileSync(path.join(ROOT, 'schemas/measurement-batch.schema.json'), 'utf8'));
+assert.strictEqual(schema.title, 'E-Stack Measurement Batch');
+assert.strictEqual(schema.properties.version.const, 1);
 
 const indexSource = fs.readFileSync(path.join(ROOT, 'index.js'), 'utf8');
 assert.ok(indexSource.includes("app.get('/measurement-batch'"), 'missing Measurement Batch route');
@@ -145,4 +155,4 @@ assert.strictEqual(merged.devices.chunksize, 1024, 'live devices were overwritte
 assert.strictEqual(merged.mixers.estack.description, 'live routing metadata', 'live mixer was overwritten');
 assert.ok(model.sameProcessing(merged, applied), 'processing merge mismatch');
 
-console.log('OK:   Measurement Batch syntax and safety model');
+console.log('OK:   Measurement Batch syntax, schema and safety model');
