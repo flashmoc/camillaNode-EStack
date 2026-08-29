@@ -19,6 +19,8 @@ const WAY_ALIASES = Object.freeze({
 });
 
 const CROSSOVER_FAMILIES = new Set(['LinkwitzRiley', 'Butterworth']);
+const PHASE_REFERENCES = new Set(['auto', 'hpf', 'lpf']);
+const PHASE_PREFIX = 'ESTACK_PHASE_';
 const MAX_STEPS = 500;
 const clone = value => value == null ? value : JSON.parse(JSON.stringify(value));
 
@@ -70,6 +72,30 @@ function normalizeDisabledFilters(value, label) {
     return result;
 }
 
+function normalizePhase(value, label) {
+    const raw = typeof value === 'number' ? { degrees: value } : value;
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+        throw new Error(`${label}.phase must be a degree value or object`);
+    }
+    if (raw.degrees == null) throw new Error(`${label}.phase.degrees is required`);
+    const result = {
+        degrees: boundedNumber(raw.degrees, -179, 0, `${label}.phase.degrees`)
+    };
+    if (raw.reference != null && raw.referenceHz != null) {
+        throw new Error(`${label}.phase cannot define both reference and referenceHz`);
+    }
+    if (raw.referenceHz != null) {
+        result.referenceHz = boundedNumber(raw.referenceHz, 5, 24000, `${label}.phase.referenceHz`);
+    } else {
+        const reference = String(raw.reference ?? 'auto').trim().toLowerCase();
+        if (!PHASE_REFERENCES.has(reference)) {
+            throw new Error(`${label}.phase.reference must be auto, hpf or lpf`);
+        }
+        result.reference = reference;
+    }
+    return result;
+}
+
 function normalizeWayOverride(value, label) {
     if (value == null) return {};
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error(`${label} must be an object`);
@@ -84,6 +110,7 @@ function normalizeWayOverride(value, label) {
         if (!['normal', 'inverted'].includes(polarity)) throw new Error(`${label}.polarity must be normal or inverted`);
         result.polarity = polarity;
     }
+    if (value.phase != null) result.phase = normalizePhase(value.phase, label);
     return result;
 }
 
@@ -201,6 +228,12 @@ function firstMixerIndex(config) {
     return (config?.pipeline || []).findIndex(step => step?.type === 'Mixer');
 }
 
+function stepChannels(step) {
+    if (Array.isArray(step?.channels)) return step.channels.map(Number).filter(Number.isInteger);
+    if (step?.channel != null && Number.isInteger(Number(step.channel))) return [Number(step.channel)];
+    return [];
+}
+
 function wayFilterNames(config, channel) {
     const pipeline = config?.pipeline || [];
     const mixerIndex = firstMixerIndex(config);
@@ -209,16 +242,20 @@ function wayFilterNames(config, channel) {
     for (let index = mixerIndex + 1; index < pipeline.length; index += 1) {
         const step = pipeline[index];
         if (step?.type !== 'Filter') continue;
-        const channels = Array.isArray(step.channels) ? step.channels.map(Number) : step.channel != null ? [Number(step.channel)] : [];
-        if (!channels.includes(channel)) continue;
+        if (!stepChannels(step).includes(channel)) continue;
         for (const name of step.names || []) if (!names.includes(name)) names.push(name);
     }
     return names;
 }
 
+function matchingWayFilters(config, wayKey, predicate) {
+    const def = WAY_DEFS[wayKey];
+    return wayFilterNames(config, def.channel).filter(name => predicate(config?.filters?.[name], name));
+}
+
 function uniqueWayFilter(config, wayKey, predicate, label) {
     const def = WAY_DEFS[wayKey];
-    const matches = wayFilterNames(config, def.channel).filter(name => predicate(config?.filters?.[name]));
+    const matches = matchingWayFilters(config, wayKey, predicate);
     if (matches.length !== 1) throw new Error(`${def.label} requires exactly one ${label} filter after routing; found ${matches.length}`);
     return matches[0];
 }
@@ -231,14 +268,21 @@ function delayFilterName(config, wayKey) {
     return uniqueWayFilter(config, wayKey, filter => filter?.type === 'Delay', 'Delay');
 }
 
-function crossoverFilterName(config, wayKey, side) {
+function crossoverMatches(config, wayKey, side) {
     const suffix = side === 'hpf' ? /Highpass$/ : /Lowpass$/;
-    return uniqueWayFilter(
+    return matchingWayFilters(
         config,
         wayKey,
-        filter => filter?.type === 'BiquadCombo' && suffix.test(String(filter?.parameters?.type || '')),
-        side.toUpperCase()
+        filter => filter?.type === 'BiquadCombo' && suffix.test(String(filter?.parameters?.type || ''))
     );
+}
+
+function crossoverFilterName(config, wayKey, side) {
+    const matches = crossoverMatches(config, wayKey, side);
+    if (matches.length !== 1) {
+        throw new Error(`${WAY_DEFS[wayKey].label} requires exactly one ${side.toUpperCase()} filter after routing; found ${matches.length}`);
+    }
+    return matches[0];
 }
 
 function disableInputFilter(config, filterName) {
@@ -280,6 +324,98 @@ function applyCrossoverSpec(filter, baselineFilter, spec, side, wayKey) {
     if (String(filter.parameters.type || '').startsWith('LinkwitzRiley') && Number(filter.parameters.order) % 2) {
         throw new Error('Linkwitz-Riley crossover order must be even');
     }
+}
+
+function phaseFilterName(wayKey) {
+    return `${PHASE_PREFIX}CH${WAY_DEFS[wayKey].channel}`;
+}
+
+function removePhase(config, wayKey) {
+    const name = phaseFilterName(wayKey);
+    for (const step of config?.pipeline || []) {
+        if (step?.type !== 'Filter' || !Array.isArray(step.names)) continue;
+        step.names = step.names.filter(item => item !== name);
+    }
+    if (config?.filters) delete config.filters[name];
+}
+
+function outputStageForPhase(config, wayKey) {
+    const channel = WAY_DEFS[wayKey].channel;
+    const mixerIndex = firstMixerIndex(config);
+    if (mixerIndex < 0) throw new Error('Measurement Batch requires a Mixer stage in the DSP pipeline');
+    const candidates = (config.pipeline || [])
+        .slice(mixerIndex + 1)
+        .filter(step => step?.type === 'Filter' && stepChannels(step).includes(channel))
+        .filter(step => (step.names || []).some(name => ['Gain', 'Delay', 'BiquadCombo'].includes(config?.filters?.[name]?.type)));
+    if (!candidates.length) throw new Error(`${WAY_DEFS[wayKey].label} has no output filter stage for phase trim`);
+    const stage = candidates[0];
+    const channels = stepChannels(stage);
+    if (channels.length !== 1 || channels[0] !== channel) {
+        throw new Error(`${WAY_DEFS[wayKey].label} phase trim requires an independent per-output filter stage`);
+    }
+    return stage;
+}
+
+function attachPhaseBeforeGain(config, wayKey, name) {
+    const stage = outputStageForPhase(config, wayKey);
+    stage.names = Array.isArray(stage.names) ? stage.names.filter(item => item !== name) : [];
+    let index = stage.names.findIndex(item => config?.filters?.[item]?.type === 'Gain');
+    if (index < 0) index = stage.names.findIndex(item => config?.filters?.[item]?.type === 'Delay');
+    if (index < 0) index = stage.names.length;
+    stage.names.splice(index, 0, name);
+}
+
+function phaseReferenceFrequency(config, wayKey, spec) {
+    const fs = Number(config?.devices?.samplerate || 48000);
+    const nyquist = fs / 2;
+    if (spec.referenceHz != null) {
+        if (spec.referenceHz >= nyquist) throw new Error(`${WAY_DEFS[wayKey].label} phase reference must be below Nyquist (${nyquist} Hz)`);
+        return spec.referenceHz;
+    }
+
+    const reference = spec.reference || 'auto';
+    const sides = reference === 'auto' ? ['lpf', 'hpf'] : [reference];
+    for (const side of sides) {
+        const matches = crossoverMatches(config, wayKey, side);
+        if (!matches.length) continue;
+        if (matches.length !== 1) throw new Error(`${WAY_DEFS[wayKey].label} phase reference ${side.toUpperCase()} is ambiguous`);
+        const freq = Number(config?.filters?.[matches[0]]?.parameters?.freq);
+        if (!Number.isFinite(freq) || freq <= 0 || freq >= nyquist) {
+            throw new Error(`${WAY_DEFS[wayKey].label} ${side.toUpperCase()} frequency is invalid for phase reference`);
+        }
+        return freq;
+    }
+    throw new Error(`${WAY_DEFS[wayKey].label} has no ${reference === 'auto' ? 'crossover' : reference.toUpperCase()} available for phase reference`);
+}
+
+// Same first-order all-pass law used by the manual Output Processing PHASE control.
+function allpassFrequencyForPhase(phaseDeg, referenceHz, samplerate) {
+    const fs = Number(samplerate || 48000);
+    const phase = Math.max(0.01, Math.min(179.5, Math.abs(Number(phaseDeg))));
+    const reference = Math.max(1, Math.min(fs / 2 - 1, Number(referenceHz)));
+    const tReference = Math.tan(Math.PI * reference / fs);
+    const divisor = Math.tan(phase * Math.PI / 360);
+    const tDesign = tReference / Math.max(1e-9, divisor);
+    return Math.max(1, Math.min(fs / 2 - 1, (fs / Math.PI) * Math.atan(tDesign)));
+}
+
+function applyPhase(config, wayKey, spec) {
+    const name = phaseFilterName(wayKey);
+    removePhase(config, wayKey);
+    if (Math.abs(Number(spec.degrees)) < 0.05) return;
+
+    const referenceHz = phaseReferenceFrequency(config, wayKey, spec);
+    const filterHz = allpassFrequencyForPhase(spec.degrees, referenceHz, config?.devices?.samplerate || 48000);
+    config.filters = config.filters || {};
+    config.filters[name] = {
+        type: 'Biquad',
+        description: `E-Stack phase trim ${WAY_DEFS[wayKey].label} (${Number(spec.degrees).toFixed(1)} deg @ ${referenceHz.toFixed(1)} Hz; Measurement Batch)`,
+        parameters: {
+            type: 'AllpassFO',
+            freq: Math.round(filterHz * 10) / 10
+        }
+    };
+    attachPhaseBeforeGain(config, wayKey, name);
 }
 
 function applyStep(baselineConfig, batchInput, stepOrIndex) {
@@ -344,6 +480,12 @@ function applyStep(baselineConfig, batchInput, stepOrIndex) {
         }
     }
 
+    // Phase is deliberately applied after crossover overrides. A reference such
+    // as HPF/LPF therefore uses the actual crossover frequency of this step.
+    for (const [wayKey, override] of Object.entries(step.ways || {})) {
+        if (override.phase) applyPhase(next, wayKey, override.phase);
+    }
+
     return next;
 }
 
@@ -395,6 +537,7 @@ function describeStep(step, index, total) {
 
 module.exports = {
     WAY_DEFS,
+    PHASE_PREFIX,
     normalizeWayKey,
     normalizeBatch,
     applyStep,
@@ -402,5 +545,6 @@ module.exports = {
     mergeProcessingIntoLive,
     sameProcessing,
     describeStep,
+    allpassFrequencyForPhase,
     clone
 };
