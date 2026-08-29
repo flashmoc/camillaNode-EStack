@@ -20,11 +20,30 @@
         return [name, filter];
     }
 
+    function phaseMetadata(channel = selectedChannel) {
+        const entry = phaseEntry(channel);
+        if (!entry) return null;
+        const description = String(entry[1]?.description || "");
+        const match = description.match(/\((-?\d+(?:\.\d+)?)\s*deg\s*@\s*(\d+(?:\.\d+)?)\s*Hz(?:;[^)]*)?\)/i);
+        if (!match) return null;
+        const degrees = Number(match[1]);
+        const referenceHz = Number(match[2]);
+        if (!Number.isFinite(degrees) || !Number.isFinite(referenceHz) || referenceHz <= 0) return null;
+        return {
+            degrees: clamp(degrees, -179, 0),
+            referenceHz
+        };
+    }
+
     function referenceFrequency(channel = selectedChannel) {
         const lpf = getCrossover("lpf", channel);
         if (lpf) return Number(lpf[1]?.parameters?.freq || 1000);
         const hpf = getCrossover("hpf", channel);
         return Number(hpf?.[1]?.parameters?.freq || 1000);
+    }
+
+    function activeReferenceFrequency(channel = selectedChannel) {
+        return phaseMetadata(channel)?.referenceHz || referenceFrequency(channel);
     }
 
     // CamillaDSP AllpassFO phase at reference f:
@@ -50,6 +69,8 @@
     function currentPhase(channel = selectedChannel) {
         const entry = phaseEntry(channel);
         if (!entry) return 0;
+        const metadata = phaseMetadata(channel);
+        if (metadata) return metadata.degrees;
         return phaseForAllpassFrequency(Number(entry[1]?.parameters?.freq || 1000), referenceFrequency(channel));
     }
 
@@ -102,7 +123,11 @@
             if (Math.abs(phase) < 0.05) {
                 removePhaseEverywhere(name);
             } else {
-                const reference = referenceFrequency(channel);
+                // If an existing E-Stack phase filter carries an explicit reference
+                // (for example a Measurement Batch phase @ MID HPF), keep that
+                // reference when the knob is read/edited instead of silently
+                // reinterpreting the same all-pass at the band's LPF.
+                const reference = activeReferenceFrequency(channel);
                 const filterFreq = allpassFrequencyForPhase(phase, reference);
                 DSP.config.filters = DSP.config.filters || {};
                 DSP.config.filters[name] = {
@@ -142,7 +167,7 @@
         if (!outputBody) return;
         outputBody.classList.add("estack-phase-enabled");
 
-        const reference = referenceFrequency();
+        const reference = activeReferenceFrequency();
         const locked = !systemEditEnabled;
         const phaseKnob = estackV2Knob({
             label: "PHASE",
