@@ -1,6 +1,6 @@
 # E-Stack Measurement Batch
 
-Measurement Batch is the repeatable measurement-campaign layer for CamillaNode. It is designed for crossover, polarity, delay and level-alignment work with REW while keeping CamillaDSP hardware ownership unchanged.
+Measurement Batch is the repeatable measurement-campaign layer for CamillaNode. It is designed for crossover, polarity, delay, variable-phase and level-alignment work with REW while keeping CamillaDSP hardware ownership unchanged.
 
 ## Design invariants
 
@@ -11,8 +11,9 @@ Measurement Batch is the repeatable measurement-campaign layer for CamillaNode. 
 5. **A batch may attenuate a way but cannot boost it above the captured baseline.** `gainOffsetDb` is limited to `-60..0 dB`.
 6. **`disabledFilters` is input-processing only.** It cannot bypass output Gain, Delay, crossover, limiter or protection stages.
 7. **Crossover exploration is guarded around the captured baseline.** A requested crossover frequency must remain within `0.4x..2.5x` the corresponding baseline HPF/LPF frequency. Supported families are Linkwitz-Riley and Butterworth, order 2..8; LR orders must be even.
-8. **The exact baseline processing is restored on finish or abort.** A same-boot CamillaNode restart also restores the baseline. After a full Raspberry reboot the stale session is discarded so normal startup recall owns the new boot state.
-9. **The E-Stack Signal Generator must be stopped before starting a batch.** The batch runner refuses to start while the managed Signal Generator snapshot is active.
+8. **Variable phase uses the same first-order CamillaDSP `AllpassFO` law as the manual Output Processing PHASE control.** A batch phase value is applied only after that step's crossover overrides, so an `hpf` or `lpf` phase reference follows the actual crossover frequency being measured.
+9. **The exact baseline processing is restored on finish or abort.** A same-boot CamillaNode restart also restores the baseline. After a full Raspberry reboot the stale session is discarded so normal startup recall owns the new boot state.
+10. **The E-Stack Signal Generator must be stopped before starting a batch.** The batch runner refuses to start while the managed Signal Generator snapshot is active.
 
 ## Batch format — v1
 
@@ -30,7 +31,7 @@ Measurement Batch is the repeatable measurement-campaign layer for CamillaNode. 
   "steps": [
     {
       "id": "M01",
-      "name": "KICK + MID baseline",
+      "name": "KICK + MID test",
       "position": "Mic on-axis, 2.00 m",
       "instruction": "Run the sweep, then press NEXT on the iPhone.",
       "activeWays": ["KICK", "MID_L"],
@@ -38,7 +39,11 @@ Measurement Batch is the repeatable measurement-campaign layer for CamillaNode. 
         "MID_L": {
           "delayOffsetMs": 0.5,
           "polarity": "normal",
-          "gainOffsetDb": -1.0
+          "gainOffsetDb": -1.0,
+          "phase": {
+            "degrees": -45,
+            "reference": "hpf"
+          }
         }
       },
       "crossovers": {
@@ -51,12 +56,12 @@ Measurement Batch is the repeatable measurement-campaign layer for CamillaNode. 
       },
       "disabledFilters": [],
       "rew": {
-        "measurementName": "M01_KICK_MID_285",
+        "measurementName": "M01_KICK_MID_285_PHASE_M45",
         "startHz": 120,
         "endHz": 1200,
         "levelDbfs": -20,
         "timingReference": true,
-        "notes": "Crossover exploration"
+        "notes": "Crossover + phase exploration"
       }
     }
   ]
@@ -82,6 +87,33 @@ Human aliases such as `MID L`, `MID-L`, `HIGH R` are accepted and normalized.
 - `delayOffsetMs`: offset from the captured baseline delay. Cannot be used together with `delayMs`.
 - `polarity`: `normal` or `inverted`.
 - `gainOffsetDb`: attenuation relative to baseline; positive values are rejected.
+- `phase`: variable phase trim from `-179..0°` implemented with a first-order all-pass. `0°` removes the E-Stack phase filter for that step.
+
+The compact phase form uses the same automatic reference rule as the manual PHASE control:
+
+```json
+"phase": -45
+```
+
+For crossover optimisation, explicit references are preferred:
+
+```json
+"phase": { "degrees": -45, "reference": "hpf" }
+```
+
+or:
+
+```json
+"phase": { "degrees": -45, "reference": "lpf" }
+```
+
+This matters for a band-pass way such as `MID_L`, which has both an HPF and an LPF. For a KICK↔MID campaign the MID phase should normally reference its **HPF**; for a MID↔HIGH campaign it should normally reference the MID **LPF**. A fixed experimental reference is also supported:
+
+```json
+"phase": { "degrees": -45, "referenceHz": 300 }
+```
+
+When `reference` is `hpf` or `lpf`, the phase all-pass is calculated **after** the step's crossover change. Example: if the MID HPF is changed from 300 Hz to 275 Hz in the same step, `-45° @ hpf` is recalculated as `-45° @ 275 Hz` rather than reusing the previous all-pass frequency.
 
 ### Crossover deltas
 
