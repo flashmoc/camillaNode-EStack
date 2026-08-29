@@ -115,6 +115,49 @@
         "levelDbfs": -20,
         "timingReference": true
       }
+    },
+    {
+      "id": "M08",
+      "name": "MID L phase -45° at 300 Hz HPF",
+      "activeWays": ["KICK", "MID_L"],
+      "ways": {
+        "MID_L": {
+          "phase": { "degrees": -45, "reference": "hpf" }
+        }
+      },
+      "rew": {
+        "measurementName": "M08_MID_L_PHASE_M45_HPF",
+        "startHz": 120,
+        "endHz": 1200,
+        "levelDbfs": -20,
+        "timingReference": true
+      }
+    },
+    {
+      "id": "M09",
+      "name": "XO 275 Hz + MID L phase -45°",
+      "activeWays": ["KICK", "MID_L"],
+      "ways": {
+        "MID_L": {
+          "phase": { "degrees": -45, "reference": "hpf" }
+        }
+      },
+      "crossovers": {
+        "KICK": {
+          "lpf": { "freqHz": 275, "family": "LinkwitzRiley", "order": 4 }
+        },
+        "MID_L": {
+          "hpf": { "freqHz": 275, "family": "LinkwitzRiley", "order": 4 }
+        }
+      },
+      "rew": {
+        "measurementName": "M09_XO275_MID_PHASE_M45",
+        "startHz": 120,
+        "endHz": 1200,
+        "levelDbfs": -20,
+        "timingReference": true,
+        "notes": "The all-pass is recalculated after the 275 Hz HPF is applied, so -45° is referenced to 275 Hz for this step."
+      }
     }
   ]
 }
