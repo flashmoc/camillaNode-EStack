@@ -120,6 +120,17 @@ function crossoverText(spec, side) {
     return `${side.toUpperCase()} ${parts.join(' · ')}`;
 }
 
+function phaseText(phase) {
+    if (!phase) return null;
+    const degrees = Number(phase.degrees);
+    if (!Number.isFinite(degrees)) return null;
+    let reference = 'AUTO XO';
+    if (phase.referenceHz != null) reference = formatHz(phase.referenceHz);
+    else if (phase.reference === 'hpf') reference = 'HPF';
+    else if (phase.reference === 'lpf') reference = 'LPF';
+    return `phase ${degrees.toFixed(1)}° @ ${reference}`;
+}
+
 function renderDeltas(step) {
     const root = document.getElementById('measurementOverrides');
     root.replaceChildren();
@@ -131,6 +142,8 @@ function renderDeltas(step) {
         if (override.delayOffsetMs != null) parts.push(`delay Δ ${formatSigned(override.delayOffsetMs, 2, 'ms')}`);
         if (override.polarity) parts.push(`polarity ${override.polarity.toUpperCase()}`);
         if (override.gainOffsetDb != null) parts.push(`gain Δ ${formatSigned(override.gainOffsetDb, 1, 'dB')}`);
+        const phase = phaseText(override.phase);
+        if (phase) parts.push(phase);
         if (parts.length) rows.push({ label: way.replace('_', ' '), text: parts.join(' · ') });
     }
 
