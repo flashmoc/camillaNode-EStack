@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const model = require('./measurementBatchModel');
+require('./measurementBatchInputRouting')(model);
 
 const SAFE_VOLUME_DB = -60;
 
