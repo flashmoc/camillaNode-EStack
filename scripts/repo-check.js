@@ -28,19 +28,26 @@ function checkRequired(relative) {
 const required = [
     'index.js',
     'server/signalGenerator.js',
+    'server/measurementBatch.js',
+    'server/measurementBatchModel.js',
     'server/startupConfiguration.js',
     'server/wiimLoudnessApi.js',
+    'server/loudnessPresetModel.js',
     'scripts/wiim-loudness-service.js',
     'scripts/install-wiim-loudness.sh',
     'scripts/reapply-startup.js',
     'scripts/install-startup-recall.sh',
+    'scripts/measurement-batch-selftest.js',
     'wiimLoudnessConfig.example.json',
+    'examples/measurement-batch-kick-mid.example.json',
+    'docs/measurement-batch.md',
     'public/html/main.html',
     'public/html/basic.html',
     'public/html/loudness.html',
     'public/html/global-eq.html',
     'public/html/equalizer.html',
     'public/html/signal-generator.html',
+    'public/html/measurement-batch.html',
     'public/html/advanced.html',
     'public/html/preferences.html',
     'public/html/connections.html',
@@ -50,7 +57,9 @@ const required = [
     'public/src/estackOutputPhase.js',
     'public/src/estackPhaseGraph.js',
     'public/src/estackQInputFix.js',
+    'public/src/estackMeasurementBatch.js',
     'public/css/estackSignalGenerator.css',
+    'public/css/estackMeasurementBatch.css',
     'public/css/estackPhaseGraph.css'
 ];
 required.forEach(checkRequired);
@@ -87,7 +96,8 @@ for (const forbidden of forbiddenTracked) {
 
 for (const runtime of [
     'camillaNodeConfig.json', 'currentConfig.json', 'savedConfigs.dat', 'startupConfig.json',
-    'wiimLoudnessConfig.json', 'wiimLoudnessStatus.json'
+    'wiimLoudnessConfig.json', 'wiimLoudnessStatus.json',
+    'measurement-batch.json', 'measurement-batch-session.json'
 ]) {
     if (tracked.includes(runtime)) fail(`runtime file must not be tracked: ${runtime}`);
 }
@@ -97,7 +107,7 @@ for (const file of tracked.filter(file => file.startsWith('config/') && file !==
 
 const activeHtml = [
     'main.html', 'basic.html', 'loudness.html', 'global-eq.html', 'equalizer.html',
-    'signal-generator.html', 'advanced.html', 'preferences.html', 'connections.html'
+    'signal-generator.html', 'measurement-batch.html', 'advanced.html', 'preferences.html', 'connections.html'
 ];
 const assetPattern = /(?:src|href)=["'](\/(?:src|css|img)\/[^"'#?]+)["']/g;
 for (const file of activeHtml) {
@@ -112,6 +122,7 @@ for (const file of activeHtml) {
 
 const mainHtml = fs.readFileSync(path.join(PUBLIC, 'html', 'main.html'), 'utf8');
 if (!mainHtml.includes('target="/signal-generator"')) fail('main navigation is missing /signal-generator');
+if (!mainHtml.includes('target="/measurement-batch"')) fail('main navigation is missing /measurement-batch');
 if (mainHtml.includes('target="/per-way"')) fail('main navigation still exposes legacy /per-way');
 if (!mainHtml.includes('System Configurations')) fail('main navigation is missing system configuration manager label');
 if (!mainHtml.includes('id="presetInd"')) fail('header is missing active preset indicator');
@@ -119,8 +130,10 @@ if (mainHtml.includes('estackOutputPresetGuard.js')) fail('obsolete page-scoped 
 
 const serverSource = fs.readFileSync(path.join(ROOT, 'index.js'), 'utf8');
 if (!serverSource.includes("app.get('/signal-generator'")) fail('server is missing /signal-generator route');
+if (!serverSource.includes("app.get('/measurement-batch'")) fail('server is missing /measurement-batch route');
 if (!serverSource.includes("app.get('/per-way'")) fail('legacy /per-way redirect is missing');
 if (!serverSource.includes("require('./server/signalGenerator')")) fail('signal generator backend is not isolated under server/');
+if (!serverSource.includes("require('./server/measurementBatch')")) fail('Measurement Batch backend is not registered');
 if (!serverSource.includes("require('./server/startupConfiguration')")) fail('startup configuration backend is not registered');
 if (!serverSource.includes("require('./server/wiimLoudnessApi')")) fail('WiiM loudness backend is not registered');
 
@@ -128,6 +141,26 @@ const loudnessSource = fs.readFileSync(path.join(PUBLIC, 'src', 'estackLoudness.
 if (!loudnessSource.includes('ESTACK_LOUDNESS_FADER = "Aux1"')) fail('Loudness UI is not Aux1-linked');
 if (!loudnessSource.includes('/api/loudness/bridge')) fail('Loudness UI is missing bridge status monitoring');
 if (!loudnessSource.includes('/api/loudness/settings')) fail('Loudness UI is missing curve settings API');
+
+const measurementSource = fs.readFileSync(path.join(ROOT, 'server', 'measurementBatch.js'), 'utf8');
+for (const route of ['status', 'import', 'next', 'previous', 'retry', 'goto', 'abort']) {
+    if (!measurementSource.includes(`/api/measurement-batch/${route}`)) fail(`Measurement Batch backend is missing ${route} endpoint`);
+}
+if (!measurementSource.includes('SAFE_VOLUME_DB = -60')) fail('Measurement Batch is missing safe transition attenuation');
+if (!measurementSource.includes('baselineConfig')) fail('Measurement Batch is missing captured baseline restoration');
+if (!measurementSource.includes('mergeProcessingIntoLive')) fail('Measurement Batch does not preserve live hardware/mixer ownership');
+
+const measurementModelSource = fs.readFileSync(path.join(ROOT, 'server', 'measurementBatchModel.js'), 'utf8');
+if (!measurementModelSource.includes("gainOffsetDb, -60, 0")) fail('Measurement Batch gain deltas can exceed the captured baseline');
+if (!measurementModelSource.includes('pre-routing/input processing')) fail('Measurement Batch input-filter bypass guard is missing');
+if (!measurementModelSource.includes('Conflicting crossover overrides')) fail('Measurement Batch shared-crossover conflict guard is missing');
+
+const signalSource = fs.readFileSync(path.join(ROOT, 'server', 'signalGenerator.js'), 'utf8');
+if (!signalSource.includes('measurement-batch-session.json')) fail('Signal Generator is not interlocked with Measurement Batch');
+
+const measurementClient = fs.readFileSync(path.join(PUBLIC, 'src', 'estackMeasurementBatch.js'), 'utf8');
+if (!measurementClient.includes('/api/measurement-batch/next')) fail('Measurement Batch UI is missing NEXT API integration');
+if (!measurementClient.includes('/api/measurement-batch/abort')) fail('Measurement Batch UI is missing restore/abort integration');
 
 const configManagerSource = fs.readFileSync(path.join(PUBLIC, 'src', 'estackConfigManagerFix.js'), 'utf8');
 if (!configManagerSource.includes('/api/startup-config')) fail('system configuration UI is missing startup configuration API');
@@ -151,13 +184,18 @@ if (!qInputSource.includes("estackCommitPeqValue(slot, 'q'")) fail('Output Proce
 for (const file of [
     'index.js',
     'server/signalGenerator.js',
+    'server/measurementBatch.js',
+    'server/measurementBatchModel.js',
     'server/startupConfiguration.js',
     'server/wiimLoudnessApi.js',
+    'server/loudnessPresetModel.js',
     'scripts/wiim-loudness-service.js',
     'scripts/reapply-startup.js',
     'scripts/repo-check.js',
+    'scripts/measurement-batch-selftest.js',
     'public/src/estackConfigManagerFix.js',
     'public/src/estackLoudness.js',
+    'public/src/estackMeasurementBatch.js',
     'public/src/estackQInputFix.js'
 ]) {
     try {
@@ -187,5 +225,6 @@ ok('startup configuration integration is present');
 ok('CamillaDSP restart startup recall integration is present');
 ok('keyboard Q entry integration is present');
 ok('WiiM loudness bridge integration is present');
+ok('Measurement Batch integration and interlocks are present');
 ok('JavaScript and installer syntax parse');
 console.log('\nE-Stack repository check passed.');
