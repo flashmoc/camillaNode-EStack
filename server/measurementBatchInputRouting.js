@@ -76,12 +76,6 @@ module.exports = function installMeasurementBatchInputRouting(model) {
             const dest = Number(mapping?.dest);
             if (!Number.isInteger(dest) || dest < 0 || dest > 5) continue;
 
-            // Keep the mapping strictly within CamillaDSP's canonical Mixer schema.
-            // A Mixer mapping has `dest` + `sources`; there is no mapping-level
-            // `mute` flag. Way selection is handled later by the existing output
-            // Gain filters. Adding an unknown mapping property is accepted during
-            // SetConfigJson but is dropped by CamillaDSP on GetConfigJson, which
-            // breaks the runner's exact post-write verification.
             mapping.sources = [{
                 channel: sourceChannel,
                 gain: 0,
@@ -96,6 +90,28 @@ module.exports = function installMeasurementBatchInputRouting(model) {
             throw new Error(`Measurement input routing is missing E-Stack mixer destinations ${missing.map(dest => `OUT${dest + 1}`).join(', ')}`);
         }
         return config;
+    }
+
+    function canonicalMixerRouting(mixers) {
+        const result = {};
+        for (const [name, mixer] of Object.entries(mixers || {})) {
+            result[name] = {
+                channels: {
+                    in: Number(mixer?.channels?.in || 0),
+                    out: Number(mixer?.channels?.out || 0)
+                },
+                mapping: (mixer?.mapping || []).map(mapping => ({
+                    dest: Number(mapping?.dest),
+                    sources: (mapping?.sources || []).map(source => ({
+                        channel: Number(source?.channel),
+                        gain: Number(source?.gain ?? 0),
+                        scale: source?.scale || 'dB',
+                        inverted: !!source?.inverted
+                    }))
+                }))
+            };
+        }
+        return stable(result);
     }
 
     model.normalizeBatch = function normalizeBatchWithMeasurementInput(input) {
@@ -116,8 +132,6 @@ module.exports = function installMeasurementBatchInputRouting(model) {
         return next;
     };
 
-    // Mixer routing is now part of the temporary batch state. Devices are still
-    // explicitly excluded so ALSA/capture/playback ownership stays live.
     model.processingOf = function processingWithMixer(config) {
         return {
             filters: clone(config?.filters || {}),
@@ -138,10 +152,16 @@ module.exports = function installMeasurementBatchInputRouting(model) {
     };
 
     model.sameProcessing = function sameProcessingWithMixer(a, b) {
-        return JSON.stringify(stable(model.processingOf(a))) === JSON.stringify(stable(model.processingOf(b)));
+        const pa = model.processingOf(a);
+        const pb = model.processingOf(b);
+        const coreA = stable({ filters: pa.filters, pipeline: pa.pipeline, processors: pa.processors });
+        const coreB = stable({ filters: pb.filters, pipeline: pb.pipeline, processors: pb.processors });
+        if (JSON.stringify(coreA) !== JSON.stringify(coreB)) return false;
+        return JSON.stringify(canonicalMixerRouting(pa.mixers)) === JSON.stringify(canonicalMixerRouting(pb.mixers));
     };
 
     model.routeMeasurementInput = routeMeasurementInput;
+    model.canonicalMixerRouting = canonicalMixerRouting;
     Object.defineProperty(model, '__measurementInputRoutingInstalled', { value: true });
     return model;
 };
