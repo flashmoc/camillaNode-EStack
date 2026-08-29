@@ -2,6 +2,8 @@
 
 const fs = require('fs');
 const path = require('path');
+const WebSocket = require('ws');
+const loudnessModel = require('./loudnessPresetModel');
 
 module.exports = function registerWiimLoudnessApi(app, options = {}) {
     const root = options.root || path.resolve(__dirname, '..');
@@ -9,6 +11,9 @@ module.exports = function registerWiimLoudnessApi(app, options = {}) {
     const exampleFile = path.join(root, 'wiimLoudnessConfig.example.json');
     const statusFile = process.env.ESTACK_WIIM_LOUDNESS_STATUS || '/dev/shm/estack-wiim-loudness-status.json';
     const staleMs = Number.parseInt(process.env.ESTACK_WIIM_LOUDNESS_STALE_MS || '4000', 10);
+    const dspHost = options.host || process.env.CAMILLADSP_PROXY_HOST || '127.0.0.1';
+    const dspPort = Number(options.port || process.env.CAMILLADSP_PORT || 1234);
+    let presetQueue = Promise.resolve();
 
     function ensureConfig() {
         if (fs.existsSync(configFile)) return;
@@ -69,6 +74,153 @@ module.exports = function registerWiimLoudnessApi(app, options = {}) {
         };
     }
 
+    function presetState(config) {
+        const raw = config?.presetState || {};
+        const selected = loudnessModel.preset(raw.selected)?.key || 'reference';
+        const lastEnabledPreset = loudnessModel.preset(raw.lastEnabledPreset);
+        return {
+            selected,
+            lastEnabledPreset: lastEnabledPreset && !lastEnabledPreset.disabled
+                ? lastEnabledPreset.key
+                : 'home'
+        };
+    }
+
+    function persistPresetState(selectedKey, livePreset = null) {
+        const config = readConfig();
+        const current = presetState(config);
+        const selected = loudnessModel.preset(selectedKey);
+        if (!selected) return;
+
+        const next = {
+            selected: selected.key,
+            lastEnabledPreset: current.lastEnabledPreset
+        };
+        if (!selected.disabled) next.lastEnabledPreset = selected.key;
+        else if (livePreset && loudnessModel.preset(livePreset) && !loudnessModel.preset(livePreset).disabled) {
+            next.lastEnabledPreset = livePreset;
+        }
+
+        config.presetState = next;
+        atomicWriteConfig(config);
+    }
+
+    function openDsp(timeoutMs = 2500) {
+        return new Promise((resolve, reject) => {
+            const ws = new WebSocket(`ws://${dspHost}:${dspPort}`);
+            const timer = setTimeout(() => {
+                try { ws.terminate(); } catch (_) {}
+                reject(new Error('CamillaDSP connection timeout'));
+            }, timeoutMs);
+
+            ws.once('open', () => {
+                clearTimeout(timer);
+                resolve(ws);
+            });
+            ws.once('error', error => {
+                clearTimeout(timer);
+                reject(new Error(`CamillaDSP unavailable: ${error.message}`));
+            });
+        });
+    }
+
+    function dspRequest(ws, message, timeoutMs = 3500) {
+        const command = typeof message === 'string' ? message : Object.keys(message || {})[0];
+        if (!command) return Promise.reject(new Error('Invalid CamillaDSP command'));
+
+        return new Promise((resolve, reject) => {
+            const timer = setTimeout(() => {
+                ws.off('message', onMessage);
+                reject(new Error(`${command} timed out`));
+            }, timeoutMs);
+
+            function onMessage(data) {
+                let response;
+                try { response = JSON.parse(String(data)); }
+                catch (_) { return; }
+                if (!Object.prototype.hasOwnProperty.call(response, command)) return;
+
+                clearTimeout(timer);
+                ws.off('message', onMessage);
+                const payload = response[command] || {};
+                if (payload.result !== 'Ok') {
+                    reject(new Error(`${command} failed: ${payload.value || payload.result || 'unknown error'}`));
+                    return;
+                }
+
+                let value = payload.value;
+                if (command === 'GetConfigJson') {
+                    try { value = JSON.parse(value); }
+                    catch (_) {
+                        reject(new Error('CamillaDSP returned invalid configuration JSON'));
+                        return;
+                    }
+                }
+                resolve(value);
+            }
+
+            ws.on('message', onMessage);
+            try { ws.send(JSON.stringify(message)); }
+            catch (error) {
+                clearTimeout(timer);
+                ws.off('message', onMessage);
+                reject(error);
+            }
+        });
+    }
+
+    function enqueuePresetOperation(operation) {
+        const run = presetQueue.then(operation, operation);
+        presetQueue = run.catch(() => {});
+        return run;
+    }
+
+    async function readLivePreset() {
+        const settings = presetState(readConfig());
+        const ws = await openDsp();
+        try {
+            const live = await dspRequest(ws, 'GetConfigJson');
+            const key = loudnessModel.detectPreset(live, settings.selected);
+            return {
+                key,
+                enabled: loudnessModel.isEnabled(live),
+                config: live
+            };
+        } finally {
+            try { ws.close(); } catch (_) {}
+        }
+    }
+
+    async function applyLivePreset(key) {
+        const selected = loudnessModel.preset(key);
+        if (!selected) throw new Error(`Unknown loudness preset '${key}'`);
+
+        return enqueuePresetOperation(async () => {
+            const previousState = presetState(readConfig());
+            const ws = await openDsp();
+            try {
+                const live = await dspRequest(ws, 'GetConfigJson');
+                const previousLivePreset = loudnessModel.detectPreset(live, previousState.selected);
+                const next = loudnessModel.applyPreset(live, selected.key);
+                loudnessModel.assertOnlyLoudnessChanged(live, next);
+                await dspRequest(ws, { SetConfigJson: JSON.stringify(next) });
+                const verified = await dspRequest(ws, 'GetConfigJson');
+                loudnessModel.validateApplied(verified, selected.key);
+                persistPresetState(selected.key, previousLivePreset);
+                return {
+                    key: loudnessModel.detectPreset(verified, selected.key),
+                    enabled: loudnessModel.isEnabled(verified)
+                };
+            } finally {
+                try { ws.close(); } catch (_) {}
+            }
+        });
+    }
+
+    function isDspError(error) {
+        return /CamillaDSP|GetConfigJson|SetConfigJson|connection timeout|ECONNREFUSED/i.test(String(error?.message || error));
+    }
+
     app.get('/api/loudness/settings', (_req, res) => {
         try {
             res.json({ status: 'ok', ...publicSettings(readConfig()) });
@@ -91,6 +243,84 @@ module.exports = function registerWiimLoudnessApi(app, options = {}) {
             res.json({ status: 'ok', ...publicSettings(config) });
         } catch (error) {
             res.status(400).json({ status: 'error', reason: error.message });
+        }
+    });
+
+    app.get('/api/loudness/preset', async (_req, res) => {
+        try {
+            const live = await readLivePreset();
+            res.json({
+                status: 'ok',
+                ok: true,
+                preset: live.key,
+                enabled: live.enabled
+            });
+        } catch (error) {
+            res.status(isDspError(error) ? 503 : 500).json({
+                status: 'error',
+                ok: false,
+                reason: error.message
+            });
+        }
+    });
+
+    app.post('/api/loudness/preset', async (req, res) => {
+        try {
+            const payload = JSON.parse(await readBody(req));
+            const key = String(payload?.preset || '').trim().toLowerCase();
+            if (!loudnessModel.preset(key)) {
+                return res.status(400).json({
+                    status: 'error',
+                    ok: false,
+                    reason: `Unknown loudness preset '${key || 'empty'}'`,
+                    allowed: Object.keys(loudnessModel.PRESETS)
+                });
+            }
+
+            const result = await applyLivePreset(key);
+            res.json({
+                status: 'ok',
+                ok: true,
+                preset: result.key,
+                enabled: result.enabled
+            });
+        } catch (error) {
+            res.status(isDspError(error) ? 503 : 400).json({
+                status: 'error',
+                ok: false,
+                reason: error.message
+            });
+        }
+    });
+
+    app.post('/api/loudness/toggle', async (_req, res) => {
+        try {
+            const live = await readLivePreset();
+            const state = presetState(readConfig());
+            const target = live.enabled ? 'reference' : state.lastEnabledPreset || 'home';
+            if (live.enabled && loudnessModel.preset(live.key) && !loudnessModel.preset(live.key).disabled) {
+                const config = readConfig();
+                config.presetState = {
+                    ...presetState(config),
+                    selected: live.key,
+                    lastEnabledPreset: live.key
+                };
+                atomicWriteConfig(config);
+            }
+
+            const result = await applyLivePreset(target);
+            res.json({
+                status: 'ok',
+                ok: true,
+                preset: result.key,
+                enabled: result.enabled
+            });
+        } catch (error) {
+            res.status(isDspError(error) ? 503 : 500).json({
+                status: 'error',
+                ok: false,
+                reason: error.message
+            });
         }
     });
 
