@@ -10,8 +10,6 @@
     background: var(--estack-bg);
 }
 
-/* main.css uses broad main/section/header selectors for the outer CamillaNode
-   shell. Loudness lives inside the iframe, so explicitly neutralize them here. */
 .estack-loudness-page > main.loudness-shell {
     display: block !important;
     grid-template-columns: none !important;
@@ -39,7 +37,7 @@
     position: static !important;
     width: 100% !important;
     height: auto !important;
-    min-height: 48px;
+    min-height: 54px;
     display: flex !important;
     align-items: center;
     justify-content: space-between;
@@ -53,21 +51,58 @@
 }
 
 .loudness-head-copy {
-    min-width: 150px;
+    min-width: 220px;
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
     gap: 2px;
 }
 
-.loudness-head-copy strong {
+.loudness-head-copy > strong {
     font-size: 14px;
     font-weight: 600;
     letter-spacing: .035em;
 }
 
-.loudness-head-copy span {
+.loudness-head-copy > span {
     color: var(--estack-muted);
     font-size: 8px;
+}
+
+.loudness-bridge-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    padding: 3px 7px;
+    border: 1px solid var(--estack-border-soft);
+    border-radius: 999px;
+    color: var(--estack-muted);
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: .07em;
+    white-space: nowrap;
+}
+
+.loudness-bridge-badge i {
+    width: 6px;
+    height: 6px;
+    flex: 0 0 6px;
+    border-radius: 50%;
+    background: currentColor;
+    box-shadow: 0 0 8px currentColor;
+}
+
+.loudness-bridge-badge[data-state="ok"] {
+    color: #8bd9b4;
+    border-color: color-mix(in srgb, #8bd9b4 38%, var(--estack-border-soft));
+    background: color-mix(in srgb, #8bd9b4 5%, transparent);
+}
+
+.loudness-bridge-badge[data-state="error"] {
+    color: #ff9b9b;
+    border-color: color-mix(in srgb, #ff9b9b 42%, var(--estack-border-soft));
+    background: color-mix(in srgb, #ff9b9b 6%, transparent);
 }
 
 .loudness-live {
@@ -78,7 +113,7 @@
 }
 
 .loudness-live > div {
-    min-width: 88px;
+    min-width: 84px;
     display: grid;
     gap: 2px;
     padding: 2px 10px;
@@ -100,7 +135,6 @@
     font-variant-numeric: tabular-nums;
 }
 
-/* More specific than the generic shell > section reset above. */
 .estack-loudness-page .loudness-shell > section.loudness-graph {
     width: 100% !important;
     height: 230px !important;
@@ -127,6 +161,96 @@
     box-shadow: none !important;
     transform: none !important;
 }
+
+.estack-loudness-page .loudness-shell > section.loudness-curve-panel {
+    display: flex !important;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    margin: 0 0 8px !important;
+    padding: 7px 2px 8px !important;
+    border-bottom: 1px solid var(--estack-border-soft) !important;
+}
+
+.loudness-curve-copy {
+    min-width: 180px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.loudness-curve-copy strong {
+    font-size: 9px;
+    letter-spacing: .06em;
+}
+
+.loudness-curve-copy span {
+    color: var(--estack-muted);
+    font-size: 7px;
+}
+
+.loudness-curve-controls {
+    display: flex;
+    align-items: end;
+    justify-content: flex-end;
+    gap: 7px;
+}
+
+.loudness-curve-controls label {
+    min-width: 94px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 2px 5px;
+}
+
+.loudness-curve-controls label > span {
+    grid-column: 1 / -1;
+    color: var(--estack-dim);
+    font-size: 7px;
+    font-weight: 600;
+    letter-spacing: .06em;
+}
+
+.loudness-curve-controls input {
+    width: 66px;
+    height: 25px;
+    padding: 2px 6px;
+    border: 1px solid var(--estack-border-soft);
+    border-radius: 4px;
+    outline: none;
+    color: var(--estack-text);
+    background: var(--estack-bg-deep);
+    font: 600 9px/1 Open Sans, Arial, sans-serif;
+    font-variant-numeric: tabular-nums;
+}
+
+.loudness-curve-controls input:focus {
+    border-color: color-mix(in srgb, var(--estack-accent) 55%, var(--estack-border));
+}
+
+.loudness-curve-controls small {
+    color: var(--estack-dim);
+    font-size: 6px;
+    white-space: nowrap;
+}
+
+#loudnessCurveSave {
+    height: 25px;
+    min-width: 88px;
+    padding: 0 9px;
+    border: 1px solid var(--estack-border);
+    border-radius: 4px;
+    color: var(--estack-text);
+    background: var(--estack-surface-soft);
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    cursor: pointer;
+}
+
+#loudnessCurveSave:hover { border-color: var(--estack-accent); }
+#loudnessCurveSave:disabled { opacity: .45; cursor: default; }
 
 .loudness-presets {
     width: 100%;
@@ -253,6 +377,8 @@
 
 @media (max-width: 1080px) {
     .loudness-presets { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .estack-loudness-page .loudness-shell > section.loudness-curve-panel { align-items: flex-start; flex-direction: column; }
+    .loudness-curve-controls { width: 100%; justify-content: flex-start; flex-wrap: wrap; }
 }
 
 @media (max-width: 700px) {
@@ -265,8 +391,9 @@
         flex-direction: column;
         gap: 8px;
     }
+    .loudness-head-copy { min-width: 0; }
     .loudness-live { width: 100%; justify-content: flex-start; }
-    .loudness-live > div { min-width: 0; flex: 1 1 0; padding-inline: 8px; text-align: left; }
+    .loudness-live > div { min-width: 0; flex: 1 1 0; padding-inline: 7px; text-align: left; }
     .loudness-live > div:first-child { border-left: 0; padding-left: 0; }
     .estack-loudness-page .loudness-shell > section.loudness-graph,
     #loudnessCanvas {
@@ -274,9 +401,15 @@
         min-height: 190px !important;
         max-height: 190px !important;
     }
+    .loudness-curve-controls label { min-width: 86px; }
     .loudness-presets { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 430px) {
+    .loudness-live { display: grid; grid-template-columns: 1fr 1fr; }
+    .loudness-live > div:nth-child(3) { border-left: 0; }
+    .loudness-curve-controls { display: grid; grid-template-columns: 1fr 1fr; align-items: end; }
+    .loudness-curve-controls label { min-width: 0; }
+    #loudnessCurveSave { width: 100%; }
     .loudness-presets { grid-template-columns: 1fr; }
 }
