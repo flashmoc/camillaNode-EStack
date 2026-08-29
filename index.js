@@ -66,6 +66,10 @@ app.get('/api/runtime', (_req, res) => {
     });
 });
 
+// WiiM loudness status/settings stay on the CamillaNode origin. The real-time
+// bridge is an independent Raspberry service and keeps running without a browser.
+require('./server/wiimLoudnessApi')(app, { root: ROOT });
+
 // The measurement generator owns its exact normal-config snapshot and automatic
 // restore. Register it before the generic /api proxy used by CamillaGUI in demo.
 require('./server/signalGenerator')(app, {
