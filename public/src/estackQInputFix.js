@@ -8,13 +8,18 @@
 
     const Q_MIN = 0.1;
     const Q_MAX = 20;
-    const Q_STEP = 0.01;
+    const Q_INCREMENT = 0.05;
 
     function clampQ(value, fallback = 0.7) {
         const normalized = String(value ?? '').trim().replace(',', '.');
         const number = Number(normalized);
         const safe = Number.isFinite(number) ? number : Number(fallback);
         return Math.round(Math.max(Q_MIN, Math.min(Q_MAX, safe)) * 100) / 100;
+    }
+
+    function quantizeQ(value) {
+        const clamped = clampQ(value);
+        return clampQ(Math.round(clamped / Q_INCREMENT) * Q_INCREMENT);
     }
 
     function qToSlider(q) {
@@ -30,7 +35,8 @@
         const q = typeof window.estackEq8FromNorm === 'function'
             ? window.estackEq8FromNorm(norm, Q_MIN, Q_MAX, true)
             : Q_MIN * Math.pow(Q_MAX / Q_MIN, norm);
-        return clampQ(q);
+        // Slider movement is deliberately quantized to 0.05 Q increments.
+        return quantizeQ(q);
     }
 
     // Output Processing: replace the fake readout with a real text/decimal input.
@@ -39,13 +45,23 @@
         window.estackEq8QControl = function estackEq8QControlKeyboard(slot, entry, q) {
             const root = document.createElement('div');
             root.className = 'estack-eq8-q-control';
+            root.style.minWidth = '0';
+            root.style.width = '100%';
 
             const head = document.createElement('div');
             head.className = 'estack-eq8-q-head';
+            // The old CSS only set min-width on the readout. Once it became an
+            // input, the browser's intrinsic text-input width overflowed into the
+            // next PEQ strip. Explicit compact sizing keeps every Q field local.
+            head.style.minWidth = '0';
+            head.style.width = '100%';
+            head.style.gap = '4px';
+            head.style.overflow = 'hidden';
 
             const label = document.createElement('span');
             label.className = 'estack-eq8-q-label';
             label.textContent = 'Q';
+            label.style.flex = '0 0 auto';
 
             const number = document.createElement('input');
             number.type = 'text';
@@ -54,6 +70,14 @@
             number.autocomplete = 'off';
             number.spellcheck = false;
             number.setAttribute('aria-label', `PEQ ${Number(slot) + 1} Q`);
+            number.setAttribute('data-q-step', String(Q_INCREMENT));
+            number.style.boxSizing = 'border-box';
+            number.style.width = '42px';
+            number.style.maxWidth = 'calc(100% - 12px)';
+            number.style.minWidth = '0';
+            number.style.height = '17px';
+            number.style.padding = '1px 2px';
+            number.style.flex = '0 1 42px';
 
             const slider = document.createElement('input');
             slider.type = 'range';
@@ -61,13 +85,15 @@
             slider.min = '0';
             slider.max = '1000';
             slider.step = '1';
+            slider.style.minWidth = '0';
+            slider.style.width = '100%';
+            slider.setAttribute('aria-valuetext', `${quantizeQ(q).toFixed(2)} Q`);
 
             let current = clampQ(q);
             let lastCommitted = current;
 
-            const preview = next => {
+            const updateDspPreview = next => {
                 current = clampQ(next, current);
-                slider.value = String(qToSlider(current));
                 if (entry?.[1]?.parameters) {
                     entry[1].parameters.q = current;
                     if (typeof window.drawGraph === 'function') window.drawGraph();
@@ -75,8 +101,10 @@
             };
 
             const render = next => {
-                preview(next);
+                updateDspPreview(next);
                 number.value = current.toFixed(2);
+                slider.value = String(qToSlider(current));
+                slider.setAttribute('aria-valuetext', `${current.toFixed(2)} Q`);
             };
 
             const commit = async next => {
@@ -94,12 +122,9 @@
 
             slider.addEventListener('input', () => {
                 const next = sliderToQ(slider.value);
-                current = next;
+                updateDspPreview(next);
                 number.value = next.toFixed(2);
-                if (entry?.[1]?.parameters) {
-                    entry[1].parameters.q = next;
-                    if (typeof window.drawGraph === 'function') window.drawGraph();
-                }
+                slider.setAttribute('aria-valuetext', `${next.toFixed(2)} Q`);
             });
             slider.addEventListener('change', () => commit(sliderToQ(slider.value)));
 
@@ -110,6 +135,7 @@
                 if (!Number.isFinite(next)) return;
                 current = Math.max(Q_MIN, Math.min(Q_MAX, next));
                 slider.value = String(qToSlider(current));
+                slider.setAttribute('aria-valuetext', `${current.toFixed(2)} Q`);
                 if (entry?.[1]?.parameters) {
                     entry[1].parameters.q = current;
                     if (typeof window.drawGraph === 'function') window.drawGraph();
@@ -124,6 +150,16 @@
                     number.blur();
                     return;
                 }
+
+                if (event.key === 'ArrowUp' || event.key === 'ArrowDown') {
+                    event.preventDefault();
+                    const direction = event.key === 'ArrowUp' ? 1 : -1;
+                    const next = quantizeQ(current + direction * Q_INCREMENT);
+                    render(next);
+                    commit(next);
+                    return;
+                }
+
                 if (event.key !== 'Enter') return;
                 event.preventDefault();
                 commit(number.value).finally(() => number.blur());
