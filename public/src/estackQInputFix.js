@@ -1,7 +1,7 @@
 // E-Stack Q input fix.
 // Output Processing previously displayed Q in an <output> that looked editable.
-// Advanced filter Q fields also relied on blur/change and did not normalize a
-// French decimal comma. Keep the existing DSP commit paths; only fix the input UI.
+// Advanced filter Q fields also relied on blur/change and passed numeric values as
+// strings. This layer makes Q genuinely keyboard-editable and numeric end-to-end.
 
 (function () {
     'use strict';
@@ -33,8 +33,8 @@
         return clampQ(q);
     }
 
-    // Output Processing: replace the fake readout with a real numeric input while
-    // preserving the logarithmic Q slider and estackCommitPeqValue() safe upload.
+    // Output Processing: replace the fake readout with a real text/decimal input.
+    // A text input is deliberate: both "0.70" and French-style "0,70" work.
     if (typeof window.estackEq8QControl === 'function') {
         window.estackEq8QControl = function estackEq8QControlKeyboard(slot, entry, q) {
             const root = document.createElement('div');
@@ -48,12 +48,11 @@
             label.textContent = 'Q';
 
             const number = document.createElement('input');
-            number.type = 'number';
+            number.type = 'text';
             number.className = 'estack-eq8-q-value';
-            number.min = String(Q_MIN);
-            number.max = String(Q_MAX);
-            number.step = String(Q_STEP);
             number.inputMode = 'decimal';
+            number.autocomplete = 'off';
+            number.spellcheck = false;
             number.setAttribute('aria-label', `PEQ ${Number(slot) + 1} Q`);
 
             const slider = document.createElement('input');
@@ -66,9 +65,8 @@
             let current = clampQ(q);
             let lastCommitted = current;
 
-            const render = next => {
+            const preview = next => {
                 current = clampQ(next, current);
-                number.value = current.toFixed(2);
                 slider.value = String(qToSlider(current));
                 if (entry?.[1]?.parameters) {
                     entry[1].parameters.q = current;
@@ -76,25 +74,39 @@
                 }
             };
 
+            const render = next => {
+                preview(next);
+                number.value = current.toFixed(2);
+            };
+
             const commit = async next => {
                 render(next);
                 if (Math.abs(current - lastCommitted) < 0.0001) return;
-                lastCommitted = current;
+                const committed = current;
                 if (typeof window.estackCommitPeqValue === 'function') {
-                    await window.estackCommitPeqValue(slot, 'q', current);
+                    await window.estackCommitPeqValue(slot, 'q', committed);
                 }
+                lastCommitted = committed;
             };
 
             slider.value = String(qToSlider(current));
             number.value = current.toFixed(2);
 
-            slider.addEventListener('input', () => render(sliderToQ(slider.value)));
+            slider.addEventListener('input', () => {
+                const next = sliderToQ(slider.value);
+                current = next;
+                number.value = next.toFixed(2);
+                if (entry?.[1]?.parameters) {
+                    entry[1].parameters.q = next;
+                    if (typeof window.drawGraph === 'function') window.drawGraph();
+                }
+            });
             slider.addEventListener('change', () => commit(sliderToQ(slider.value)));
 
             number.addEventListener('input', () => {
-                const text = String(number.value || '').trim();
-                if (!text) return;
-                const next = Number(text.replace(',', '.'));
+                const text = String(number.value || '').trim().replace(',', '.');
+                if (!text || text === '.' || text === '-') return;
+                const next = Number(text);
                 if (!Number.isFinite(next)) return;
                 current = Math.max(Q_MIN, Math.min(Q_MAX, next));
                 slider.value = String(qToSlider(current));
@@ -136,16 +148,36 @@
     }
 
     function normalizeExistingQ(target) {
-        if (!isAdvancedQInput(target) && !isGlobalQInput(target)) return false;
+        if (!isAdvancedQInput(target) && !isGlobalQInput(target)) return null;
         const next = clampQ(target.value, target.defaultValue || 0.7);
         target.value = next.toFixed(2);
-        return true;
+        return next;
     }
 
-    // Advanced / Input Processing: normalize before the page's existing change
-    // handler sees the value, and make Enter behave like an explicit commit.
+    // Advanced's legacy filter editor sends generic numeric text as strings.
+    // Intercept Q before that handler and use its existing filter/upload objects
+    // directly so CamillaDSP receives a real number.
     document.addEventListener('change', event => {
-        normalizeExistingQ(event.target);
+        const target = event.target;
+        if (isAdvancedQInput(target)) {
+            const next = normalizeExistingQ(target);
+            if (!Number.isFinite(next)) return;
+            event.stopImmediatePropagation();
+
+            const filter = target.filter;
+            if (!filter || typeof filter.setFilterParameter !== 'function') return;
+            filter.setFilterParameter(target.id, next);
+            const editor = target.parentElement?.parentElement;
+            editor?.dispatchEvent?.(new Event('updated'));
+            Promise.resolve(filter.uploadToDSP?.()).catch(error => {
+                console.error('Advanced Q upload failed', error);
+            });
+            return;
+        }
+
+        // Global EQ already converts to Number in its commit path; just normalize
+        // decimal syntax/range before that existing change handler runs.
+        if (isGlobalQInput(target)) normalizeExistingQ(target);
     }, true);
 
     document.addEventListener('keydown', event => {
