@@ -60,11 +60,19 @@ for (let dest = 0; dest <= 5; dest += 1) {
     assert.ok(mapping, `missing OUT${dest + 1} mapping`);
     assert.strictEqual(mapping.sources.length, 1);
     assert.strictEqual(mapping.sources[0].channel, 3, `OUT${dest + 1} did not use physical IN4 / channel 3`);
-    assert.strictEqual(mapping.sources[0].gain, 0);
+    assert.strictEqual(mapping.sources[0].gain, 0, `OUT${dest + 1} measurement source is not unity gain`);
     assert.strictEqual(mapping.sources[0].scale, 'dB');
     assert.strictEqual(mapping.sources[0].inverted, false);
-    assert.strictEqual(mapping.mute, false);
+    assert.ok(!Object.prototype.hasOwnProperty.call(mapping, 'mute'), 'non-canonical mapping-level mute leaked into CamillaDSP config');
 }
+
+// Normal SUB/KICK routing is attenuated for L+R summation; dedicated mono
+// measurement routing must replace it with one unity-gain source, not retain -6 dB.
+assert.strictEqual(baseline.mixers.estack.mapping[0].sources[0].gain, -6.0206);
+assert.strictEqual(baseline.mixers.estack.mapping[1].sources[0].gain, -6.0206);
+assert.strictEqual(applied.mixers.estack.mapping[0].sources[0].gain, 0);
+assert.strictEqual(applied.mixers.estack.mapping[1].sources[0].gain, 0);
+
 assert.strictEqual(baseline.mixers.estack.mapping[0].sources[0].channel, 0, 'baseline mixer was mutated');
 assert.strictEqual(applied.filters.kick_gain.parameters.mute, false);
 assert.strictEqual(applied.filters.mid_l_gain.parameters.mute, false);
