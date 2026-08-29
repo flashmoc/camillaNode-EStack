@@ -8,7 +8,7 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "check": "node scripts/repo-check.js",
-    "test": "npm run check && node scripts/measurement-batch-selftest.js && node scripts/measurement-batch-phase-selftest.js && node scripts/navigation-selftest.js",
+    "test": "npm run check && node scripts/measurement-batch-selftest.js && node scripts/measurement-batch-phase-selftest.js && node scripts/measurement-batch-ui-selftest.js && node scripts/navigation-selftest.js",
     "demo": "bash dev/start-demo.sh",
     "demo:bg": "bash dev/start-demo.sh --background"
   },
