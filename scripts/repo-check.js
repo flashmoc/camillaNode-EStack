@@ -29,6 +29,10 @@ const required = [
     'index.js',
     'server/signalGenerator.js',
     'server/startupConfiguration.js',
+    'server/wiimLoudnessApi.js',
+    'scripts/wiim-loudness-service.js',
+    'scripts/install-wiim-loudness.sh',
+    'wiimLoudnessConfig.example.json',
     'public/html/main.html',
     'public/html/basic.html',
     'public/html/loudness.html',
@@ -78,7 +82,10 @@ for (const forbidden of forbiddenTracked) {
     }
 }
 
-for (const runtime of ['camillaNodeConfig.json', 'currentConfig.json', 'savedConfigs.dat', 'startupConfig.json']) {
+for (const runtime of [
+    'camillaNodeConfig.json', 'currentConfig.json', 'savedConfigs.dat', 'startupConfig.json',
+    'wiimLoudnessConfig.json', 'wiimLoudnessStatus.json'
+]) {
     if (tracked.includes(runtime)) fail(`runtime file must not be tracked: ${runtime}`);
 }
 for (const file of tracked.filter(file => file.startsWith('config/') && file !== 'config/.gitkeep')) {
@@ -112,6 +119,12 @@ if (!serverSource.includes("app.get('/signal-generator'")) fail('server is missi
 if (!serverSource.includes("app.get('/per-way'")) fail('legacy /per-way redirect is missing');
 if (!serverSource.includes("require('./server/signalGenerator')")) fail('signal generator backend is not isolated under server/');
 if (!serverSource.includes("require('./server/startupConfiguration')")) fail('startup configuration backend is not registered');
+if (!serverSource.includes("require('./server/wiimLoudnessApi')")) fail('WiiM loudness backend is not registered');
+
+const loudnessSource = fs.readFileSync(path.join(PUBLIC, 'src', 'estackLoudness.js'), 'utf8');
+if (!loudnessSource.includes('ESTACK_LOUDNESS_FADER = "Aux1"')) fail('Loudness UI is not Aux1-linked');
+if (!loudnessSource.includes('/api/loudness/bridge')) fail('Loudness UI is missing bridge status monitoring');
+if (!loudnessSource.includes('/api/loudness/settings')) fail('Loudness UI is missing curve settings API');
 
 const configManagerSource = fs.readFileSync(path.join(PUBLIC, 'src', 'estackConfigManagerFix.js'), 'utf8');
 if (!configManagerSource.includes('/api/startup-config')) fail('system configuration UI is missing startup configuration API');
@@ -121,8 +134,11 @@ for (const file of [
     'index.js',
     'server/signalGenerator.js',
     'server/startupConfiguration.js',
+    'server/wiimLoudnessApi.js',
+    'scripts/wiim-loudness-service.js',
     'scripts/repo-check.js',
-    'public/src/estackConfigManagerFix.js'
+    'public/src/estackConfigManagerFix.js',
+    'public/src/estackLoudness.js'
 ]) {
     try {
         execFileSync(process.execPath, ['--check', path.join(ROOT, file)], { stdio: 'pipe' });
@@ -140,5 +156,6 @@ ok('active UI assets resolve');
 ok('legacy duplicate paths are not tracked');
 ok('runtime state is repository-independent');
 ok('startup configuration integration is present');
+ok('WiiM loudness bridge integration is present');
 ok('server-side JavaScript parses');
 console.log('\nE-Stack repository check passed.');
