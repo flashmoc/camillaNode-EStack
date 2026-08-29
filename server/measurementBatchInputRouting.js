@@ -75,15 +75,19 @@ module.exports = function installMeasurementBatchInputRouting(model) {
         for (const mapping of mixer.mapping) {
             const dest = Number(mapping?.dest);
             if (!Number.isInteger(dest) || dest < 0 || dest > 5) continue;
+
+            // Keep the mapping strictly within CamillaDSP's canonical Mixer schema.
+            // A Mixer mapping has `dest` + `sources`; there is no mapping-level
+            // `mute` flag. Way selection is handled later by the existing output
+            // Gain filters. Adding an unknown mapping property is accepted during
+            // SetConfigJson but is dropped by CamillaDSP on GetConfigJson, which
+            // breaks the runner's exact post-write verification.
             mapping.sources = [{
                 channel: sourceChannel,
                 gain: 0,
                 scale: 'dB',
                 inverted: false
             }];
-            // Output selection remains controlled by each way's Gain mute. The
-            // measurement source itself must therefore be enabled on the mixer.
-            mapping.mute = false;
             routedDestinations.add(dest);
         }
 
