@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Measurement Batch</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/estackTheme.css">
+    <link rel="stylesheet" href="/css/estackMeasurementBatch.css">
+    <script src="/src/estackMeasurementBatch.js" defer></script>
+</head>
+<body class="estack-measurement-batch">
+    <div class="measure-page-title">
+        <div>
+            <img src="/img/icon/advanced.png" alt="">
+            <strong>Measurement Batch</strong>
+        </div>
+        <div id="measureRuntimeState" class="measure-runtime-state" data-state="empty">
+            <strong>NO BATCH</strong>
+        </div>
+    </div>
+
+    <main class="measure-page">
+        <section class="measure-import-panel">
+            <div class="measure-import-copy">
+                <strong id="batchName">No measurement batch loaded</strong>
+                <span id="batchDescription">Import a versioned E-Stack batch JSON file. DSP changes are temporary and restored from a live snapshot.</span>
+            </div>
+            <div class="measure-import-actions">
+                <input id="batchFileInput" type="file" accept="application/json,.json" hidden>
+                <button id="importBatch" type="button">IMPORT JSON</button>
+                <button id="clearBatch" type="button">CLEAR</button>
+            </div>
+        </section>
+
+        <section class="measure-progress-panel">
+            <div class="measure-progress-copy">
+                <span id="batchProgressLabel">0 / 0</span>
+                <strong id="batchProgressText">Waiting for a batch</strong>
+            </div>
+            <div class="measure-progress-track" aria-hidden="true">
+                <i id="batchProgressBar"></i>
+            </div>
+        </section>
+
+        <section class="measure-workspace">
+            <article class="measure-current-card">
+                <header class="measure-current-head">
+                    <div>
+                        <span id="measurementCounter">—</span>
+                        <strong id="measurementName">No active measurement</strong>
+                    </div>
+                    <button id="copyRewName" type="button" disabled>COPY REW NAME</button>
+                </header>
+
+                <div id="measurementPosition" class="measure-position" hidden></div>
+                <p id="measurementInstruction" class="measure-instruction">Start the batch to snapshot the live DSP configuration and prepare measurement 1.</p>
+
+                <div class="measure-block">
+                    <div class="measure-block-head"><strong>ACTIVE WAYS</strong></div>
+                    <div id="measurementWays" class="measure-way-grid"></div>
+                </div>
+
+                <div class="measure-block">
+                    <div class="measure-block-head"><strong>DSP DELTA</strong><span>Always rebuilt from the session baseline</span></div>
+                    <div id="measurementOverrides" class="measure-delta-grid"></div>
+                </div>
+
+                <div class="measure-block measure-rew-block">
+                    <div class="measure-block-head"><strong>REW</strong><span>Manual now · API-ready metadata</span></div>
+                    <div class="measure-rew-grid">
+                        <div><span>NAME</span><strong id="rewName">—</strong></div>
+                        <div><span>SWEEP</span><strong id="rewSweep">—</strong></div>
+                        <div><span>LEVEL</span><strong id="rewLevel">—</strong></div>
+                        <div><span>TIMING REF</span><strong id="rewTiming">—</strong></div>
+                    </div>
+                    <p id="rewNotes" class="measure-rew-notes" hidden></p>
+                </div>
+
+                <div class="measure-actions">
+                    <button id="previousMeasurement" type="button" disabled>PREVIOUS</button>
+                    <button id="retryMeasurement" type="button" disabled>REAPPLY CURRENT</button>
+                    <button id="nextMeasurement" class="measure-primary" type="button" disabled>START BATCH</button>
+                    <button id="abortMeasurement" class="measure-danger" type="button" disabled>ABORT &amp; RESTORE</button>
+                </div>
+            </article>
+
+            <aside class="measure-sequence-panel">
+                <header>
+                    <strong>SEQUENCE</strong>
+                    <span id="sequenceCount">0 measurements</span>
+                </header>
+                <div id="measurementSequence" class="measure-sequence"></div>
+            </aside>
+        </section>
+
+        <section class="measure-shortcut-panel">
+            <div>
+                <strong>IPHONE SHORTCUT</strong>
+                <span>One POST advances the batch. The JSON response includes the ready measurement and REW instructions.</span>
+            </div>
+            <code>POST /api/measurement-batch/next</code>
+        </section>
+
+        <div class="measure-statusbar">
+            <span id="measurePageStatus"></span>
+        </div>
+    </main>
+</body>
+</html>
