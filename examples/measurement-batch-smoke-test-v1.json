@@ -2,31 +2,28 @@
   "schema": "estack.measurement-batch",
   "version": 1,
   "name": "E-Stack Measurement Batch V1 - Smoke Test",
-  "description": "Safe first validation of Measurement Batch on KICK and MID L. Exercises routing/mutes, delay, phase all-pass, crossover override, baseline rebuild and final restore. This is a functional test, not an optimisation campaign.",
+  "description": "Safe first validation of Measurement Batch on KICK and MID L. Exercises measurement-input routing, routing/mutes, delay, phase all-pass, crossover override, baseline rebuild and final restore. This is a functional test, not an optimisation campaign.",
   "defaults": {
     "muteUnlisted": true,
     "settleMs": 700,
+    "measurementInput": 4,
     "disabledFilters": []
   },
   "steps": [
     {
       "id": "T01",
       "name": "KICK solo - attenuated",
-      "instruction": "Verify only KICK is active. Run REW only if the level is safe.",
+      "instruction": "Verify SOURCE is IN4 and only KICK is active. Run REW only if the level is safe.",
       "position": "Keep the microphone fixed for the whole smoke test",
       "activeWays": ["KICK"],
-      "ways": {
-        "KICK": {
-          "gainOffsetDb": -15
-        }
-      },
+      "ways": { "KICK": { "gainOffsetDb": -15 } },
       "rew": {
         "measurementName": "T01_KICK_SOLO_SAFE",
         "startHz": 80,
         "endHz": 800,
         "levelDbfs": -20,
         "timingReference": true,
-        "notes": "Smoke test - KICK solo, -15 dB relative to captured baseline"
+        "notes": "Smoke test - REW physical IN4 - KICK solo, -15 dB relative to captured baseline"
       }
     },
     {
@@ -35,11 +32,7 @@
       "instruction": "Verify only MID L is active.",
       "position": "Do not move the microphone",
       "activeWays": ["MID_L"],
-      "ways": {
-        "MID_L": {
-          "gainOffsetDb": -15
-        }
-      },
+      "ways": { "MID_L": { "gainOffsetDb": -15 } },
       "rew": {
         "measurementName": "T02_MID_L_SOLO_SAFE",
         "startHz": 120,
@@ -56,12 +49,8 @@
       "position": "Do not move the microphone",
       "activeWays": ["KICK", "MID_L"],
       "ways": {
-        "KICK": {
-          "gainOffsetDb": -15
-        },
-        "MID_L": {
-          "gainOffsetDb": -15
-        }
+        "KICK": { "gainOffsetDb": -15 },
+        "MID_L": { "gainOffsetDb": -15 }
       },
       "rew": {
         "measurementName": "T03_KICK_MID_BASELINE_SAFE",
@@ -79,13 +68,8 @@
       "position": "Do not move the microphone",
       "activeWays": ["KICK", "MID_L"],
       "ways": {
-        "KICK": {
-          "gainOffsetDb": -15
-        },
-        "MID_L": {
-          "gainOffsetDb": -15,
-          "delayOffsetMs": 0.5
-        }
+        "KICK": { "gainOffsetDb": -15 },
+        "MID_L": { "gainOffsetDb": -15, "delayOffsetMs": 0.5 }
       },
       "rew": {
         "measurementName": "T04_MID_L_DELAY_P050_SAFE",
@@ -103,15 +87,10 @@
       "position": "Do not move the microphone",
       "activeWays": ["KICK", "MID_L"],
       "ways": {
-        "KICK": {
-          "gainOffsetDb": -15
-        },
+        "KICK": { "gainOffsetDb": -15 },
         "MID_L": {
           "gainOffsetDb": -15,
-          "phase": {
-            "degrees": -45,
-            "reference": "hpf"
-          }
+          "phase": { "degrees": -45, "reference": "hpf" }
         }
       },
       "rew": {
@@ -130,32 +109,15 @@
       "position": "Do not move the microphone",
       "activeWays": ["KICK", "MID_L"],
       "ways": {
-        "KICK": {
-          "gainOffsetDb": -15
-        },
+        "KICK": { "gainOffsetDb": -15 },
         "MID_L": {
           "gainOffsetDb": -15,
-          "phase": {
-            "degrees": -45,
-            "reference": "hpf"
-          }
+          "phase": { "degrees": -45, "reference": "hpf" }
         }
       },
       "crossovers": {
-        "KICK": {
-          "lpf": {
-            "freqHz": 275,
-            "family": "LinkwitzRiley",
-            "order": 4
-          }
-        },
-        "MID_L": {
-          "hpf": {
-            "freqHz": 275,
-            "family": "LinkwitzRiley",
-            "order": 4
-          }
-        }
+        "KICK": { "lpf": { "freqHz": 275, "family": "LinkwitzRiley", "order": 4 } },
+        "MID_L": { "hpf": { "freqHz": 275, "family": "LinkwitzRiley", "order": 4 } }
       },
       "rew": {
         "measurementName": "T06_XO275_LR24_PHASE_M45_SAFE",
@@ -173,12 +135,8 @@
       "position": "Do not move the microphone",
       "activeWays": ["KICK", "MID_L"],
       "ways": {
-        "KICK": {
-          "gainOffsetDb": -15
-        },
-        "MID_L": {
-          "gainOffsetDb": -15
-        }
+        "KICK": { "gainOffsetDb": -15 },
+        "MID_L": { "gainOffsetDb": -15 }
       },
       "rew": {
         "measurementName": "T07_RETURN_BASELINE_SAFE",
