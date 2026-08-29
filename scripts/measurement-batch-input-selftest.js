@@ -7,6 +7,7 @@ require('../server/measurementBatchInputRouting')(model);
 const gain = value => ({ type: 'Gain', parameters: { gain: value, scale: 'dB', inverted: false, mute: false } });
 const delay = value => ({ type: 'Delay', parameters: { delay: value, unit: 'ms', subsample: false } });
 const xo = (type, freq, order = 4) => ({ type: 'BiquadCombo', parameters: { type, freq, order } });
+const clone = value => JSON.parse(JSON.stringify(value));
 
 function fixture(inputCount = 8) {
     return {
@@ -66,8 +67,6 @@ for (let dest = 0; dest <= 5; dest += 1) {
     assert.ok(!Object.prototype.hasOwnProperty.call(mapping, 'mute'), 'non-canonical mapping-level mute leaked into CamillaDSP config');
 }
 
-// Normal SUB/KICK routing is attenuated for L+R summation; dedicated mono
-// measurement routing must replace it with one unity-gain source, not retain -6 dB.
 assert.strictEqual(baseline.mixers.estack.mapping[0].sources[0].gain, -6.0206);
 assert.strictEqual(baseline.mixers.estack.mapping[1].sources[0].gain, -6.0206);
 assert.strictEqual(applied.mixers.estack.mapping[0].sources[0].gain, 0);
@@ -88,6 +87,22 @@ const merged = model.mergeProcessingIntoLive(live, applied);
 assert.strictEqual(merged.devices.capture.device, 'live-capture-must-survive', 'batch overwrote live hardware devices');
 assert.strictEqual(merged.mixers.estack.description, applied.mixers.estack.description, 'temporary measurement mixer routing was not applied');
 assert.ok(model.sameProcessing(merged, applied), 'mixer-aware processing verification failed');
+
+// Simulate CamillaDSP returning a semantically equivalent mixer while omitting
+// explicit default values and descriptive metadata. Verification must compare
+// the actual routing, not serialization trivia.
+const roundTrip = clone(applied);
+delete roundTrip.mixers.estack.description;
+for (const mapping of roundTrip.mixers.estack.mapping) {
+    for (const source of mapping.sources) {
+        if (source.gain === 0) delete source.gain;
+        if (source.scale === 'dB') delete source.scale;
+        if (source.inverted === false) delete source.inverted;
+    }
+}
+assert.ok(model.sameProcessing(roundTrip, applied), 'semantic CamillaDSP mixer roundtrip was rejected');
+roundTrip.mixers.estack.mapping[0].sources[0].channel = 7;
+assert.ok(!model.sameProcessing(roundTrip, applied), 'real mixer routing mismatch was not detected');
 
 const noOverride = model.applyStep(baseline, {
     version: 1,
