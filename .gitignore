@@ -7,6 +7,8 @@ camillaNodeConfig.json
 currentConfig.json
 savedConfigs.dat
 startupConfig.json
+wiimLoudnessConfig.json
+wiimLoudnessStatus.json
 
 # Raspberry-local spectrum variants used by the E-Stack analyzer path.
 # The canonical template setupFiles/spectrum.yml stays tracked; local tuned
