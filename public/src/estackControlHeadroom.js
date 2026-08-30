@@ -1,17 +1,20 @@
 'use strict';
 
-// E-Stack Control — live per-way protection headroom.
+// E-Stack Control — live per-way protection and hard-limit headroom.
 //
 // The existing Control meters already display CamillaDSP playback peaks. This
 // module reuses those values (no second DSP polling loop) and compares a rolling
 // 4-second peak hold against each way's active Compressor protection threshold
 // and final Limiter clip_limit.
 //
-// SAFE = additional dB before the HP protection compressor starts working.
-// HARD = additional dB before the final hard limiter ceiling.
-// LIMIT PROXIMITY = operator-oriented dB proximity over the last 12 dB before
-// protection: >=12 dB margin = 0%, 6 dB = 50%, 3 dB = 75%, 0 dB = 100%.
-// It is deliberately not a watts, RMS or thermal loudspeaker-power estimate.
+// PROTECT = margin before the HP protection compressor starts. Once crossed,
+//           the UI explicitly reports ACTIVE and the amount into compression.
+// HARD    = remaining dB before the final hard-limiter ceiling.
+// HARD PROXIMITY = operator-oriented proximity over the last 12 dB before the
+//                  final hard limit. It reaches 100% only at the hard ceiling.
+// EST V = an estimated output voltage derived from the calibrated hard-limit
+//         voltage for each way and digital margin. It is not a live voltmeter,
+//         watts estimate or thermal loudspeaker-power estimate.
 
 (() => {
     const HOLD_MS = 4000;
@@ -19,6 +22,19 @@
     const NO_SIGNAL_DBFS = -90;
     const DISPLAY_CAP_DB = 40;
     const NEAR_LIMIT_DB = 12;
+
+    // Current E-Stack protection calibration. These are the physical voltages
+    // represented by each way's active hard limiter and must be kept aligned
+    // with the loudspeaker protection setup if that calibration changes.
+    const CALIBRATED_LIMIT_VRMS = Object.freeze({
+        0: 50.0,   // SUB
+        1: 34.64,  // KICK
+        2: 25.30,  // MID L
+        3: 25.30,  // MID R
+        4: 11.50,  // HIGH L
+        5: 11.50   // HIGH R
+    });
+
     const histories = new Map();
     let timer = null;
     let lastControlSignature = '';
@@ -28,14 +44,23 @@
         return Number.isFinite(n) ? n : null;
     }
 
-    function fmtMargin(value) {
-        const n = Number(value);
-        if (!Number.isFinite(n)) return '—';
+    function fmtMargin(value, clampAtZero = false) {
+        const nRaw = Number(value);
+        if (!Number.isFinite(nRaw)) return '—';
+        const n = clampAtZero ? Math.max(0, nRaw) : nRaw;
         if (n > DISPLAY_CAP_DB) return `>${DISPLAY_CAP_DB}`;
         return `${n > 0 ? '+' : ''}${n.toFixed(1)}`;
     }
 
-    function limitProximityPercent(marginDb) {
+    function fmtProtection(marginDb) {
+        const margin = Number(marginDb);
+        if (!Number.isFinite(margin)) return '—';
+        if (margin > 0) return `${fmtMargin(margin)} dB`;
+        const into = Math.max(0, -margin);
+        return into < 0.05 ? 'ACTIVE' : `ACTIVE +${into.toFixed(1)}`;
+    }
+
+    function hardProximityPercent(marginDb) {
         const margin = Number(marginDb);
         if (!Number.isFinite(margin)) return null;
         if (margin <= 0) return 100;
@@ -51,11 +76,19 @@
         return `${Math.round(n)}%`;
     }
 
-    function stateFor(safeMargin, hardMargin) {
+    function estimatedVrms(channel, hardMarginDb) {
+        const limit = finite(CALIBRATED_LIMIT_VRMS[Number(channel)]);
+        const margin = finite(hardMarginDb);
+        if (limit === null || margin === null) return null;
+        const belowLimit = Math.max(0, margin);
+        return Math.min(limit, limit * Math.pow(10, -belowLimit / 20));
+    }
+
+    function stateFor(protectionMargin, hardMargin) {
         if (Number.isFinite(hardMargin) && hardMargin <= 0.10) return 'hard';
-        if (Number.isFinite(safeMargin) && safeMargin <= 0.15) return 'limiting';
-        if (Number.isFinite(safeMargin) && safeMargin <= 1.0) return 'critical';
-        if (Number.isFinite(safeMargin) && safeMargin <= 3.0) return 'low';
+        if (Number.isFinite(protectionMargin) && protectionMargin <= 0) return 'limiting';
+        if (Number.isFinite(hardMargin) && hardMargin <= 1.0) return 'critical';
+        if (Number.isFinite(hardMargin) && hardMargin <= 3.0) return 'low';
         return 'ok';
     }
 
@@ -152,20 +185,24 @@
         root.className = 'estack-headroom-summary';
         root.innerHTML = `
             <div class="estack-headroom-system">
-                <span>SYSTEM HEADROOM</span>
+                <span>SYSTEM STATUS</span>
+                <strong id="estackSystemStatus">WAITING</strong>
+            </div>
+            <div class="estack-headroom-margin">
+                <span>HARD LIMIT MARGIN</span>
                 <strong id="estackSystemHeadroom">—</strong>
             </div>
             <div class="estack-headroom-load">
-                <span>LIMIT PROXIMITY</span>
+                <span>HARD PROXIMITY</span>
                 <div class="estack-headroom-load-bar"><i id="estackSystemLoadBar"></i></div>
                 <strong id="estackSystemLoad">—</strong>
             </div>
             <div class="estack-headroom-limiter">
-                <span>LIMIT STATUS</span>
-                <strong id="estackLimitingWay">WAITING</strong>
+                <span>LIMITING WAY</span>
+                <strong id="estackLimitingWay">—</strong>
             </div>
             <div class="estack-headroom-legend">
-                SAFE = HP protection onset · HARD = final limiter · 4 s peak hold
+                PROTECT = compressor onset · HARD = final limiter · EST V = calibrated estimate · 4 s peak hold
             </div>`;
         strips.insertAdjacentElement('beforebegin', root);
         return root;
@@ -182,10 +219,11 @@
         root.dataset.channel = String(channel);
         root.innerHTML = `
             <div class="estack-way-headroom-values">
-                <span>SAFE <strong data-role="safe">—</strong></span>
+                <span>PROTECT <strong data-role="protect">—</strong></span>
                 <span>HARD <strong data-role="hard">—</strong></span>
             </div>
-            <div class="estack-way-headroom-bar"><i></i></div>`;
+            <div class="estack-way-headroom-bar"><i></i></div>
+            <div class="estack-way-voltage" data-role="voltage">EST V —</div>`;
         const head = strip.querySelector('.estack-strip-head');
         head?.insertAdjacentElement('afterend', root);
         return root;
@@ -199,23 +237,26 @@
     function renderWay(channel, data) {
         const root = ensureWayReadout(channel);
         if (!root) return;
-        const safe = root.querySelector('[data-role="safe"]');
+        const protect = root.querySelector('[data-role="protect"]');
         const hard = root.querySelector('[data-role="hard"]');
+        const voltage = root.querySelector('[data-role="voltage"]');
         const bar = root.querySelector('.estack-way-headroom-bar i');
 
         if (data.muted) {
             root.dataset.state = 'muted';
-            safe.textContent = 'MUTED';
+            protect.textContent = 'MUTED';
             hard.textContent = '—';
+            voltage.textContent = 'EST V —';
             bar.style.width = '0%';
-            root.title = `${data.name} is muted and does not constrain system headroom.`;
+            root.title = `${data.name} is muted and does not constrain system hard-limit margin.`;
             return;
         }
 
         if (!data.limitAvailable) {
             root.dataset.state = 'error';
-            safe.textContent = 'NO LIMIT';
+            protect.textContent = 'NO LIMIT';
             hard.textContent = '—';
+            voltage.textContent = 'EST V —';
             bar.style.width = '0%';
             root.title = `${data.name}: no active hard limiter was found. Headroom cannot be trusted.`;
             return;
@@ -223,19 +264,28 @@
 
         if (!data.signal) {
             root.dataset.state = 'idle';
-            safe.textContent = '—';
+            protect.textContent = '—';
             hard.textContent = '—';
+            voltage.textContent = data.limitVrms ? `LIMIT ${data.limitVrms.toFixed(1)} V` : 'EST V —';
             bar.style.width = '0%';
-            root.title = `${data.name}: waiting for programme signal. Protection ${data.safeThreshold.toFixed(1)} dBFS, hard limit ${data.hardThreshold.toFixed(1)} dBFS.`;
+            root.title = `${data.name}: waiting for programme signal. Protection ${data.protectionThreshold.toFixed(1)} dBFS, hard limit ${data.hardThreshold.toFixed(1)} dBFS.`;
             return;
         }
 
         root.dataset.state = data.state;
-        safe.textContent = `${fmtMargin(data.safeMargin)} dB`;
-        hard.textContent = `${fmtMargin(data.hardMargin)} dB`;
-        const proximity = limitProximityPercent(data.safeMargin);
+        protect.textContent = fmtProtection(data.protectionMargin);
+        hard.textContent = `${fmtMargin(data.hardMargin, true)} dB`;
+        const proximity = hardProximityPercent(data.hardMargin);
         bar.style.width = `${proximity}%`;
-        root.title = `${data.name} · 4 s held peak ${data.peak.toFixed(1)} dBFS · protection ${data.safeThreshold.toFixed(1)} dBFS · hard ${data.hardThreshold.toFixed(1)} dBFS · limit proximity ${fmtPercent(proximity)}.`;
+
+        if (Number.isFinite(data.estimatedVrms) && Number.isFinite(data.limitVrms)) {
+            const pct = Math.min(100, 100 * data.estimatedVrms / data.limitVrms);
+            voltage.textContent = `EST ${data.estimatedVrms.toFixed(1)} / ${data.limitVrms.toFixed(1)} V · ${Math.round(pct)}%`;
+        } else {
+            voltage.textContent = 'EST V —';
+        }
+
+        root.title = `${data.name} · 4 s held peak ${data.peak.toFixed(1)} dBFS · protection ${data.protectionThreshold.toFixed(1)} dBFS · hard ${data.hardThreshold.toFixed(1)} dBFS · hard margin ${Math.max(0, data.hardMargin).toFixed(1)} dB · hard proximity ${fmtPercent(proximity)}. EST V is derived from the calibrated limiter voltage, not a live voltage measurement.`;
     }
 
     function channelData(channel, now) {
@@ -247,10 +297,12 @@
         const muted = channelMuted(channel);
         const signal = Number.isFinite(peak) && peak > NO_SIGNAL_DBFS;
         const hardThreshold = hard?.clip ?? null;
-        const safeThreshold = protection?.threshold ?? hardThreshold;
-        const limitAvailable = Number.isFinite(hardThreshold) && Number.isFinite(safeThreshold);
-        const safeMargin = limitAvailable && signal ? safeThreshold - peak : null;
+        const protectionThresholdDb = protection?.threshold ?? hardThreshold;
+        const limitAvailable = Number.isFinite(hardThreshold) && Number.isFinite(protectionThresholdDb);
+        const protectionMargin = limitAvailable && signal ? protectionThresholdDb - peak : null;
         const hardMargin = limitAvailable && signal ? hardThreshold - peak : null;
+        const limitVrms = finite(CALIBRATED_LIMIT_VRMS[Number(channel)]);
+        const estimated = limitAvailable && signal ? estimatedVrms(channel, hardMargin) : null;
         return {
             channel,
             name,
@@ -258,25 +310,29 @@
             signal,
             muted,
             limitAvailable,
-            safeThreshold,
+            protectionThreshold: protectionThresholdDb,
             hardThreshold,
-            safeMargin,
+            protectionMargin,
             hardMargin,
-            state: limitAvailable && signal ? stateFor(safeMargin, hardMargin) : 'idle'
+            limitVrms,
+            estimatedVrms: estimated,
+            state: limitAvailable && signal ? stateFor(protectionMargin, hardMargin) : 'idle'
         };
     }
 
     function renderSystem(items) {
         const root = ensureSummary();
         if (!root) return;
+        const status = root.querySelector('#estackSystemStatus');
         const value = root.querySelector('#estackSystemHeadroom');
         const loadValue = root.querySelector('#estackSystemLoad');
         const loadBar = root.querySelector('#estackSystemLoadBar');
         const limiting = root.querySelector('#estackLimitingWay');
 
-        const candidates = items.filter(item => !item.muted && item.limitAvailable && item.signal && Number.isFinite(item.safeMargin));
+        const candidates = items.filter(item => !item.muted && item.limitAvailable && item.signal && Number.isFinite(item.hardMargin));
         if (!candidates.length) {
             root.dataset.state = 'idle';
+            status.textContent = 'WAITING';
             value.textContent = '—';
             loadValue.textContent = '—';
             loadBar.style.width = '0%';
@@ -284,22 +340,28 @@
             return;
         }
 
-        candidates.sort((a, b) => a.safeMargin - b.safeMargin);
+        candidates.sort((a, b) => a.hardMargin - b.hardMargin);
         const first = candidates[0];
-        const systemProximity = limitProximityPercent(first.safeMargin);
+        const systemProximity = hardProximityPercent(first.hardMargin);
         root.dataset.state = first.state;
-        value.textContent = `${fmtMargin(first.safeMargin)} dB`;
+        value.textContent = `${fmtMargin(first.hardMargin, true)} dB`;
         loadValue.textContent = fmtPercent(systemProximity);
         loadBar.style.width = `${systemProximity}%`;
+        limiting.textContent = first.name;
 
-        if (first.state === 'hard') limiting.textContent = `${first.name} · HARD LIMIT`;
-        else if (first.safeMargin <= 0.15) limiting.textContent = `${first.name} · PROTECTION`;
-        else if (first.safeMargin > NEAR_LIMIT_DB) limiting.textContent = 'NO LIMIT NEAR';
-        else limiting.textContent = `${first.name} FIRST`;
+        if (first.state === 'hard') status.textContent = 'HARD LIMIT';
+        else if (first.protectionMargin <= 0) status.textContent = 'PROTECTION ACTIVE';
+        else if (first.hardMargin <= 1.0) status.textContent = 'NEAR HARD LIMIT';
+        else if (first.hardMargin <= 3.0) status.textContent = 'LOW MARGIN';
+        else status.textContent = 'NORMAL';
 
-        root.title = first.safeMargin > NEAR_LIMIT_DB
-            ? `No protection limit is near. ${first.name} is only the closest candidate, still ${first.safeMargin.toFixed(1)} dB below its protection threshold. LIMIT PROXIMITY stays at 0% until the system enters the last ${NEAR_LIMIT_DB} dB before protection.`
-            : `${first.name} has about ${first.safeMargin.toFixed(1)} dB of additional gain before protection. LIMIT PROXIMITY maps the final ${NEAR_LIMIT_DB} dB linearly in dB: 0% at ${NEAR_LIMIT_DB} dB margin, 100% at the protection threshold. Peak hold: ${HOLD_MS / 1000} s.`;
+        const voltageText = Number.isFinite(first.estimatedVrms) && Number.isFinite(first.limitVrms)
+            ? ` Estimated ${first.estimatedVrms.toFixed(1)} / ${first.limitVrms.toFixed(1)} Vrms.`
+            : '';
+        const protectionText = first.protectionMargin <= 0
+            ? ` Protection compressor is active by about ${Math.max(0, -first.protectionMargin).toFixed(1)} dB.`
+            : ` Protection compressor starts in ${first.protectionMargin.toFixed(1)} dB.`;
+        root.title = `${first.name} is closest to its final hard limiter with ${Math.max(0, first.hardMargin).toFixed(1)} dB remaining.${protectionText}${voltageText} Hard proximity maps the final ${NEAR_LIMIT_DB} dB before the hard ceiling. Peak hold: ${HOLD_MS / 1000} s.`;
     }
 
     function tick() {
@@ -319,11 +381,13 @@
             const root = ensureSummary();
             if (root) {
                 root.dataset.state = 'error';
+                const status = root.querySelector('#estackSystemStatus');
                 const value = root.querySelector('#estackSystemHeadroom');
                 const loadValue = root.querySelector('#estackSystemLoad');
                 const loadBar = root.querySelector('#estackSystemLoadBar');
                 const limiting = root.querySelector('#estackLimitingWay');
-                if (value) value.textContent = 'ERROR';
+                if (status) status.textContent = 'ERROR';
+                if (value) value.textContent = '—';
                 if (loadValue) loadValue.textContent = '—';
                 if (loadBar) loadBar.style.width = '0%';
                 if (limiting) limiting.textContent = error?.message || String(error);
