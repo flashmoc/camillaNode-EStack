@@ -9,10 +9,10 @@
     flex: 0 0 auto;
 }
 
-/* Keep this action visually in the same family as the stereo LINK controls:
- * compact, single-line and informative without looking like a diagnostic widget. */
+/* Same visual language as the stereo LINK controls: one compact row rather
+ * than a two-line diagnostic-looking widget. */
 .estack-normalize-button {
-    min-width: 132px;
+    min-width: 144px;
     height: 31px;
     padding: 0 9px 0 7px;
     display: inline-flex;
@@ -29,13 +29,15 @@
     transition: all 140ms linear;
 }
 
-.estack-normalize-icon {
+.estack-normalize-button::before {
+    content: "↑";
     width: 18px;
     height: 18px;
     flex: 0 0 18px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    box-sizing: border-box;
     border: 1px solid hsla(var(--bck-hue), 48%, 55%, .34);
     border-radius: 50%;
     color: hsl(var(--bck-hue), 62%, 72%);
@@ -46,7 +48,7 @@
     line-height: 1;
 }
 
-.estack-normalize-label {
+.estack-normalize-button span {
     flex: 1 1 auto;
     color: inherit;
     font-size: 10px;
@@ -55,9 +57,9 @@
     white-space: nowrap;
 }
 
-.estack-normalize-button strong {
+.estack-normalize-button small {
     flex: 0 0 auto;
-    min-width: 38px;
+    min-width: 42px;
     color: hsl(var(--bck-hue), 60%, 72%);
     font-size: 9px;
     font-weight: 500;
@@ -70,8 +72,8 @@
     border-color: hsl(var(--bck-hue), 38%, 36%);
 }
 
-.estack-normalize-button[data-state="trim"] .estack-normalize-icon,
-.estack-normalize-button[data-state="trim"] strong {
+.estack-normalize-button[data-state="trim"]::before,
+.estack-normalize-button[data-state="trim"] small {
     color: #ffba6d;
     border-color: rgba(255,186,109,.30);
 }
@@ -80,14 +82,14 @@
     border-color: rgba(121,216,182,.34);
 }
 
-.estack-normalize-button[data-state="normalized"] .estack-normalize-icon,
-.estack-normalize-button[data-state="normalized"] strong {
+.estack-normalize-button[data-state="normalized"]::before,
+.estack-normalize-button[data-state="normalized"] small {
     color: #79d8b6;
     border-color: rgba(121,216,182,.30);
 }
 
-.estack-normalize-button[data-state="error"] .estack-normalize-icon,
-.estack-normalize-button[data-state="error"] strong {
+.estack-normalize-button[data-state="error"]::before,
+.estack-normalize-button[data-state="error"] small {
     color: #ff9b9b;
     border-color: rgba(255,155,155,.30);
 }
@@ -98,7 +100,7 @@
     background: hsl(var(--bck-hue), 34%, 17%);
 }
 
-.estack-normalize-button:hover:not(:disabled) .estack-normalize-icon {
+.estack-normalize-button:hover:not(:disabled)::before {
     border-color: hsla(var(--bck-hue), 62%, 68%, .52);
     background: hsla(var(--bck-hue), 55%, 45%, .14);
 }
