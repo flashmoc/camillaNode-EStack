@@ -1,0 +1,140 @@
+/* E-Stack Control — live protection/limiter headroom. */
+
+.estack-headroom-summary {
+    min-height: 32px;
+    margin: 0 0 5px;
+    display: grid;
+    grid-template-columns: auto auto minmax(180px, 1fr);
+    align-items: center;
+    gap: 14px;
+    padding: 4px 8px;
+    box-sizing: border-box;
+    border: 1px solid hsla(0,0%,100%,.09);
+    border-radius: 4px;
+    background: hsla(0,0%,0%,.10);
+}
+
+.estack-headroom-system,
+.estack-headroom-limiter {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    white-space: nowrap;
+}
+
+.estack-headroom-summary span {
+    color: #667579;
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: .045em;
+}
+
+.estack-headroom-summary strong {
+    color: #78d8c5;
+    font-size: 10px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .025em;
+}
+
+.estack-headroom-limiter strong {
+    color: #aab6b9;
+    font-size: 8px;
+}
+
+.estack-headroom-legend {
+    justify-self: end;
+    min-width: 0;
+    overflow: hidden;
+    color: #59666a;
+    font-size: 7px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.estack-headroom-summary[data-state="low"] strong { color: #f3c36b; }
+.estack-headroom-summary[data-state="critical"] strong,
+.estack-headroom-summary[data-state="limiting"] strong { color: #ff986d; }
+.estack-headroom-summary[data-state="hard"] strong,
+.estack-headroom-summary[data-state="error"] strong { color: #ff7070; }
+.estack-headroom-summary[data-state="idle"] strong { color: #68767a; }
+
+.estack-way-headroom {
+    width: calc(100% - 4px);
+    min-height: 27px;
+    margin: 1px auto 2px;
+    padding: 4px 4px 3px;
+    box-sizing: border-box;
+    border-bottom: 1px solid hsla(0,0%,100%,.055);
+}
+
+.estack-way-headroom-values {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px;
+    color: #637175;
+    font-size: 6px;
+    font-weight: 700;
+    letter-spacing: .035em;
+    white-space: nowrap;
+}
+
+.estack-way-headroom-values span {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 3px;
+}
+
+.estack-way-headroom-values strong {
+    color: #79d8b6;
+    font-size: 8px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+}
+
+.estack-way-headroom-bar {
+    height: 2px;
+    margin-top: 4px;
+    overflow: hidden;
+    border-radius: 1px;
+    background: hsla(0,0%,100%,.065);
+}
+
+.estack-way-headroom-bar i {
+    display: block;
+    width: 0;
+    height: 100%;
+    border-radius: inherit;
+    background: #79d8b6;
+    transition: width 90ms linear, background 120ms linear;
+}
+
+.estack-way-headroom[data-state="low"] .estack-way-headroom-values strong { color: #f3c36b; }
+.estack-way-headroom[data-state="low"] .estack-way-headroom-bar i { background: #f3c36b; }
+
+.estack-way-headroom[data-state="critical"] .estack-way-headroom-values strong,
+.estack-way-headroom[data-state="limiting"] .estack-way-headroom-values strong { color: #ff986d; }
+.estack-way-headroom[data-state="critical"] .estack-way-headroom-bar i,
+.estack-way-headroom[data-state="limiting"] .estack-way-headroom-bar i { background: #ff986d; }
+
+.estack-way-headroom[data-state="hard"] .estack-way-headroom-values strong,
+.estack-way-headroom[data-state="error"] .estack-way-headroom-values strong { color: #ff7070; }
+.estack-way-headroom[data-state="hard"] .estack-way-headroom-bar i,
+.estack-way-headroom[data-state="error"] .estack-way-headroom-bar i { background: #ff7070; }
+
+.estack-way-headroom[data-state="idle"],
+.estack-way-headroom[data-state="muted"] { opacity: .48; }
+.estack-way-headroom[data-state="idle"] .estack-way-headroom-values strong,
+.estack-way-headroom[data-state="muted"] .estack-way-headroom-values strong { color: #788589; }
+
+@media (max-width: 950px) {
+    .estack-headroom-summary {
+        grid-template-columns: auto auto;
+    }
+    .estack-headroom-legend {
+        grid-column: 1 / -1;
+        justify-self: start;
+    }
+}
