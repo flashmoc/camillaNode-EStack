@@ -9,14 +9,16 @@
 //
 // SAFE = additional dB before the HP protection compressor starts working.
 // HARD = additional dB before the final hard limiter ceiling.
-// The smallest SAFE value is the useful system/master headroom for the current
-// programme material. This is peak headroom, not thermal/RMS loudspeaker watts.
+// SYSTEM LOAD = peak-equivalent electrical power ratio to the earliest active
+// protection threshold: 0 dB margin = 100%, 3 dB ≈ 50%, 6 dB ≈ 25%.
+// It is intentionally NOT labelled loudspeaker thermal/RMS power or watts.
 
 (() => {
     const HOLD_MS = 4000;
     const SAMPLE_MS = 120;
     const NO_SIGNAL_DBFS = -90;
     const DISPLAY_CAP_DB = 40;
+    const NEAR_LIMIT_DB = 12;
     const histories = new Map();
     let timer = null;
     let lastControlSignature = '';
@@ -31,6 +33,21 @@
         if (!Number.isFinite(n)) return '—';
         if (n > DISPLAY_CAP_DB) return `>${DISPLAY_CAP_DB}`;
         return `${n > 0 ? '+' : ''}${n.toFixed(1)}`;
+    }
+
+    function protectionLoadPercent(marginDb) {
+        const margin = Number(marginDb);
+        if (!Number.isFinite(margin)) return null;
+        if (margin <= 0) return 100;
+        return Math.max(0, Math.min(100, 100 * Math.pow(10, -margin / 10)));
+    }
+
+    function fmtPercent(value) {
+        const n = Number(value);
+        if (!Number.isFinite(n)) return '—';
+        if (n > 0 && n < 0.1) return '<0.1%';
+        if (n < 10) return `${n.toFixed(1)}%`;
+        return `${Math.round(n)}%`;
     }
 
     function stateFor(safeMargin, hardMargin) {
@@ -101,8 +118,6 @@
             if (threshold !== null) thresholds.push({ name, threshold });
         }
         if (!thresholds.length) return null;
-        // The earliest protection threshold is the most restrictive one. In
-        // dBFS this is the lowest (most negative) threshold.
         return thresholds.sort((a, b) => a.threshold - b.threshold)[0];
     }
 
@@ -118,7 +133,6 @@
             if (clip !== null) limits.push({ name, clip });
         }
         if (!limits.length) return null;
-        // The most restrictive final limiter is the lowest ceiling.
         return limits.sort((a, b) => a.clip - b.clip)[0];
     }
 
@@ -140,8 +154,13 @@
                 <span>SYSTEM HEADROOM</span>
                 <strong id="estackSystemHeadroom">—</strong>
             </div>
+            <div class="estack-headroom-load">
+                <span>SYSTEM LOAD</span>
+                <div class="estack-headroom-load-bar"><i id="estackSystemLoadBar"></i></div>
+                <strong id="estackSystemLoad">—</strong>
+            </div>
             <div class="estack-headroom-limiter">
-                <span>LIMITING WAY</span>
+                <span>LIMIT STATUS</span>
                 <strong id="estackLimitingWay">WAITING</strong>
             </div>
             <div class="estack-headroom-legend">
@@ -213,10 +232,10 @@
         root.dataset.state = data.state;
         safe.textContent = `${fmtMargin(data.safeMargin)} dB`;
         hard.textContent = `${fmtMargin(data.hardMargin)} dB`;
-        const normalized = Math.max(0, Math.min(1, data.safeMargin / 12));
-        bar.style.width = `${normalized * 100}%`;
+        const load = protectionLoadPercent(data.safeMargin);
+        bar.style.width = `${load}%`;
         const powerRatio = Math.pow(10, Math.max(0, data.safeMargin) / 10);
-        root.title = `${data.name} · held peak ${data.peak.toFixed(1)} dBFS · protection ${data.safeThreshold.toFixed(1)} dBFS · hard ${data.hardThreshold.toFixed(1)} dBFS · about ${powerRatio.toFixed(1)}× peak-equivalent power increase to protection (not RMS/thermal watts).`;
+        root.title = `${data.name} · held peak ${data.peak.toFixed(1)} dBFS · protection ${data.safeThreshold.toFixed(1)} dBFS · hard ${data.hardThreshold.toFixed(1)} dBFS · protection load ${fmtPercent(load)} · about ${powerRatio.toFixed(1)}× peak-equivalent power increase to protection (not RMS/thermal watts).`;
     }
 
     function channelData(channel, now) {
@@ -251,24 +270,36 @@
         const root = ensureSummary();
         if (!root) return;
         const value = root.querySelector('#estackSystemHeadroom');
+        const loadValue = root.querySelector('#estackSystemLoad');
+        const loadBar = root.querySelector('#estackSystemLoadBar');
         const limiting = root.querySelector('#estackLimitingWay');
 
         const candidates = items.filter(item => !item.muted && item.limitAvailable && item.signal && Number.isFinite(item.safeMargin));
         if (!candidates.length) {
             root.dataset.state = 'idle';
             value.textContent = '—';
+            loadValue.textContent = '—';
+            loadBar.style.width = '0%';
             limiting.textContent = 'PLAY SIGNAL';
             return;
         }
 
         candidates.sort((a, b) => a.safeMargin - b.safeMargin);
         const first = candidates[0];
+        const systemLoad = protectionLoadPercent(first.safeMargin);
         root.dataset.state = first.state;
         value.textContent = `${fmtMargin(first.safeMargin)} dB`;
+        loadValue.textContent = fmtPercent(systemLoad);
+        loadBar.style.width = `${systemLoad}%`;
+
         if (first.state === 'hard') limiting.textContent = `${first.name} · HARD LIMIT`;
         else if (first.safeMargin <= 0.15) limiting.textContent = `${first.name} · PROTECTION`;
+        else if (first.safeMargin > NEAR_LIMIT_DB) limiting.textContent = 'NO LIMIT NEAR';
         else limiting.textContent = `${first.name} FIRST`;
-        root.title = `Approximate additional MASTER gain before ${first.name} reaches its protection threshold, based on the highest playback peak seen in the last ${HOLD_MS / 1000} seconds.`;
+
+        root.title = first.safeMargin > NEAR_LIMIT_DB
+            ? `No protection limit is near. ${first.name} is only the closest candidate, still ${first.safeMargin.toFixed(1)} dB below its protection threshold. SYSTEM LOAD is peak-equivalent electrical power ratio to the protection threshold, not thermal speaker watts.`
+            : `Approximate additional MASTER gain before ${first.name} reaches its protection threshold, based on the highest playback peak seen in the last ${HOLD_MS / 1000} seconds. SYSTEM LOAD is peak-equivalent electrical power ratio to that threshold.`;
     }
 
     function tick() {
@@ -289,8 +320,12 @@
             if (root) {
                 root.dataset.state = 'error';
                 const value = root.querySelector('#estackSystemHeadroom');
+                const loadValue = root.querySelector('#estackSystemLoad');
+                const loadBar = root.querySelector('#estackSystemLoadBar');
                 const limiting = root.querySelector('#estackLimitingWay');
                 if (value) value.textContent = 'ERROR';
+                if (loadValue) loadValue.textContent = '—';
+                if (loadBar) loadBar.style.width = '0%';
                 if (limiting) limiting.textContent = error?.message || String(error);
             }
         }
