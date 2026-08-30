@@ -18,8 +18,9 @@ assert.ok(js.includes('safeThreshold - peak'), 'SAFE margin is not computed from
 assert.ok(js.includes('hardThreshold - peak'), 'HARD margin is not computed from limiter ceiling and playback peak');
 assert.ok(js.includes('candidates.sort((a, b) => a.safeMargin - b.safeMargin)'), 'system limiting way is not chosen from minimum SAFE margin');
 assert.ok(js.includes('meterStrips?.get'), 'headroom monitor should reuse existing Control playback meters rather than poll DSP again');
-assert.ok(js.includes('not RMS/thermal watts'), 'headroom monitor must not mislabel peak headroom as loudspeaker watts');
-assert.ok(js.includes('100 * Math.pow(10, -margin / 10)'), 'system load is not derived from peak-equivalent power ratio');
+assert.ok(js.includes('not a watts, RMS or thermal loudspeaker-power estimate'), 'headroom monitor must not mislabel proximity as loudspeaker power');
+assert.ok(js.includes('100 * (1 - margin / NEAR_LIMIT_DB)'), 'limit proximity is not derived linearly from dB headroom');
+assert.ok(js.includes('LIMIT PROXIMITY'), 'operator percentage gauge is not labelled as limit proximity');
 assert.ok(js.includes("limiting.textContent = 'NO LIMIT NEAR'"), 'distant limiting candidate should not be presented as actively limiting');
 assert.ok(js.includes('const NEAR_LIMIT_DB = 12'), 'near-limit presentation threshold is missing');
 assert.ok(css.includes('.estack-headroom-summary'), 'system headroom summary is not styled');
@@ -40,13 +41,15 @@ assert.ok(Math.abs((hard - peak) - 3.3) < 1e-9);
 const margins = [5.5, 2.3, 7.0, 6.8, 8.2, 8.0];
 assert.strictEqual(Math.min(...margins), 2.3);
 
-// Power-equivalent protection load: 3 dB margin ≈ 50%, 6 dB ≈ 25%,
-// 10 dB = 10%, and the threshold itself is 100%.
-const load = margin => margin <= 0 ? 100 : 100 * Math.pow(10, -margin / 10);
-assert.ok(Math.abs(load(0) - 100) < 1e-9);
-assert.ok(Math.abs(load(3) - 50.11872336272722) < 1e-9);
-assert.ok(Math.abs(load(6) - 25.118864315095795) < 1e-9);
-assert.ok(Math.abs(load(10) - 10) < 1e-9);
-assert.ok(load(40) < 0.02, '40 dB of margin should display effectively zero system load');
+// Operator proximity across the final 12 dB before protection.
+const near = 12;
+const proximity = margin => margin <= 0 ? 100 : margin >= near ? 0 : 100 * (1 - margin / near);
+assert.ok(Math.abs(proximity(0) - 100) < 1e-9);
+assert.ok(Math.abs(proximity(1) - 91.66666666666666) < 1e-9);
+assert.ok(Math.abs(proximity(3) - 75) < 1e-9);
+assert.ok(Math.abs(proximity(6) - 50) < 1e-9);
+assert.ok(Math.abs(proximity(12) - 0) < 1e-9);
+assert.ok(Math.abs(proximity(2.4) - 80) < 1e-9);
+assert.strictEqual(proximity(40), 0, '40 dB of margin must show zero limit proximity');
 
 console.log('OK:   Control live protection headroom');
