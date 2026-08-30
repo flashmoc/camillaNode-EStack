@@ -9,9 +9,9 @@
 //
 // SAFE = additional dB before the HP protection compressor starts working.
 // HARD = additional dB before the final hard limiter ceiling.
-// SYSTEM LOAD = peak-equivalent electrical power ratio to the earliest active
-// protection threshold: 0 dB margin = 100%, 3 dB ≈ 50%, 6 dB ≈ 25%.
-// It is intentionally NOT labelled loudspeaker thermal/RMS power or watts.
+// LIMIT PROXIMITY = operator-oriented dB proximity over the last 12 dB before
+// protection: >=12 dB margin = 0%, 6 dB = 50%, 3 dB = 75%, 0 dB = 100%.
+// It is deliberately not a watts, RMS or thermal loudspeaker-power estimate.
 
 (() => {
     const HOLD_MS = 4000;
@@ -35,11 +35,12 @@
         return `${n > 0 ? '+' : ''}${n.toFixed(1)}`;
     }
 
-    function protectionLoadPercent(marginDb) {
+    function limitProximityPercent(marginDb) {
         const margin = Number(marginDb);
         if (!Number.isFinite(margin)) return null;
         if (margin <= 0) return 100;
-        return Math.max(0, Math.min(100, 100 * Math.pow(10, -margin / 10)));
+        if (margin >= NEAR_LIMIT_DB) return 0;
+        return Math.max(0, Math.min(100, 100 * (1 - margin / NEAR_LIMIT_DB)));
     }
 
     function fmtPercent(value) {
@@ -155,7 +156,7 @@
                 <strong id="estackSystemHeadroom">—</strong>
             </div>
             <div class="estack-headroom-load">
-                <span>SYSTEM LOAD</span>
+                <span>LIMIT PROXIMITY</span>
                 <div class="estack-headroom-load-bar"><i id="estackSystemLoadBar"></i></div>
                 <strong id="estackSystemLoad">—</strong>
             </div>
@@ -232,10 +233,9 @@
         root.dataset.state = data.state;
         safe.textContent = `${fmtMargin(data.safeMargin)} dB`;
         hard.textContent = `${fmtMargin(data.hardMargin)} dB`;
-        const load = protectionLoadPercent(data.safeMargin);
-        bar.style.width = `${load}%`;
-        const powerRatio = Math.pow(10, Math.max(0, data.safeMargin) / 10);
-        root.title = `${data.name} · held peak ${data.peak.toFixed(1)} dBFS · protection ${data.safeThreshold.toFixed(1)} dBFS · hard ${data.hardThreshold.toFixed(1)} dBFS · protection load ${fmtPercent(load)} · about ${powerRatio.toFixed(1)}× peak-equivalent power increase to protection (not RMS/thermal watts).`;
+        const proximity = limitProximityPercent(data.safeMargin);
+        bar.style.width = `${proximity}%`;
+        root.title = `${data.name} · 4 s held peak ${data.peak.toFixed(1)} dBFS · protection ${data.safeThreshold.toFixed(1)} dBFS · hard ${data.hardThreshold.toFixed(1)} dBFS · limit proximity ${fmtPercent(proximity)}.`;
     }
 
     function channelData(channel, now) {
@@ -286,11 +286,11 @@
 
         candidates.sort((a, b) => a.safeMargin - b.safeMargin);
         const first = candidates[0];
-        const systemLoad = protectionLoadPercent(first.safeMargin);
+        const systemProximity = limitProximityPercent(first.safeMargin);
         root.dataset.state = first.state;
         value.textContent = `${fmtMargin(first.safeMargin)} dB`;
-        loadValue.textContent = fmtPercent(systemLoad);
-        loadBar.style.width = `${systemLoad}%`;
+        loadValue.textContent = fmtPercent(systemProximity);
+        loadBar.style.width = `${systemProximity}%`;
 
         if (first.state === 'hard') limiting.textContent = `${first.name} · HARD LIMIT`;
         else if (first.safeMargin <= 0.15) limiting.textContent = `${first.name} · PROTECTION`;
@@ -298,8 +298,8 @@
         else limiting.textContent = `${first.name} FIRST`;
 
         root.title = first.safeMargin > NEAR_LIMIT_DB
-            ? `No protection limit is near. ${first.name} is only the closest candidate, still ${first.safeMargin.toFixed(1)} dB below its protection threshold. SYSTEM LOAD is peak-equivalent electrical power ratio to the protection threshold, not thermal speaker watts.`
-            : `Approximate additional MASTER gain before ${first.name} reaches its protection threshold, based on the highest playback peak seen in the last ${HOLD_MS / 1000} seconds. SYSTEM LOAD is peak-equivalent electrical power ratio to that threshold.`;
+            ? `No protection limit is near. ${first.name} is only the closest candidate, still ${first.safeMargin.toFixed(1)} dB below its protection threshold. LIMIT PROXIMITY stays at 0% until the system enters the last ${NEAR_LIMIT_DB} dB before protection.`
+            : `${first.name} has about ${first.safeMargin.toFixed(1)} dB of additional gain before protection. LIMIT PROXIMITY maps the final ${NEAR_LIMIT_DB} dB linearly in dB: 0% at ${NEAR_LIMIT_DB} dB margin, 100% at the protection threshold. Peak hold: ${HOLD_MS / 1000} s.`;
     }
 
     function tick() {
