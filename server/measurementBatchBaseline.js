@@ -10,6 +10,7 @@ const WAY_DEFS = Object.freeze({
     HIGH_L: { channel: 4, label: 'HIGH L' },
     HIGH_R: { channel: 5, label: 'HIGH R' }
 });
+const MEASUREMENT_FORCED_OFF = new Set(['ESTACK_LOUDNESS']);
 
 function stable(value) {
     if (Array.isArray(value)) return value.map(stable);
@@ -61,8 +62,6 @@ function classifyFilter(filter) {
         if (/allpass/i.test(subtype)) return 'phase';
         if (/highpass|lowpass/i.test(subtype)) return 'crossover';
         if (/peaking|shelf|notch|bandpass|bandstop|parametric|eq/i.test(subtype)) return 'eq';
-        // A Biquad that is not a crossover/all-pass is still relevant EQ/filtering
-        // and should be visible rather than silently dropped from provenance.
         return 'eq';
     }
     return 'other';
@@ -148,11 +147,17 @@ function summarizeBaseline(config, options = {}) {
     const inputEqFilters = inputFilters.filter(item => item.kind === 'eq');
     const sharedInputEqFilters = sharedInputFilters.filter(item => item.kind === 'eq');
     const dynamicInputFilters = inputFilters.filter(item => item.kind === 'dynamic');
+    const forcedOffDynamicFilters = dynamicInputFilters.filter(item => MEASUREMENT_FORCED_OFF.has(item.name));
+    const activeMeasurementDynamicFilters = dynamicInputFilters.filter(item => !MEASUREMENT_FORCED_OFF.has(item.name));
+    for (const item of forcedOffDynamicFilters) {
+        item.kind = 'forced-off';
+        item.description = `${item.description ? `${item.description} · ` : ''}Measurement Batch forces this filter OFF for every measurement step and restores its baseline state on finish/abort.`;
+    }
     const measurementInput = options.measurementInput == null ? null : Number(options.measurementInput);
     const warnings = [];
 
-    if (dynamicInputFilters.length) {
-        warnings.push(`Dynamic input processing active: ${dynamicInputFilters.map(item => item.name).join(', ')}`);
+    if (activeMeasurementDynamicFilters.length) {
+        warnings.push(`Dynamic input processing active during measurement: ${activeMeasurementDynamicFilters.map(item => item.name).join(', ')}`);
     }
     if (measurementInput != null && measurementInput > 2 && !sharedInputFilters.length) {
         warnings.push(`IN${measurementInput} has no shared Input L/R Filter stage to inherit`);
@@ -166,6 +171,10 @@ function summarizeBaseline(config, options = {}) {
         measurementInput,
         measurementInputMode: measurementInput == null ? 'baseline-routing' : 'dedicated-mono',
         sharedInputMirrored: measurementInput != null && measurementInput > 2,
+        measurementPolicy: {
+            loudness: 'forced-off',
+            forcedOffFilters: forcedOffDynamicFilters.map(item => item.name)
+        },
         counts: {
             inputEq: inputEqFilters.length,
             sharedInputEq: sharedInputEqFilters.length,
@@ -178,7 +187,8 @@ function summarizeBaseline(config, options = {}) {
             sharedEqCount: sharedInputEqFilters.length,
             sharedEqFilters: sharedInputEqFilters,
             sharedFilters: sharedInputFilters,
-            dynamicFilters: dynamicInputFilters
+            dynamicFilters: dynamicInputFilters,
+            forcedOffDynamicFilters
         },
         ways,
         warnings
