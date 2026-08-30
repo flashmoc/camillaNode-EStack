@@ -10,23 +10,29 @@ const root = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'public/html/basic.html'), 'utf8');
 const js = fs.readFileSync(path.join(root, 'public/src/estackControlInputPreamp.js'), 'utf8');
 
-assert.ok(html.includes('/src/estackControlInputPreamp.js'), 'Control page does not load Input Preamp logic');
-assert.ok(html.includes('/css/estackControlInputPreamp.css'), 'Control page does not load Input Preamp styling');
-assert.ok(js.includes("const FILTER = 'ESTACK_INPUT_PREAMP'"), 'Input Preamp has no stable DSP filter identity');
-assert.ok(js.includes('const MAX_DB = 12'), 'Input Preamp maximum is not guarded at +12 dB');
+assert.ok(html.includes('/src/estackControlInputPreamp.js'), 'Control page does not load Input Trim logic');
+assert.ok(html.includes('/css/estackControlInputPreamp.css'), 'Control page does not load Input Trim styling');
+assert.ok(js.includes("const FILTER = 'ESTACK_INPUT_PREAMP'"), 'Input Trim lost stable DSP filter identity');
+assert.ok(js.includes('const MIN_DB = -20'), 'Input Trim minimum is not guarded at -20 dB');
+assert.ok(js.includes('const MAX_DB = 12'), 'Input Trim maximum is not guarded at +12 dB');
+assert.ok(js.includes('<strong>INPUT TRIM</strong>'), 'Control UI is not labelled INPUT TRIM');
+assert.ok(js.includes('DSP POST-ADC'), 'Control UI does not make post-ADC placement explicit');
+assert.ok(js.includes('Negative trim does NOT prevent ADC clipping'), 'Input Trim does not warn that DSP attenuation cannot protect the ADC');
+assert.ok(js.includes('if (Math.abs(gain) <= EPSILON) return config;'), 'negative Input Trim would be incorrectly removed');
 assert.ok(js.includes('const AUTO_RESERVE_DB = 1.0'), 'automatic headroom action must preserve a protection reserve');
-assert.ok(js.includes('fingerprintWithoutPreamp'), 'Input Preamp update does not guard unrelated DSP processing');
-assert.ok(js.includes("SetVolume: safeMaster"), 'Input Preamp config transition is not temporarily attenuated');
-assert.ok(js.includes('measurementBatchActive()'), 'Input Preamp is not locked during Measurement Batch');
-assert.ok(js.includes("devices?.capture?.type === 'SignalGenerator'"), 'Input Preamp is not locked during Signal Generator');
-assert.ok(js.includes('window.estackResetHeadroomHold?.()'), 'headroom peak hold is not reset after Input Preamp changes');
+assert.ok(js.includes('fingerprintWithoutPreamp'), 'Input Trim update does not guard unrelated DSP processing');
+assert.ok(js.includes("SetVolume: safeMaster"), 'Input Trim config transition is not temporarily attenuated');
+assert.ok(js.includes('measurementBatchActive()'), 'Input Trim is not locked during Measurement Batch');
+assert.ok(js.includes("devices?.capture?.type === 'SignalGenerator'"), 'Input Trim is not locked during Signal Generator');
+assert.ok(js.includes('window.estackResetHeadroomHold?.()'), 'headroom peak hold is not reset after Input Trim changes');
+assert.ok(js.includes('window.estackSetInputTrim = setPreamp'), 'new Input Trim API alias is missing');
 
 const gain = value => ({ type: 'Gain', parameters: { gain: value, scale: 'dB', inverted: false, mute: false } });
 const delay = value => ({ type: 'Delay', parameters: { delay: value, unit: 'ms', subsample: false } });
 const xo = (type, freq) => ({ type: 'BiquadCombo', parameters: { type, freq, order: 4 } });
 const peq = (freq, gainDb, q) => ({ type: 'Biquad', parameters: { type: 'Peaking', freq, gain: gainDb, q } });
 
-function fixture() {
+function fixture(trimDb = 5) {
     return {
         devices: {
             samplerate: 48000,
@@ -34,7 +40,7 @@ function fixture() {
             playback: { type: 'Alsa', channels: 8, device: 'fixture' }
         },
         filters: {
-            ESTACK_INPUT_PREAMP: gain(5),
+            ESTACK_INPUT_PREAMP: gain(trimDb),
             GLOBAL_EQ_162: peq(162, -4, 0.7),
             sub_hpf: xo('ButterworthHighpass', 40), sub_lpf: xo('LinkwitzRileyLowpass', 130), sub_gain: gain(-1.9), sub_delay: delay(0),
             kick_hpf: xo('LinkwitzRileyHighpass', 130), kick_lpf: xo('LinkwitzRileyLowpass', 300), kick_gain: gain(-11.7), kick_delay: delay(0),
@@ -65,21 +71,24 @@ function fixture() {
     };
 }
 
-const baseline = fixture();
-const applied = model.applyStep(baseline, {
-    schema: 'estack.measurement-batch',
-    version: 1,
-    name: 'Preamp measurement invariant',
-    defaults: { measurementInput: 4, muteUnlisted: true },
-    steps: [{ id: 'M01', activeWays: ['KICK', 'MID_L'] }]
-}, 0);
+for (const trimDb of [5, -12]) {
+    const baseline = fixture(trimDb);
+    const applied = model.applyStep(baseline, {
+        schema: 'estack.measurement-batch',
+        version: 1,
+        name: 'Input Trim measurement invariant',
+        defaults: { measurementInput: 4, muteUnlisted: true },
+        steps: [{ id: 'M01', activeWays: ['KICK', 'MID_L'] }]
+    }, 0);
 
-assert.ok(baseline.filters.ESTACK_INPUT_PREAMP, 'fixture baseline lost listening preamp');
-assert.ok(!applied.filters.ESTACK_INPUT_PREAMP, 'Measurement Batch did not force Input Preamp OFF');
-assert.ok(!(applied.pipeline || []).some(step => (step.names || []).includes('ESTACK_INPUT_PREAMP')), 'Measurement Batch pipeline still references Input Preamp');
-const globalStage = applied.pipeline.find(step => (step.names || []).includes('GLOBAL_EQ_162'));
-assert.deepStrictEqual(globalStage.channels, [0, 1, 3], 'shared Global EQ was not mirrored to IN4 after preamp removal');
-assert.ok(!globalStage.names.includes('ESTACK_INPUT_PREAMP'), 'listening preamp leaked into dedicated measurement input chain');
-assert.ok(baseline.pipeline[0].names.includes('ESTACK_INPUT_PREAMP'), 'captured baseline was mutated while building measurement state');
+    assert.ok(baseline.filters.ESTACK_INPUT_PREAMP, 'fixture baseline lost listening Input Trim');
+    assert.strictEqual(baseline.filters.ESTACK_INPUT_PREAMP.parameters.gain, trimDb, 'fixture trim value changed');
+    assert.ok(!applied.filters.ESTACK_INPUT_PREAMP, 'Measurement Batch did not force Input Trim OFF');
+    assert.ok(!(applied.pipeline || []).some(step => (step.names || []).includes('ESTACK_INPUT_PREAMP')), 'Measurement Batch pipeline still references Input Trim');
+    const globalStage = applied.pipeline.find(step => (step.names || []).includes('GLOBAL_EQ_162'));
+    assert.deepStrictEqual(globalStage.channels, [0, 1, 3], 'shared Global EQ was not mirrored to IN4 after trim removal');
+    assert.ok(!globalStage.names.includes('ESTACK_INPUT_PREAMP'), 'listening Input Trim leaked into dedicated measurement input chain');
+    assert.ok(baseline.pipeline[0].names.includes('ESTACK_INPUT_PREAMP'), 'captured baseline was mutated while building measurement state');
+}
 
-console.log('OK:   Control Input Preamp + Measurement Batch forced-off invariant');
+console.log('OK:   Control Input Trim -20..+12 dB + Measurement Batch forced-off invariant');
