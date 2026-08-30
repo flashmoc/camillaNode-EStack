@@ -6,15 +6,17 @@ Measurement Batch is the repeatable measurement-campaign layer for CamillaNode. 
 
 1. **The live DSP state at `START BATCH` is the baseline.** Every measurement is rebuilt from that same captured baseline plus a small validated delta. Steps never accumulate changes from the previous step.
 2. **Hardware devices are never replaced by the batch runner.** Capture/playback device ownership stays with the current live CamillaDSP configuration. Mixer routing is normally copied from the captured baseline; when `measurementInput` is configured, only the first E-Stack mixer's OUT1..OUT6 source routing is temporarily replaced so the selected physical input feeds the measurement ways.
-3. **Physical input numbering is one-based.** `measurementInput: 4` means physical `IN4`, which is CamillaDSP source channel `3` internally. The selected input is validated against the active mixer/capture channel count before any DSP state is changed.
-4. **Master volume is attenuated during graph swaps.** The runner transitions at at most `-60 dB`, applies and verifies the processing graph and mixer routing, then restores the previous master volume.
-5. **Unlisted ways are muted with their existing output Gain filters.** Crossovers, hard limiters and protection processors stay present.
-6. **A batch may attenuate a way but cannot boost it above the captured baseline.** `gainOffsetDb` is limited to `-60..0 dB`.
-7. **`disabledFilters` is input-processing only.** It cannot bypass output Gain, Delay, crossover, limiter or protection stages.
-8. **Crossover exploration is guarded around the captured baseline.** A requested crossover frequency must remain within `0.4x..2.5x` the corresponding baseline HPF/LPF frequency. Supported families are Linkwitz-Riley and Butterworth, order 2..8; LR orders must be even.
-9. **Variable phase uses the same first-order CamillaDSP `AllpassFO` law as the manual Output Processing PHASE control.** A batch phase value is applied only after that step's crossover overrides, so an `hpf` or `lpf` phase reference follows the actual crossover frequency being measured. The phase filter description stores both requested degrees and reference frequency so Output Processing displays the same reference instead of reinterpreting a band-pass all-pass at another crossover.
-10. **The exact baseline processing and mixer routing are restored on finish or abort.** A same-boot CamillaNode restart also restores the baseline. After a full Raspberry reboot the stale session is discarded so normal startup recall owns the new boot state.
-11. **The E-Stack Signal Generator must be stopped before starting a batch.** The batch runner refuses to start while the managed Signal Generator snapshot is active.
+3. **A dedicated measurement input inherits shared Input L/R processing.** Any active pre-routing `Filter` stage that explicitly processes both normal channels 0 and 1 is temporarily extended to the selected measurement channel before the mixer. This keeps shared Global/Input PEQ and other shared L/R filtering in the acoustic measurement path even when REW enters through IN3/IN4. Independent L-only or R-only stages are never guessed or duplicated.
+4. **Physical input numbering is one-based.** `measurementInput: 4` means physical `IN4`, which is CamillaDSP source channel `3` internally. The selected input is validated against the active mixer/capture channel count before any DSP state is changed.
+5. **Master volume is attenuated during graph swaps.** The runner transitions at at most `-60 dB`, applies and verifies the processing graph and mixer routing, then restores the previous master volume.
+6. **Unlisted ways are muted with their existing output Gain filters.** Crossovers, hard limiters and protection processors stay present.
+7. **A batch may attenuate a way but cannot boost it above the captured baseline.** `gainOffsetDb` is limited to `-60..0 dB`.
+8. **`disabledFilters` is input-processing only.** It cannot bypass output Gain, Delay, crossover, limiter or protection stages. A disabled shared Input filter is removed before measurement-input inheritance, so it is not mirrored to IN3/IN4.
+9. **Crossover exploration is guarded around the captured baseline.** A requested crossover frequency must remain within `0.4x..2.5x` the corresponding baseline HPF/LPF frequency. Supported families are Linkwitz-Riley and Butterworth, order 2..8; LR orders must be even.
+10. **Variable phase uses the same first-order CamillaDSP `AllpassFO` law as the manual Output Processing PHASE control.** A batch phase value is applied only after that step's crossover overrides, so an `hpf` or `lpf` phase reference follows the actual crossover frequency being measured. The phase filter description stores both requested degrees and reference frequency so Output Processing displays the same reference instead of reinterpreting a band-pass all-pass at another crossover.
+11. **Baseline processing provenance is explicit.** Before START the UI shows a live preview; after START it shows the exact captured `baselineConfig` used by the session. A 12-character SHA-256-derived baseline ID fingerprints filters, pipeline, processors and mixer routing. Input EQ, per-way output EQ and dynamic input filters are listed in `VIEW BASELINE`.
+12. **The exact baseline processing and mixer routing are restored on finish or abort.** A same-boot CamillaNode restart also restores the baseline. After a full Raspberry reboot the stale session is discarded so normal startup recall owns the new boot state.
+13. **The E-Stack Signal Generator must be stopped before starting a batch.** The batch runner refuses to start while the managed Signal Generator snapshot is active.
 
 ## Batch format — v1
 
@@ -83,6 +85,49 @@ means **physical IN4**. Internally the runner routes CamillaDSP source channel `
 If `measurementInput` is omitted, the batch preserves the captured baseline mixer routing. The CamillaNode Batch Editor exposes this as `BASELINE ROUTING / IN1 ... IN8`, and the active measurement page shows the selected source explicitly.
 
 The routing is temporary. `FINISH & RESTORE`, `ABORT & RESTORE`, and same-boot restart recovery restore the exact mixer mapping captured at `START BATCH`.
+
+### Shared Input L/R processing with IN3/IN4
+
+A dedicated REW input must represent the same processing chain as the normal programme input. Consider this normal configuration:
+
+```text
+Input L/R → GLOBAL PEQ → Mixer → KICK/MID/... processing
+```
+
+If REW arrives on IN4 and the mixer simply selects IN4, the normal Input L/R PEQ would otherwise be bypassed. Measurement Batch therefore detects every active pre-mixer `Filter` stage whose channel list includes both normal L and R (`0` and `1`) and temporarily adds the selected REW channel to that same stage.
+
+Example while measuring from IN4:
+
+```text
+normal baseline stage: channels [0, 1] → GLOBAL_EQ_162
+measurement stage:     channels [0, 1, 3] → GLOBAL_EQ_162
+```
+
+The actual filter definition is not copied or modified; only the temporary stage channel membership is extended. This means the dedicated measurement source receives exactly the same shared PEQ/filter object. On restore the original `[0, 1]` stage returns.
+
+Independent L-only or R-only stages are not automatically inherited because there is no safe way to infer which side should define a mono measurement reference. If a future system configuration needs that behavior it must be made explicit rather than guessed.
+
+### Baseline Processing provenance
+
+The Measurement Batch header contains a compact **BASELINE PROCESSING** strip:
+
+```text
+BASELINE PROCESSING · LIVE/CAPTURED · ID 12AB34CD56EF · INPUT EQ n · KICK EQ n · MID L EQ n · OUT EQ n · VIEW BASELINE
+```
+
+Before START, `LIVE` is an advisory preview fetched from the current CamillaDSP configuration. When START captures the session, the strip becomes `CAPTURED` and the source of truth is the exact `baselineConfig` already persisted for batch restore.
+
+`VIEW BASELINE` shows:
+
+- baseline fingerprint;
+- measurement source and whether shared Input L/R filtering is mirrored to it;
+- all active Input/Global filters, including PEQ parameters such as frequency, gain and Q;
+- active per-way output EQ for SUB, KICK, MID L/R and HIGH L/R;
+- warnings for dynamic input processing such as an active Loudness filter.
+
+The baseline ID is the first 12 hexadecimal characters of a SHA-256 fingerprint over the captured filters, pipeline, processors and mixer routing. It is not a preset name: two campaigns with the same visible preset name but different DSP processing will receive different IDs.
+
+For system calibration, dynamic Loudness should normally be disabled/reference unless the campaign is specifically intended to characterize that dynamic listening mode. The baseline warning exists to make such accidental processing visible before a long measurement run.
 
 ### Ways
 
@@ -153,7 +198,15 @@ The `rew` object is informational in the first semi-automatic implementation. Ca
 GET /api/measurement-batch/status
 ```
 
-Returns batch metadata, complete sequence, progress, current measurement, next measurement and a human-readable `message` suitable for an iPhone Shortcut notification. `batch.defaults.measurementInput` identifies the physical measurement source when configured.
+Returns batch metadata, complete sequence, progress, current measurement, next measurement and a human-readable `message` suitable for an iPhone Shortcut notification. `batch.defaults.measurementInput` identifies the physical measurement source when configured. During an active session the response also contains `baseline`, summarized from the captured session baseline.
+
+### Baseline processing
+
+```http
+GET /api/measurement-batch/baseline
+```
+
+When no batch session is active this fetches CamillaDSP and returns a `LIVE` baseline preview. During a session it never summarizes the temporarily modified measurement state: it reads the session's persisted `baselineConfig` and returns that exact `CAPTURED` reference instead.
 
 ### Import
 
