@@ -1,5 +1,7 @@
 'use strict';
 
+const loudnessModel = require('./loudnessPresetModel');
+
 /*
  * Optional Measurement Batch capture-input routing.
  *
@@ -12,6 +14,11 @@
  * would not represent the final listening chain. Shared L/R Filter stages are
  * therefore extended temporarily to the selected measurement channel before
  * that channel is routed at unity gain to the E-Stack ways.
+ *
+ * Measurement mode has one additional invariant: ESTACK_LOUDNESS is always OFF.
+ * The baseline may contain an active loudness preset for normal listening, but
+ * every temporary measurement state strips that stage. Finish/abort still
+ * restores the exact captured baseline, including its original loudness state.
  *
  * The batch session already captures the complete live config. This module
  * extends the batch-owned temporary state to include mixer routing while still
@@ -149,7 +156,10 @@ module.exports = function installMeasurementBatchInputRouting(model) {
 
     model.applyStep = function applyStepWithMeasurementInput(baselineConfig, batchInput, stepOrIndex) {
         const batch = model.normalizeBatch(batchInput);
-        const next = original.applyStep(baselineConfig, batch, stepOrIndex);
+        const processed = original.applyStep(baselineConfig, batch, stepOrIndex);
+        // Measurement invariant: loudness is never part of an acoustic calibration
+        // state, even when it was enabled in the captured normal-listening baseline.
+        const next = loudnessModel.applyPreset(processed, 'reference');
         if (batch.defaults.measurementInput != null) {
             routeMeasurementInput(next, batch.defaults.measurementInput);
         }
