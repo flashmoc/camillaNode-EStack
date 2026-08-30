@@ -2,6 +2,9 @@
 
 const loudnessModel = require('./loudnessPresetModel');
 
+const INPUT_PREAMP_FILTER = 'ESTACK_INPUT_PREAMP';
+const INPUT_PREAMP_STEP = 'E-Stack input preamp';
+
 /*
  * Optional Measurement Batch capture-input routing.
  *
@@ -15,10 +18,10 @@ const loudnessModel = require('./loudnessPresetModel');
  * therefore extended temporarily to the selected measurement channel before
  * that channel is routed at unity gain to the E-Stack ways.
  *
- * Measurement mode has one additional invariant: ESTACK_LOUDNESS is always OFF.
- * The baseline may contain an active loudness preset for normal listening, but
- * every temporary measurement state strips that stage. Finish/abort still
- * restores the exact captured baseline, including its original loudness state.
+ * Measurement mode has two additional invariants: ESTACK_LOUDNESS and the
+ * normal-listening ESTACK_INPUT_PREAMP are always OFF. Their captured baseline
+ * state is restored exactly on finish/abort, but neither is allowed to bias REW
+ * calibration levels or be mirrored from L/R onto a dedicated measurement input.
  *
  * The batch session already captures the complete live config. This module
  * extends the batch-owned temporary state to include mixer routing while still
@@ -84,6 +87,20 @@ module.exports = function installMeasurementBatchInputRouting(model) {
         const captureInputs = Number(config?.devices?.capture?.channels);
         if (Number.isInteger(captureInputs) && captureInputs > 0) return captureInputs;
         throw new Error('Cannot determine the number of CamillaDSP capture inputs');
+    }
+
+    function removeInputPreamp(config) {
+        if (!config) return config;
+        const pipeline = config.pipeline || [];
+        for (const step of pipeline) {
+            if (step?.type !== 'Filter' || !Array.isArray(step.names)) continue;
+            step.names = step.names.filter(name => name !== INPUT_PREAMP_FILTER);
+        }
+        config.pipeline = pipeline.filter(step =>
+            !(step?.type === 'Filter' && step?.description === INPUT_PREAMP_STEP && (!Array.isArray(step.names) || step.names.length === 0))
+        );
+        if (config.filters) delete config.filters[INPUT_PREAMP_FILTER];
+        return config;
     }
 
     function mirrorSharedInputProcessing(config, sourceChannel, mixerIndex) {
@@ -157,9 +174,10 @@ module.exports = function installMeasurementBatchInputRouting(model) {
     model.applyStep = function applyStepWithMeasurementInput(baselineConfig, batchInput, stepOrIndex) {
         const batch = model.normalizeBatch(batchInput);
         const processed = original.applyStep(baselineConfig, batch, stepOrIndex);
-        // Measurement invariant: loudness is never part of an acoustic calibration
-        // state, even when it was enabled in the captured normal-listening baseline.
+        // Calibration invariants are applied BEFORE measurement-input mirroring.
+        // This guarantees the listening preamp cannot be copied onto IN3/IN4.
         const next = loudnessModel.applyPreset(processed, 'reference');
+        removeInputPreamp(next);
         if (batch.defaults.measurementInput != null) {
             routeMeasurementInput(next, batch.defaults.measurementInput);
         }
@@ -229,6 +247,7 @@ module.exports = function installMeasurementBatchInputRouting(model) {
 
     model.routeMeasurementInput = routeMeasurementInput;
     model.mirrorSharedInputProcessing = mirrorSharedInputProcessing;
+    model.removeInputPreamp = removeInputPreamp;
     Object.defineProperty(model, '__measurementInputRoutingInstalled', { value: true });
     return model;
 };
