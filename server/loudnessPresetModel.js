@@ -1,9 +1,13 @@
 'use strict';
 
+const fs = require('fs');
+const path = require('path');
+
 const FILTER_NAME = 'ESTACK_LOUDNESS';
 const STEP_DESCRIPTION = 'E-Stack loudness input stage';
 const FADER_NAME = 'Aux1';
 const REFERENCE_LEVEL_DB = -10;
+const MEASUREMENT_SESSION_FILE = path.join(__dirname, '..', 'config', 'measurement-batch-session.json');
 
 const PRESETS = Object.freeze({
     reference: Object.freeze({ key: 'reference', name: 'REFERENCE', disabled: true, lowBoost: 0, highBoost: 0 }),
@@ -28,6 +32,11 @@ function stable(value) {
 
 function preset(key) {
     return PRESETS[String(key || '').trim().toLowerCase()] || null;
+}
+
+function measurementBatchActive() {
+    try { return fs.existsSync(MEASUREMENT_SESSION_FILE); }
+    catch (_) { return false; }
 }
 
 function captureChannels(config) {
@@ -96,6 +105,9 @@ function ensureStage(config) {
 function applyPreset(config, key) {
     const selected = preset(key);
     if (!selected) throw new Error(`Unknown loudness preset '${key}'`);
+    if (!selected.disabled && measurementBatchActive()) {
+        throw new Error('Loudness is locked OFF while a Measurement Batch is active');
+    }
 
     const next = clone(config || {});
     if (!next.filters) next.filters = {};
@@ -194,6 +206,7 @@ module.exports = {
     applyPreset,
     detectPreset,
     isEnabled,
+    measurementBatchActive,
     assertOnlyLoudnessChanged,
     validateApplied
 };
