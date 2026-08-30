@@ -7,6 +7,7 @@ require('../server/measurementBatchInputRouting')(model);
 const gain = value => ({ type: 'Gain', parameters: { gain: value, scale: 'dB', inverted: false, mute: false } });
 const delay = value => ({ type: 'Delay', parameters: { delay: value, unit: 'ms', subsample: false } });
 const xo = (type, freq, order = 4) => ({ type: 'BiquadCombo', parameters: { type, freq, order } });
+const peq = (freq, gainDb, q) => ({ type: 'Biquad', parameters: { type: 'Peaking', freq, gain: gainDb, q } });
 const clone = value => JSON.parse(JSON.stringify(value));
 
 function fixture(inputCount = 8) {
@@ -17,6 +18,7 @@ function fixture(inputCount = 8) {
             playback: { type: 'Alsa', channels: 8, device: 'hw:fixture' }
         },
         filters: {
+            GLOBAL_EQ_162: peq(162, -4, 0.7),
             sub_hpf: xo('ButterworthHighpass', 40), sub_lpf: xo('LinkwitzRileyLowpass', 130), sub_gain: gain(-9.5), sub_delay: delay(0),
             kick_hpf: xo('LinkwitzRileyHighpass', 130), kick_lpf: xo('LinkwitzRileyLowpass', 300), kick_gain: gain(-19.3), kick_delay: delay(0),
             mid_hpf: xo('LinkwitzRileyHighpass', 300), mid_lpf: xo('LinkwitzRileyLowpass', 2000), mid_l_gain: gain(-14), mid_l_delay: delay(2.76), mid_r_gain: gain(-14), mid_r_delay: delay(2.76),
@@ -34,6 +36,7 @@ function fixture(inputCount = 8) {
         },
         processors: {},
         pipeline: [
+            { type: 'Filter', channels: [0, 1], names: ['GLOBAL_EQ_162'] },
             { type: 'Mixer', name: 'estack' },
             { type: 'Filter', channels: [0], names: ['sub_hpf', 'sub_lpf', 'sub_gain', 'sub_delay'] },
             { type: 'Filter', channels: [1], names: ['kick_hpf', 'kick_lpf', 'kick_gain', 'kick_delay'] },
@@ -66,6 +69,11 @@ for (let dest = 0; dest <= 5; dest += 1) {
     assert.strictEqual(mapping.sources[0].inverted, false);
     assert.ok(!Object.prototype.hasOwnProperty.call(mapping, 'mute'), 'non-canonical mapping-level mute leaked into CamillaDSP config');
 }
+
+// Shared normal Input L/R processing must also process the dedicated REW input.
+const sharedInputStage = applied.pipeline.find(step => step?.type === 'Filter' && step.names?.includes('GLOBAL_EQ_162'));
+assert.deepStrictEqual(sharedInputStage.channels, [0, 1, 3], 'IN4 did not inherit shared Input L/R processing');
+assert.deepStrictEqual(baseline.pipeline[0].channels, [0, 1], 'baseline input processing was mutated');
 
 assert.strictEqual(baseline.mixers.estack.mapping[0].sources[0].gain, -6.0206);
 assert.strictEqual(baseline.mixers.estack.mapping[1].sources[0].gain, -6.0206);
@@ -110,6 +118,7 @@ const noOverride = model.applyStep(baseline, {
     steps: [{ activeWays: ['KICK'] }]
 }, 0);
 assert.deepStrictEqual(noOverride.mixers, baseline.mixers, 'batch without measurementInput altered baseline mixer routing');
+assert.deepStrictEqual(noOverride.pipeline[0].channels, [0, 1], 'baseline input stage changed without measurementInput');
 
 assert.throws(() => model.normalizeBatch({
     version: 1,
@@ -125,4 +134,4 @@ assert.throws(() => model.applyStep(fixture(2), {
     steps: [{ activeWays: ['KICK'] }]
 }, 0), /IN4 is unavailable/);
 
-console.log('OK:   Measurement Batch physical input routing');
+console.log('OK:   Measurement Batch physical input routing + shared input processing');
