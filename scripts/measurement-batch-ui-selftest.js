@@ -35,5 +35,10 @@ assert.ok(inputUi.includes('measurementInputQuick'), 'main-page measurement inpu
 assert.ok(inputUi.includes('BASELINE') && inputUi.includes('IN${input}'), 'measurement input selector options are incomplete');
 assert.ok(inputUi.includes("postJson('/api/measurement-batch/import'"), 'quick input selector does not save through authoritative batch validation');
 assert.ok(inputUi.includes('SOURCE · BASELINE ROUTING') && inputUi.includes('SOURCE · IN${input}'), 'runtime measurement source badge is incomplete');
+assert.ok(inputUi.includes('BASELINE PROCESSING'), 'baseline processing strip is missing');
+assert.ok(inputUi.includes('VIEW BASELINE'), 'baseline detail control is missing');
+assert.ok(inputUi.includes("fetchJson('/api/measurement-batch/baseline'"), 'baseline UI does not use the authoritative baseline endpoint');
+assert.ok(inputUi.includes('CAPTURED') && inputUi.includes('LIVE PREVIEW'), 'baseline provenance state is not visible');
+assert.ok(inputUi.includes('INPUT CHAIN MIRRORED'), 'measurement input processing inheritance is not visible in baseline details');
 
-console.log('OK:   compact editable Measurement Batch UI');
+console.log('OK:   compact editable Measurement Batch UI + baseline provenance');
