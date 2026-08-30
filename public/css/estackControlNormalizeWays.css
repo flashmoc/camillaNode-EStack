@@ -1,0 +1,84 @@
+.estack-control-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.estack-normalize-wrap {
+    flex: 0 0 auto;
+}
+
+.estack-normalize-button {
+    min-width: 124px;
+    height: 30px;
+    padding: 3px 9px 2px;
+    display: grid;
+    align-content: center;
+    justify-items: center;
+    gap: 1px;
+    box-sizing: border-box;
+    border: 1px solid #465155;
+    border-radius: 3px;
+    background: #0d1213;
+    color: #e8edef;
+    font-family: "Abel", sans-serif;
+    cursor: pointer;
+}
+
+.estack-normalize-button span {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: .035em;
+    white-space: nowrap;
+}
+
+.estack-normalize-button small {
+    color: #59d5e3;
+    font-size: 7px;
+    letter-spacing: .035em;
+    white-space: nowrap;
+}
+
+.estack-normalize-button[data-state="raise"] {
+    border-color: rgba(89,213,227,.38);
+}
+
+.estack-normalize-button[data-state="trim"] small {
+    color: #ffba6d;
+}
+
+.estack-normalize-button[data-state="normalized"] {
+    border-color: rgba(121,216,182,.34);
+}
+
+.estack-normalize-button[data-state="normalized"] small {
+    color: #79d8b6;
+}
+
+.estack-normalize-button[data-state="error"] small {
+    color: #ff9b9b;
+}
+
+.estack-normalize-button:hover:not(:disabled) {
+    border-color: rgba(89,213,227,.7);
+    background: rgba(89,213,227,.055);
+    color: #fff;
+}
+
+.estack-normalize-button:disabled {
+    opacity: .45;
+    cursor: default;
+}
+
+@media (max-width: 760px) {
+    .estack-control-head {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .estack-control-actions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+}
