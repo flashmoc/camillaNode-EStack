@@ -7,7 +7,7 @@ const config = {
     devices: { samplerate: 48000 },
     filters: {
         GLOBAL_EQ_162: { type: 'Biquad', parameters: { type: 'Peaking', freq: 162, gain: -4, q: 0.7 } },
-        ESTACK_LOUDNESS: { type: 'Loudness', parameters: { fader: 'Aux1', reference_level: -10, low_boost: 6, high_boost: 2.5 } },
+        ESTACK_LOUDNESS: { type: 'Loudness', description: 'E-Stack loudness · HOME', parameters: { fader: 'Aux1', reference_level: -10, low_boost: 6, high_boost: 2.5 } },
         kick_lpf: { type: 'BiquadCombo', parameters: { type: 'LinkwitzRileyLowpass', freq: 300, order: 4 } },
         kick_peq: { type: 'Biquad', parameters: { type: 'Peaking', freq: 420, gain: -2.5, q: 1.1 } },
         kick_gain: { type: 'Gain', parameters: { gain: -19.3, scale: 'dB', inverted: true, mute: false } },
@@ -49,7 +49,11 @@ assert.strictEqual(summary.input.eqFilters[0].freqHz, 162);
 assert.strictEqual(summary.input.eqFilters[0].gainDb, -4);
 assert.strictEqual(summary.input.eqFilters[0].q, 0.7);
 assert.strictEqual(summary.input.dynamicFilters[0].name, 'ESTACK_LOUDNESS');
-assert.ok(summary.warnings.some(text => /Dynamic input processing/.test(text)));
+assert.strictEqual(summary.input.dynamicFilters[0].kind, 'forced-off');
+assert.deepStrictEqual(summary.measurementPolicy.forcedOffFilters, ['ESTACK_LOUDNESS']);
+assert.strictEqual(summary.measurementPolicy.loudness, 'forced-off');
+assert.ok(!summary.warnings.some(text => /ESTACK_LOUDNESS|Dynamic input processing/.test(text)), 'forced-off loudness must not be presented as an active-measurement warning');
+assert.match(summary.input.dynamicFilters[0].description, /forces this filter OFF/);
 assert.strictEqual(summary.ways.KICK.eqCount, 1);
 assert.strictEqual(summary.ways.KICK.eqFilters[0].name, 'kick_peq');
 assert.strictEqual(summary.ways.MID_L.eqCount, 1);
