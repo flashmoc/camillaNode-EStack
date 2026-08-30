@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const model = require('./measurementBatchModel');
 require('./measurementBatchInputRouting')(model);
+const baselineView = require('./measurementBatchBaseline');
 
 const SAFE_VOLUME_DB = -60;
 
@@ -173,6 +174,33 @@ module.exports = function registerMeasurementBatch(app, options = {}) {
 
     const normalizedSessionBatch = session => session?.batch ? model.normalizeBatch(session.batch) : null;
 
+    function summarizeSessionBaseline(session, batch) {
+        if (!session?.baselineConfig) return null;
+        return baselineView.summarizeBaseline(session.baselineConfig, {
+            captured: true,
+            capturedAt: session.startedAt || null,
+            measurementInput: batch?.defaults?.measurementInput
+        });
+    }
+
+    async function baselineState() {
+        const session = readSession();
+        if (session?.baselineConfig) {
+            const batch = normalizedSessionBatch(session);
+            return { ok: true, baseline: summarizeSessionBaseline(session, batch) };
+        }
+        const batch = readBatch();
+        const config = await liveConfig();
+        return {
+            ok: true,
+            baseline: baselineView.summarizeBaseline(config, {
+                captured: false,
+                capturedAt: null,
+                measurementInput: batch?.defaults?.measurementInput
+            })
+        };
+    }
+
     function state(extra = {}) {
         let batch = null;
         let session = null;
@@ -208,6 +236,7 @@ module.exports = function registerMeasurementBatch(app, options = {}) {
                 total,
                 defaults: model.clone(batch.defaults)
             } : null,
+            baseline: active ? summarizeSessionBaseline(session, batch) : null,
             sequence,
             active,
             progress: {
@@ -223,6 +252,7 @@ module.exports = function registerMeasurementBatch(app, options = {}) {
             message,
             endpoints: {
                 status: '/api/measurement-batch/status',
+                baseline: '/api/measurement-batch/baseline',
                 next: '/api/measurement-batch/next',
                 previous: '/api/measurement-batch/previous',
                 retry: '/api/measurement-batch/retry',
@@ -344,6 +374,11 @@ module.exports = function registerMeasurementBatch(app, options = {}) {
         catch (error) { res.status(500).json({ ok: false, phase: 'error', error: error.message, message: error.message }); }
     });
 
+    app.get('/api/measurement-batch/baseline', async (_req, res) => {
+        try { res.json(await baselineState()); }
+        catch (error) { fail(res, error); }
+    });
+
     app.post('/api/measurement-batch/import', async (req, res) => {
         try {
             if (readSession()) throw new Error('Abort or complete the active measurement batch before importing another batch');
@@ -417,6 +452,7 @@ module.exports = function registerMeasurementBatch(app, options = {}) {
 
     return {
         getState: state,
+        getBaseline: baselineState,
         start: () => queue(start),
         next: () => queue(next),
         abort: () => queue(() => abort('external abort'))
