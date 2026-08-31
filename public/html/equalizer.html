@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="/css/estackPhaseGraph.css">
     <link rel="stylesheet" href="/css/estackProcessingPolish.css">
     <link rel="stylesheet" href="/css/estackProcessingEnergy.css">
+    <link rel="stylesheet" href="/css/estackOutputWorkspace.css">
 
     <script src="/src/estackEqualizer.js" defer></script>
     <script src="/src/estackProcessorVisibility.js" defer></script>
@@ -31,6 +32,7 @@
     <script src="/src/estackEqV4.js" defer></script>
     <script src="/src/estackOutputPeq.js" defer></script>
     <script src="/src/estackPhaseGraph.js" defer></script>
+    <script src="/src/estackOutputWorkspace.js" defer></script>
 </head>
 <body class="estack-eq-v4">
     <div id="sectionMainTitle" class="processing-page-title"><img src="/img/icon/merge.png" class="icon">Output Processing</div>
@@ -47,18 +49,15 @@
         </div>
 
         <div class="eq-v4-topbar">
-            <nav id="moduleTabs" class="venu-module-tabs" aria-label="DSP modules">
-                <button data-module="peq" class="active">EQ</button>
-                <button data-module="outputProtection">OUTPUT / PROTECTION</button>
-            </nav>
+            <nav id="moduleTabs" class="venu-module-tabs" aria-label="Output navigation"></nav>
 
             <div class="eq-v4-context">
-                <strong id="moduleTitle">Parametric EQ</strong>
+                <strong id="moduleTitle">Per-Way Workspace</strong>
                 <span id="moduleSubtitle"></span>
             </div>
 
             <div class="venu-graph-legend" aria-label="Select output to edit"></div>
-            <button id="systemEditToggle" class="venu-system-edit" aria-pressed="false">EDIT SYSTEM</button>
+            <button id="systemEditToggle" class="venu-system-edit" aria-pressed="false">🔒 LOCKED</button>
         </div>
 
         <div class="venu-workspace">
