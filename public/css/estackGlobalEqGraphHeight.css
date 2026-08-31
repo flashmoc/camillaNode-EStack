@@ -1,18 +1,5 @@
-/* E-Stack Input Processing — taller Global EQ graph.
-   Visual only: keeps the +/-12 dB scale and DSP behaviour unchanged. */
-
-body.global-eq-v4 .global-v2-canvas-wrap {
-    height: 300px !important;
-}
-
-@media (max-width: 1100px) {
-    body.global-eq-v4 .global-v2-canvas-wrap {
-        height: 260px !important;
-    }
-}
-
-@media (max-width: 700px) {
-    body.global-eq-v4 .global-v2-canvas-wrap {
-        height: 220px !important;
-    }
-}
+/* Compatibility loader for Input Processing.
+ * The shared graph sizing and Processing-page polish now live in
+ * estackProcessingPolish.css so Input and Output cannot drift apart visually.
+ */
+@import url('/css/estackProcessingPolish.css');
