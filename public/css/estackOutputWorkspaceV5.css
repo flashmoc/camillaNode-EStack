@@ -1,0 +1,197 @@
+/* E-Stack Output Workspace V5
+ * - graph mode switching never moves the page
+ * - rotary controls use the shared estack-eq8 knob component unchanged
+ */
+
+/* -------------------------------------------------------------------------
+   Stable graph-mode command surface
+   ------------------------------------------------------------------------- */
+body.estack-eq-v4 .estack-ws-v5-modebar {
+    width: auto !important;
+    min-width: 0;
+    flex: 0 0 auto;
+}
+
+body.estack-eq-v4 .estack-ws-v5-modebar .estack-graph-modes button {
+    width: 84px !important;
+    min-width: 84px !important;
+}
+
+/* Pair is a permanent slot. Outside XO mode it is deliberately subdued rather
+   than removed, so MAGNITUDE / PHASE / XO ALIGN all have identical geometry. */
+body.estack-eq-v4 #estackXoControls.estack-ws-v5-xo-slot {
+    display: flex !important;
+    flex: 0 0 205px;
+    width: 205px;
+    min-width: 205px !important;
+    justify-content: flex-start !important;
+    visibility: visible !important;
+    opacity: .24;
+    pointer-events: none;
+    transition: opacity 100ms linear;
+}
+
+body.estack-eq-v4 #estackXoControls.estack-ws-v5-xo-slot.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+body.estack-eq-v4 #estackXoControls.estack-ws-v5-xo-slot .estack-xo-pair-select {
+    width: 168px !important;
+    min-width: 168px !important;
+}
+
+/* The XO readout also owns permanent vertical space. Its most recent values are
+   kept as a dim reference outside XO mode instead of collapsing the document. */
+body.estack-eq-v4 #estackXoReadout.estack-ws-v5-xo-readout-slot {
+    display: grid !important;
+    height: 46px !important;
+    min-height: 46px !important;
+    max-height: 46px !important;
+    margin: -2px 0 7px !important;
+    overflow: hidden;
+    opacity: .26;
+    pointer-events: none;
+    border-top: 1px solid var(--wsv2-border-soft) !important;
+    transition: opacity 100ms linear;
+}
+
+body.estack-eq-v4 #estackXoReadout.estack-ws-v5-xo-readout-slot.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* -------------------------------------------------------------------------
+   Shared knob integration
+   Do not redefine .estack-eq8-knob geometry here: that is intentional. The
+   output workspace now uses exactly the same rotary component as other pages.
+   ------------------------------------------------------------------------- */
+.estack-ws-v5-knob-field {
+    min-width: 0;
+    display: grid !important;
+    place-items: center;
+    align-content: center;
+}
+
+.estack-ws-v5-shared-knob {
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+}
+
+.estack-ws-v5-shared-knob.estack-v2-locked {
+    opacity: .46;
+}
+
+.estack-ws-v5-shared-knob.estack-v2-locked .estack-eq8-knob {
+    pointer-events: none;
+    cursor: default;
+}
+
+/* Crossover keeps the premium card structure, but the rotary itself is the
+   normal 43px E-Stack control used by the rest of the application. */
+.estack-ws-workspace-v5 .estack-ws-v4-xo-layout {
+    min-height: 104px;
+    grid-template-columns: 92px minmax(0,1fr);
+    gap: 10px;
+    padding: 8px 9px 9px;
+}
+
+.estack-ws-workspace-v5 .estack-ws-v4-xo-layout > .estack-ws-v5-knob-field {
+    min-height: 86px;
+    border: 0 !important;
+    background: transparent !important;
+}
+
+/* Output/Align tiles retain the strong hierarchy, while Gain/Delay/Phase use
+   the shared knob rather than the bespoke V4 rotary. */
+.estack-ws-workspace-v5 .estack-ws-v4-align-deck {
+    min-height: 108px !important;
+    grid-template-columns: repeat(3, minmax(96px,.95fr)) repeat(2, minmax(104px,.8fr)) !important;
+    align-items: stretch !important;
+}
+
+.estack-ws-workspace-v5 .estack-ws-v4-align-deck > .estack-ws-v5-knob-field,
+.estack-ws-workspace-v5 .estack-ws-v4-switch-tile {
+    min-height: 90px !important;
+    padding: 8px !important;
+    border: 1px solid var(--v4-border) !important;
+    border-radius: 4px !important;
+    background: color-mix(in srgb, var(--v4-well-2) 92%, black 8%) !important;
+}
+
+.estack-ws-workspace-v5 .estack-ws-v4-align-deck > .estack-ws-v5-knob-field {
+    display: grid !important;
+    place-items: center;
+}
+
+/* Shared number rows are a little wider in these cards, but their typography,
+   rotary face, indicator and interaction remain the global E-Stack design. */
+.estack-ws-workspace-v5 .estack-ws-v5-shared-knob .estack-eq8-number-row {
+    min-width: 76px;
+}
+
+/* -------------------------------------------------------------------------
+   Responsive reserved geometry
+   ------------------------------------------------------------------------- */
+@media (max-width: 1050px) {
+    body.estack-eq-v4 #estackXoReadout.estack-ws-v5-xo-readout-slot {
+        height: 72px !important;
+        min-height: 72px !important;
+        max-height: 72px !important;
+    }
+}
+
+@media (max-width: 900px) {
+    body.estack-eq-v4 #estackXoControls.estack-ws-v5-xo-slot {
+        flex-basis: 190px;
+        width: 190px;
+        min-width: 190px !important;
+    }
+
+    body.estack-eq-v4 #estackXoControls.estack-ws-v5-xo-slot .estack-xo-pair-select {
+        width: 154px !important;
+        min-width: 154px !important;
+    }
+
+    .estack-ws-workspace-v5 .estack-ws-v4-align-deck {
+        grid-template-columns: repeat(3, minmax(0,1fr)) !important;
+    }
+}
+
+@media (max-width: 700px) {
+    body.estack-eq-v4 .estack-ws-v5-modebar {
+        min-width: max-content;
+    }
+
+    body.estack-eq-v4 #estackXoControls.estack-ws-v5-xo-slot {
+        flex: 0 0 180px;
+        width: 180px;
+        min-width: 180px !important;
+    }
+
+    body.estack-eq-v4 #estackXoControls.estack-ws-v5-xo-slot .estack-xo-pair-select {
+        width: 144px !important;
+        min-width: 144px !important;
+    }
+
+    body.estack-eq-v4 #estackXoReadout.estack-ws-v5-xo-readout-slot {
+        height: 108px !important;
+        min-height: 108px !important;
+        max-height: 108px !important;
+    }
+
+    .estack-ws-workspace-v5 .estack-ws-v4-xo-layout {
+        grid-template-columns: 84px minmax(0,1fr);
+        min-height: 98px;
+    }
+
+    .estack-ws-workspace-v5 .estack-ws-v4-align-deck {
+        grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+    }
+
+    .estack-ws-workspace-v5 .estack-ws-v4-align-deck > .estack-ws-v5-knob-field,
+    .estack-ws-workspace-v5 .estack-ws-v4-switch-tile {
+        min-height: 92px !important;
+    }
+}
