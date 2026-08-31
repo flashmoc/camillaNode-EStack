@@ -16,9 +16,12 @@
     --estack-muted: rgba(226, 234, 236, .56);
     --estack-dim: rgba(226, 234, 236, .34);
     --estack-accent: hsl(var(--bck-hue), 66%, 60%);
-    --estack-radius: 7px;
-    --estack-radius-small: 4px;
+    --estack-radius: 3px;
+    --estack-radius-small: 3px;
     --estack-gap: 8px;
+    --estack-control-bg: hsl(var(--bck-hue), 27%, 9%);
+    --estack-control-bg-hover: hsl(var(--bck-hue), 23%, 18%);
+    --estack-control-border: hsla(0, 0%, 100%, .16);
 }
 
 html,
@@ -411,6 +414,186 @@ body.global-eq-v4 select {
     color: var(--estack-muted);
 }
 
+/* ========================================================================== */
+/* Cross-page consistency pass                                                */
+/* ========================================================================== */
+
+/* One page-title grammar everywhere: Control is the visual reference. */
+html body #sectionMainTitle,
+html body.global-eq-v4 .processing-page-title,
+html body.estack-eq-v4 .processing-page-title,
+html body.estack-signal-generator .signal-page-title,
+html body.estack-measurement-batch .measure-page-title {
+    width: auto !important;
+    height: auto !important;
+    min-height: 34px !important;
+    margin: 3px 1% 9px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    color: var(--estack-text) !important;
+    background: transparent !important;
+    font-family: "Abel", sans-serif !important;
+    font-size: 22px !important;
+    font-weight: 400 !important;
+    line-height: 1.15 !important;
+    letter-spacing: 0 !important;
+    box-shadow: none !important;
+}
+
+html body.global-eq-v4 .processing-page-title,
+html body.estack-eq-v4 .processing-page-title {
+    justify-content: flex-start !important;
+}
+
+html body.estack-signal-generator .signal-page-title,
+html body.estack-measurement-batch .measure-page-title {
+    justify-content: space-between !important;
+}
+
+html body #sectionMainTitle img,
+html body.global-eq-v4 .processing-page-title img,
+html body.estack-eq-v4 .processing-page-title img,
+html body.estack-signal-generator .signal-page-title img,
+html body.estack-measurement-batch .measure-page-title img {
+    width: 22px !important;
+    height: 22px !important;
+    margin: 0 10px 0 0 !important;
+    padding: 0 !important;
+    transform: none !important;
+    opacity: .82 !important;
+}
+
+html body.estack-signal-generator .signal-page-title > div:first-child,
+html body.estack-measurement-batch .measure-page-title > div:first-child {
+    display: flex !important;
+    align-items: center !important;
+    gap: 0 !important;
+}
+
+html body.estack-signal-generator .signal-page-title strong,
+html body.estack-measurement-batch .measure-page-title strong {
+    font-family: "Abel", sans-serif !important;
+}
+
+html body.estack-signal-generator .signal-page-title > div:first-child > strong,
+html body.estack-measurement-batch .measure-page-title > div:first-child > strong {
+    color: var(--estack-text) !important;
+    font-size: 22px !important;
+    font-weight: 400 !important;
+    line-height: 1.15 !important;
+    letter-spacing: 0 !important;
+}
+
+/* Runtime badges use the same compact hardware-status frame. */
+html body.estack-signal-generator .signal-runtime-state,
+html body.estack-measurement-batch .measure-runtime-state {
+    min-width: 0 !important;
+    min-height: 26px !important;
+    padding: 0 8px !important;
+    border: 1px solid var(--estack-border-soft) !important;
+    border-radius: var(--estack-radius-small) !important;
+    background: color-mix(in srgb, var(--estack-bg-deep) 72%, transparent) !important;
+}
+
+/* Section-heading typography: same weight/spacing, page-specific size remains. */
+html body .estack-input-head strong,
+html body .estack-control-head strong,
+html body .global-v2-graph-head strong,
+html body .estack-peq-eq-head strong,
+html body .estack-eq8-analyzer-head strong,
+html body .estack-peq-xover-title strong,
+html body .loudness-head-copy > strong,
+html body .loudness-curve-copy > strong,
+html body .signal-block-head strong,
+html body .measure-sequence-head strong,
+html body .measure-current-head strong,
+html body .measure-block-head strong,
+html body .measure-editor-section-title strong {
+    font-family: "Abel", sans-serif !important;
+    font-weight: 700 !important;
+    letter-spacing: .02em !important;
+}
+
+/* Standard action buttons share the same physical treatment. Semantic colours
+   (primary / danger / active) remain owned by each page. */
+html body.estack-loudness-page .loudness-curve-controls button,
+html body.estack-loudness-page .loudness-presets button,
+html body.estack-signal-generator .signal-actions button,
+html body.estack-signal-generator .quick-frequencies button,
+html body.estack-measurement-batch .measure-import-actions button,
+html body.estack-measurement-batch .measure-actions button,
+html body.estack-measurement-batch #copyRewName,
+html body.estack-measurement-batch .measure-editor-head-actions button,
+html body.estack-measurement-batch .measure-editor-step-actions button,
+html body.estack-measurement-batch .measure-editor-footer-actions button,
+html body #connectionsSection button,
+html body #preferences ~ input[type="button"],
+html body.estack-eq-v4 .venu-module-tabs button,
+html body.estack-eq-v4 .venu-system-edit,
+html body.estack-eq-v4 .estack-v2-segmented button,
+html body.estack-eq-v4 .estack-peq-add-button,
+html body.global-eq-v4 .global-v2-reset-all,
+html body.global-eq-v4 .global-v2-analyzer-modes button,
+html body.global-eq-v4 .global-v2-analyzer-button,
+html body.global-eq-v4 .input-delay-nudge button,
+html body.global-eq-v4 #inputDelayReset {
+    border-radius: 3px !important;
+    font-family: "Abel", sans-serif !important;
+    font-size: 9px !important;
+    font-weight: 600 !important;
+    letter-spacing: .025em !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+    background-image: none !important;
+    transition: border-color 90ms linear, background-color 90ms linear, color 90ms linear, opacity 90ms linear !important;
+}
+
+/* Form fields also share the Control-style dark instrument surface. */
+html body.estack-loudness-page input[type="number"],
+html body.estack-signal-generator input[type="number"],
+html body.estack-signal-generator select,
+html body.estack-measurement-batch input[type="text"],
+html body.estack-measurement-batch input[type="number"],
+html body.estack-measurement-batch select,
+html body.estack-measurement-batch textarea,
+html body #preferences input[type="text"],
+html body #preferences input[type="number"],
+html body #preferences select,
+html body #connectionsSection input[type="text"] {
+    border-color: var(--estack-control-border) !important;
+    border-radius: 3px !important;
+    color: var(--estack-text) !important;
+    background: var(--estack-control-bg) !important;
+    box-shadow: none !important;
+    font-family: "Abel", sans-serif !important;
+}
+
+html body.estack-loudness-page input[type="number"]:focus,
+html body.estack-signal-generator input:focus,
+html body.estack-signal-generator select:focus,
+html body.estack-measurement-batch input:focus,
+html body.estack-measurement-batch select:focus,
+html body.estack-measurement-batch textarea:focus,
+html body #preferences input:focus,
+html body #preferences select:focus,
+html body #connectionsSection input:focus {
+    border-color: color-mix(in srgb, var(--estack-accent) 72%, white 5%) !important;
+    outline: none !important;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--estack-accent) 24%, transparent) !important;
+}
+
+/* Disabled controls look disabled in the same way everywhere. */
+html body button:disabled,
+html body input[type="button"]:disabled,
+html body input[type="submit"]:disabled,
+html body select:disabled,
+html body input:disabled {
+    cursor: default !important;
+    opacity: .42 !important;
+}
+
 @media (max-width: 760px) {
     #sectionMainTitle {
         margin-inline: 4px;
@@ -424,5 +607,20 @@ body.global-eq-v4 select {
     .eq-v4-shell {
         margin: 2px !important;
         width: calc(100% - 4px) !important;
+    }
+
+    html body #sectionMainTitle,
+    html body.global-eq-v4 .processing-page-title,
+    html body.estack-eq-v4 .processing-page-title,
+    html body.estack-signal-generator .signal-page-title,
+    html body.estack-measurement-batch .measure-page-title {
+        margin-left: 4px !important;
+        margin-right: 4px !important;
+        font-size: 20px !important;
+    }
+
+    html body.estack-signal-generator .signal-page-title > div:first-child > strong,
+    html body.estack-measurement-batch .measure-page-title > div:first-child > strong {
+        font-size: 20px !important;
     }
 }
