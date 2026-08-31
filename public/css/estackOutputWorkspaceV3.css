@@ -1,0 +1,159 @@
+/* E-Stack Output Workspace V3 — integrated Output / Align / Protection card. */
+
+/* Let the two tuning cards size to their own content instead of stretching the
+   shorter Crossover card to the taller Output card. */
+.estack-ws-tuning {
+    grid-template-columns: minmax(430px,.9fr) minmax(560px,1.3fr) !important;
+    align-items: start !important;
+}
+
+.estack-ws-alignment-v3 {
+    box-shadow:
+        inset 0 2px 0 color-mix(in srgb, var(--eq-accent) 58%, transparent),
+        inset 0 -2px 0 rgba(229,111,118,.28) !important;
+}
+
+/* Output/align remains the primary row. */
+.estack-ws-alignment-v3 > .estack-ws-align-controls {
+    padding-bottom: 9px !important;
+}
+
+/* Protection becomes a compact footer inside the same card instead of a second
+   full-width panel lower in the page. */
+.estack-ws-inline-protection {
+    border-top: 1px solid var(--wsv2-border-soft);
+    background: color-mix(in srgb, var(--wsv2-subcard) 88%, black 12%);
+}
+
+.estack-ws-inline-protection-head {
+    min-height: 27px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 4px 8px;
+    border-bottom: 1px solid var(--wsv2-border-soft);
+}
+.estack-ws-inline-protection-head strong {
+    color: #f0d6d8;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: .055em;
+}
+.estack-ws-inline-protection-head span {
+    color: var(--ws-dim);
+    font-size: 6px;
+    font-weight: 700;
+    letter-spacing: .05em;
+}
+
+.estack-ws-protection-body.estack-ws-protection-inline {
+    min-height: 0 !important;
+    display: grid !important;
+    grid-template-columns: minmax(150px,.65fr) minmax(300px,1.6fr) !important;
+    gap: 7px !important;
+    align-items: stretch !important;
+    padding: 7px 8px 8px !important;
+    overflow: visible !important;
+}
+
+.estack-ws-protection-inline .estack-ws-protection-module {
+    min-height: 58px !important;
+    gap: 5px !important;
+    padding: 7px !important;
+    border-left-width: 2px !important;
+    background: hsl(var(--bck-hue), 31%, 7.2%) !important;
+}
+
+.estack-ws-protection-inline .estack-ws-protection-module-head strong {
+    font-size: 8px !important;
+}
+.estack-ws-protection-inline .estack-ws-protection-module-head span {
+    font-size: 6px !important;
+}
+
+.estack-ws-protection-inline .estack-ws-limit-field {
+    display: grid;
+    grid-template-columns: auto minmax(90px,150px);
+    align-items: center;
+    gap: 8px;
+}
+.estack-ws-protection-inline .estack-ws-limit-field .estack-ws-field-label {
+    margin: 0 !important;
+}
+.estack-ws-protection-inline .estack-ws-limit-field .estack-ws-number {
+    width: 100%;
+    max-width: none !important;
+    height: 30px !important;
+}
+.estack-ws-protection-inline .estack-ws-limit-field .estack-ws-number input {
+    height: 28px !important;
+}
+
+.estack-ws-protection-inline .estack-ws-protection-metrics {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(64px,1fr));
+    gap: 5px !important;
+}
+.estack-ws-protection-inline .estack-ws-protection-metric {
+    min-width: 0 !important;
+    padding: 4px 6px !important;
+}
+.estack-ws-protection-inline .estack-ws-protection-metric strong {
+    font-size: 8px !important;
+}
+
+/* The old standalone card should never consume layout space after V3 merge. */
+.estack-ws-workspace-v2 > .estack-ws-protection {
+    display: none !important;
+}
+
+@media (max-width: 1250px) {
+    .estack-ws-tuning {
+        grid-template-columns: 1fr !important;
+    }
+    .estack-ws-protection-body.estack-ws-protection-inline {
+        grid-template-columns: minmax(160px,.65fr) minmax(320px,1.5fr) !important;
+    }
+}
+
+@media (max-width: 900px) {
+    .estack-ws-protection-body.estack-ws-protection-inline {
+        grid-template-columns: 1fr !important;
+    }
+    .estack-ws-protection-inline .estack-ws-protection-metrics {
+        grid-template-columns: repeat(4, minmax(58px,1fr));
+    }
+}
+
+@media (max-width: 700px) {
+    .estack-ws-inline-protection-head {
+        min-height: 31px;
+        padding-inline: 7px;
+    }
+    .estack-ws-protection-body.estack-ws-protection-inline {
+        padding: 6px !important;
+        gap: 6px !important;
+    }
+    .estack-ws-protection-inline .estack-ws-protection-module {
+        min-height: 64px !important;
+    }
+    .estack-ws-protection-inline .estack-ws-limit-field {
+        grid-template-columns: 1fr;
+        gap: 4px;
+    }
+    .estack-ws-protection-inline .estack-ws-limit-field .estack-ws-number {
+        height: 38px !important;
+    }
+    .estack-ws-protection-inline .estack-ws-limit-field .estack-ws-number input {
+        height: 36px !important;
+        font-size: 13px !important;
+    }
+    .estack-ws-protection-inline .estack-ws-protection-metrics {
+        grid-template-columns: repeat(2, minmax(0,1fr));
+    }
+    .estack-ws-protection-inline .estack-ws-protection-metric {
+        min-height: 42px;
+        align-content: center;
+    }
+}
