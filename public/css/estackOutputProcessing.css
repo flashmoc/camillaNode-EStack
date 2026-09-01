@@ -1,0 +1,784 @@
+/*
+ * E-Stack Output Processing
+ * --------------------------------------------------------------------------
+ * ONE page stylesheet. Cross-page colours/typography/controls are defined in
+ * estackDesignSystem.css. This file owns Output Processing layout only.
+ */
+
+body.estack-eq-v4 {
+    margin: 0 !important;
+    padding: 0 0 18px !important;
+    color: var(--es-text);
+    background: var(--es-bg) !important;
+    font-family: var(--es-font) !important;
+}
+
+/* The legacy topbar remains as a DOM mount for core render functions, but the
+   useful controls are moved into the command bar under the graph. */
+body.estack-eq-v4 .eq-v4-topbar {
+    position: fixed !important;
+    left: -10000px !important;
+    top: -10000px !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+body.estack-eq-v4 .eq-v4-shell {
+    width: var(--es-content-width) !important;
+    margin: 0 var(--es-content-margin) !important;
+    display: block !important;
+}
+
+body.estack-eq-v4 .eq-v4-engine-mount {
+    position: fixed !important;
+    left: -10000px !important;
+    top: -10000px !important;
+    width: 1px !important;
+    height: 1px !important;
+    overflow: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+body.estack-eq-v4 .venu-workspace,
+body.estack-eq-v4 .venu-controls {
+    min-height: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   Response graph
+   -------------------------------------------------------------------------- */
+body.estack-eq-v4 .venu-graph-wrap {
+    width: 100% !important;
+    height: 300px !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    border: 1px solid var(--es-border) !important;
+    border-radius: var(--es-radius) !important;
+    background: var(--es-bg-deep) !important;
+}
+
+body.estack-eq-v4 #responseCanvas {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+}
+
+/* --------------------------------------------------------------------------
+   Stable graph command bar
+   -------------------------------------------------------------------------- */
+body.estack-eq-v4 .estack-graph-modebar {
+    width: 100% !important;
+    min-height: 42px !important;
+    margin: 6px 0 0 !important;
+    padding: 5px !important;
+    display: grid !important;
+    grid-template-columns: auto 190px minmax(0, 1fr) !important;
+    grid-template-areas: "modes pair actions" !important;
+    align-items: center !important;
+    gap: 6px !important;
+    border: 1px solid var(--es-border-soft) !important;
+    border-radius: var(--es-radius) !important;
+    background: var(--es-surface-0) !important;
+}
+
+body.estack-eq-v4 .estack-graph-modes {
+    grid-area: modes;
+    display: flex !important;
+    gap: 3px !important;
+}
+
+body.estack-eq-v4 .estack-graph-modes button {
+    width: 82px !important;
+    min-width: 82px !important;
+    height: 30px !important;
+    min-height: 30px !important;
+    padding: 0 7px !important;
+    color: var(--es-text-soft) !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+}
+
+body.estack-eq-v4 .estack-graph-modes button.active {
+    border-color: var(--es-accent) !important;
+    color: hsl(var(--bck-hue), 30%, 9%) !important;
+    background: var(--es-accent) !important;
+}
+
+/* Pair is a permanent slot. Visibility changes, geometry does not. */
+body.estack-eq-v4 .estack-xo-controls {
+    grid-area: pair;
+    width: 190px !important;
+    min-width: 190px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    opacity: .24;
+    pointer-events: none;
+}
+
+body.estack-eq-v4 .estack-xo-controls.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+body.estack-eq-v4 .estack-xo-controls > span {
+    color: var(--es-muted) !important;
+    font-size: 9px !important;
+    font-weight: 600 !important;
+}
+
+body.estack-eq-v4 .estack-xo-pair-select {
+    width: 154px !important;
+    min-width: 0 !important;
+    height: 30px !important;
+    min-height: 30px !important;
+    padding: 0 7px !important;
+    color: var(--es-accent) !important;
+    font-size: 10px !important;
+}
+
+body.estack-eq-v4 .estack-phase-source-note {
+    display: none !important;
+}
+
+body.estack-eq-v4 .estack-graph-actions {
+    grid-area: actions;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 5px;
+}
+
+body.estack-eq-v4 .venu-graph-legend {
+    min-width: 0;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 3px !important;
+    overflow-x: auto !important;
+    scrollbar-width: none;
+}
+body.estack-eq-v4 .venu-graph-legend::-webkit-scrollbar { display: none; }
+
+body.estack-eq-v4 .estack-channel-legend {
+    --channel-color: var(--es-accent);
+    flex: 0 0 auto;
+    height: 30px !important;
+    min-height: 30px !important;
+    padding: 0 7px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    border-color: transparent !important;
+    color: var(--es-muted) !important;
+    background: transparent !important;
+    font-size: 10px !important;
+    white-space: nowrap;
+}
+
+body.estack-eq-v4 .estack-channel-legend i {
+    width: 12px;
+    height: 3px;
+    border-radius: 1px;
+    background: var(--channel-color);
+    opacity: .6;
+}
+body.estack-eq-v4 .estack-channel-legend b {
+    font-size: 10px !important;
+    font-weight: 600 !important;
+}
+body.estack-eq-v4 .estack-channel-legend.active {
+    border-color: var(--channel-color) !important;
+    color: var(--es-text) !important;
+    background: color-mix(in srgb, var(--channel-color) 10%, var(--es-control)) !important;
+}
+body.estack-eq-v4 .estack-channel-legend.active i { opacity: 1; }
+
+body.estack-eq-v4 .estack-ws-analyzerbar {
+    flex: 0 0 auto;
+    display: flex !important;
+    align-items: center !important;
+    gap: 4px !important;
+    min-height: 30px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+}
+body.estack-eq-v4 .estack-ws-analyzerbar > strong { display: none !important; }
+body.estack-eq-v4 .estack-ws-analyzerbar .estack-ws-field {
+    display: flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+}
+body.estack-eq-v4 .estack-ws-analyzerbar .estack-ws-field-label { display: none !important; }
+body.estack-eq-v4 .estack-ws-analyzerbar select {
+    height: 30px !important;
+    min-height: 30px !important;
+    padding: 0 6px !important;
+    font-size: 10px !important;
+}
+body.estack-eq-v4 .estack-ws-analyzer-modes {
+    display: flex;
+    gap: 2px;
+}
+body.estack-eq-v4 .estack-ws-analyzer-modes button {
+    height: 30px !important;
+    min-height: 30px !important;
+    min-width: 38px !important;
+    padding: 0 5px !important;
+    font-size: 9px !important;
+}
+body.estack-eq-v4 .estack-ws-analyzer-modes button.active {
+    border-color: var(--es-ok) !important;
+    color: hsl(var(--bck-hue),30%,8%) !important;
+    background: var(--es-ok) !important;
+}
+
+body.estack-eq-v4 .venu-system-edit {
+    flex: 0 0 auto;
+    min-width: 84px !important;
+    height: 30px !important;
+    min-height: 30px !important;
+    padding: 0 9px !important;
+    color: var(--es-muted) !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+}
+body.estack-eq-v4 .venu-system-edit[aria-pressed="true"] {
+    border-color: var(--es-warn) !important;
+    color: #241a08 !important;
+    background: var(--es-warn) !important;
+}
+
+/* Stable second rail for XO metrics. */
+body.estack-eq-v4 .estack-xo-readout {
+    width: 100% !important;
+    height: 38px !important;
+    min-height: 38px !important;
+    max-height: 38px !important;
+    margin: 4px 0 8px !important;
+    padding: 3px !important;
+    display: grid !important;
+    grid-template-columns: repeat(5, minmax(90px, 1fr)) !important;
+    gap: 3px !important;
+    overflow: hidden !important;
+    border: 1px solid var(--es-border-soft) !important;
+    border-radius: var(--es-radius) !important;
+    background: var(--es-surface-0) !important;
+    opacity: .18;
+    pointer-events: none;
+}
+body.estack-eq-v4 .estack-xo-readout.visible {
+    opacity: 1;
+    pointer-events: auto;
+}
+body.estack-eq-v4 .estack-xo-metric {
+    min-width: 0;
+    padding: 2px 6px;
+    display: grid;
+    align-content: center;
+    border-right: 1px solid var(--es-border-soft);
+}
+body.estack-eq-v4 .estack-xo-metric:last-child { border-right: 0; }
+body.estack-eq-v4 .estack-xo-metric span {
+    color: var(--es-dim) !important;
+    font-family: var(--es-font) !important;
+    font-size: 8px !important;
+    font-weight: 600 !important;
+}
+body.estack-eq-v4 .estack-xo-metric strong {
+    margin-top: 1px;
+    color: var(--es-text) !important;
+    font-family: var(--es-font-data) !important;
+    font-size: 10px !important;
+    font-weight: 600 !important;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+body.estack-eq-v4 .estack-xo-metric.delta.good strong { color: var(--es-ok) !important; }
+body.estack-eq-v4 .estack-xo-metric.delta.warn strong { color: var(--es-warn) !important; }
+body.estack-eq-v4 .estack-xo-metric.delta.bad strong { color: var(--es-danger) !important; }
+
+/* --------------------------------------------------------------------------
+   Unified per-way workspace
+   -------------------------------------------------------------------------- */
+body.estack-eq-v4 .estack-ws-workspace-unified {
+    display: grid;
+    gap: 8px;
+}
+
+body.estack-eq-v4 .estack-ws-section {
+    min-width: 0;
+    border: 1px solid var(--es-border-soft);
+    border-radius: var(--es-radius);
+    background: var(--es-surface-0);
+}
+
+body.estack-eq-v4 .estack-ws-section > .estack-ws-section-head {
+    min-height: 30px !important;
+    padding: 5px 8px !important;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid var(--es-border-soft) !important;
+    background: var(--es-surface-1) !important;
+}
+body.estack-eq-v4 .estack-ws-section > .estack-ws-section-head > strong {
+    font-size: 12px !important;
+}
+body.estack-eq-v4 .estack-ws-section > .estack-ws-section-head > span {
+    margin-left: auto;
+}
+
+/* OUTPUT / ALIGN / PROTECTION comes first. */
+body.estack-eq-v4 .estack-ws-output {
+    box-shadow: inset 2px 0 0 color-mix(in srgb, var(--es-accent) 65%, transparent);
+}
+
+body.estack-eq-v4 .estack-ws-output-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(120px, .75fr)) repeat(2, minmax(130px, .85fr));
+    align-items: stretch;
+    gap: 5px;
+    padding: 6px;
+}
+
+body.estack-eq-v4 .estack-ws-knob-field,
+body.estack-eq-v4 .estack-ws-state-button {
+    min-height: 86px;
+    border: 1px solid var(--es-border-soft) !important;
+    border-radius: var(--es-radius) !important;
+    background: var(--es-bg-deep) !important;
+}
+
+body.estack-eq-v4 .estack-ws-knob-field {
+    display: grid !important;
+    place-items: center;
+    padding: 5px;
+}
+body.estack-eq-v4 .estack-ws-knob-field .estack-eq8-knob-control {
+    width: 100%;
+}
+
+body.estack-eq-v4 .estack-ws-state-button {
+    position: relative;
+    height: auto !important;
+    padding: 12px !important;
+    display: grid !important;
+    align-content: center;
+    justify-items: start;
+    gap: 6px;
+    text-align: left;
+}
+body.estack-eq-v4 .estack-ws-state-button span {
+    color: var(--es-muted) !important;
+    font-size: 10px !important;
+    font-weight: 600;
+}
+body.estack-eq-v4 .estack-ws-state-button strong {
+    color: var(--es-text) !important;
+    font-family: var(--es-font-data);
+    font-size: 13px !important;
+    font-weight: 600;
+}
+body.estack-eq-v4 .estack-ws-state-button::after {
+    content: "";
+    position: absolute;
+    right: 10px;
+    top: 10px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--es-ok);
+    box-shadow: 0 0 7px color-mix(in srgb, var(--es-ok) 45%, transparent);
+}
+body.estack-eq-v4 .estack-ws-state-button.warning.active::after {
+    background: var(--es-warn);
+    box-shadow: 0 0 7px color-mix(in srgb, var(--es-warn) 45%, transparent);
+}
+body.estack-eq-v4 .estack-ws-state-button.danger.active::after {
+    background: var(--es-danger);
+    box-shadow: 0 0 7px color-mix(in srgb, var(--es-danger) 45%, transparent);
+}
+
+/* Protection is a dense rail inside Output; no second giant card. */
+body.estack-eq-v4 .estack-ws-protection-rail {
+    display: grid;
+    grid-template-columns: minmax(240px, .75fr) minmax(420px, 1.6fr);
+    gap: 5px;
+    padding: 5px 6px 6px;
+    border-top: 1px solid color-mix(in srgb, var(--es-danger) 20%, var(--es-border-soft));
+    background: color-mix(in srgb, var(--es-bg-deep) 93%, #321015 7%);
+}
+body.estack-eq-v4 .estack-ws-protection-module {
+    min-width: 0;
+    min-height: 54px;
+    padding: 6px 8px;
+    border: 1px solid color-mix(in srgb, var(--es-danger) 14%, var(--es-border-soft));
+    border-left: 2px solid color-mix(in srgb, var(--es-danger) 68%, transparent);
+    background: rgba(0,0,0,.10);
+}
+body.estack-eq-v4 .estack-ws-protection-module-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 5px;
+}
+body.estack-eq-v4 .estack-ws-protection-module-head strong {
+    color: rgba(255,238,240,.9);
+    font-size: 10px;
+    font-weight: 600;
+}
+body.estack-eq-v4 .estack-ws-protection-module-head span {
+    color: var(--es-dim);
+    font-size: 8px;
+}
+body.estack-eq-v4 .estack-ws-limit-field {
+    display: grid;
+    grid-template-columns: 78px minmax(100px, 1fr);
+    align-items: center;
+    gap: 6px;
+}
+body.estack-eq-v4 .estack-ws-limit-field .estack-ws-number {
+    width: 100%;
+}
+body.estack-eq-v4 .estack-ws-protection-metrics {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(70px, 1fr));
+    gap: 4px;
+}
+body.estack-eq-v4 .estack-ws-protection-metric {
+    min-width: 0;
+    padding: 4px 6px;
+    border: 1px solid var(--es-border-soft);
+    background: rgba(0,0,0,.13);
+}
+body.estack-eq-v4 .estack-ws-protection-metric small,
+body.estack-eq-v4 .estack-ws-protection-metric strong { display: block; }
+body.estack-eq-v4 .estack-ws-protection-metric small {
+    color: var(--es-dim);
+    font-size: 8px;
+}
+body.estack-eq-v4 .estack-ws-protection-metric strong {
+    margin-top: 2px;
+    color: var(--es-text);
+    font-family: var(--es-font-data);
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   Parametric EQ second
+   -------------------------------------------------------------------------- */
+body.estack-eq-v4 .estack-ws-peq {
+    box-shadow: inset 2px 0 0 rgba(165,134,238,.62);
+}
+body.estack-eq-v4 .estack-ws-add-peq {
+    margin-left: auto;
+    min-width: 58px;
+    height: 28px !important;
+    min-height: 28px !important;
+    padding: 0 9px !important;
+    border-color: rgba(165,134,238,.65) !important;
+    color: #eee8ff !important;
+    font-size: 10px !important;
+}
+body.estack-eq-v4 .estack-ws-peq-rows {
+    display: grid;
+}
+body.estack-eq-v4 .estack-ws-peq-row {
+    min-height: 43px;
+    display: grid;
+    grid-template-columns: 22px 26px minmax(120px, .9fr) minmax(130px, 1fr) minmax(120px, .9fr) minmax(100px, .75fr) 30px;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 7px;
+    border-bottom: 1px solid var(--es-border-soft);
+}
+body.estack-eq-v4 .estack-ws-peq-row:last-child { border-bottom: 0; }
+body.estack-eq-v4 .estack-ws-peq-row.bypassed { opacity: .48; }
+body.estack-eq-v4 .estack-ws-peq-power {
+    width: 15px;
+    height: 15px;
+    min-height: 15px !important;
+    padding: 0 !important;
+}
+body.estack-eq-v4 .estack-ws-peq-power.active {
+    border-color: var(--es-accent) !important;
+    background: var(--es-accent) !important;
+}
+body.estack-eq-v4 .estack-ws-peq-index {
+    color: var(--es-text-soft);
+    font-family: var(--es-font-data);
+    font-size: 11px;
+    text-align: center;
+}
+body.estack-eq-v4 .estack-ws-peq-row .estack-ws-field {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 40px minmax(0,1fr);
+    align-items: center;
+    gap: 5px;
+}
+body.estack-eq-v4 .estack-ws-peq-row .estack-ws-field-label {
+    font-size: 9px !important;
+}
+body.estack-eq-v4 .estack-ws-peq-row .estack-ws-number,
+body.estack-eq-v4 .estack-ws-peq-row .estack-ws-select {
+    width: 100%;
+    height: 30px !important;
+    min-height: 30px !important;
+}
+body.estack-eq-v4 .estack-ws-peq-delete {
+    width: 28px;
+    height: 28px;
+    min-height: 28px !important;
+    padding: 0 !important;
+    color: var(--es-danger) !important;
+    font-family: var(--es-font-data);
+    font-size: 16px !important;
+}
+body.estack-eq-v4 .estack-ws-peq-empty {
+    width: 100%;
+    min-height: 54px;
+    padding: 8px 12px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 0 !important;
+    color: var(--es-muted) !important;
+    background: transparent !important;
+}
+body.estack-eq-v4 .estack-ws-peq-empty strong { font-size: 12px; }
+body.estack-eq-v4 .estack-ws-peq-empty span { font-size: 10px; }
+
+/* --------------------------------------------------------------------------
+   Crossover last, compact
+   -------------------------------------------------------------------------- */
+body.estack-eq-v4 .estack-ws-crossover {
+    box-shadow: inset 2px 0 0 rgba(89,213,227,.46);
+}
+body.estack-eq-v4 .estack-ws-crossover-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    padding: 6px;
+}
+body.estack-eq-v4 .estack-ws-xo {
+    min-width: 0;
+    min-height: 82px;
+    display: grid;
+    grid-template-columns: 82px minmax(0,1fr);
+    grid-template-areas:
+        "title controls"
+        "knob controls";
+    grid-template-rows: 23px 1fr;
+    column-gap: 8px;
+    padding: 6px;
+    border: 1px solid var(--es-border-soft);
+    background: var(--es-bg-deep);
+}
+body.estack-eq-v4 .estack-ws-hpf { border-top: 2px solid #59d5e3; }
+body.estack-eq-v4 .estack-ws-lpf { border-top: 2px solid #e7b34d; }
+body.estack-eq-v4 .estack-ws-xo-title {
+    grid-area: title;
+    color: var(--es-text-soft);
+    font-size: 10px;
+    font-weight: 600;
+}
+body.estack-eq-v4 .estack-ws-xo > .estack-ws-knob-field {
+    grid-area: knob;
+    min-height: 0;
+    border: 0 !important;
+    background: transparent !important;
+    padding: 0 !important;
+}
+body.estack-eq-v4 .estack-ws-xo-controls {
+    grid-area: controls;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(110px,1fr));
+    gap: 6px;
+    align-content: center;
+}
+body.estack-eq-v4 .estack-ws-xo-controls .estack-ws-field {
+    min-width: 0;
+    display: grid;
+    gap: 4px;
+}
+body.estack-eq-v4 .estack-ws-xo-controls .estack-ws-select {
+    width: 100%;
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 0 8px;
+    font-size: 11px !important;
+}
+body.estack-eq-v4 .estack-ws-empty {
+    grid-column: 1 / -1;
+    color: var(--es-muted);
+    font-size: 10px;
+}
+
+/* Native compact number wrapper used by PEQ/protection. */
+body.estack-eq-v4 .estack-ws-number {
+    min-width: 0;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--es-border) !important;
+    border-radius: var(--es-radius);
+    background: var(--es-control);
+}
+body.estack-eq-v4 .estack-ws-number input {
+    min-width: 0;
+    width: 100%;
+    height: 28px !important;
+    min-height: 28px !important;
+    padding: 2px 5px !important;
+    border: 0 !important;
+    background: transparent !important;
+    font-family: var(--es-font-data) !important;
+    font-size: 11px !important;
+    font-weight: 600;
+    text-align: right;
+}
+body.estack-eq-v4 .estack-ws-number > span {
+    flex: 0 0 auto;
+    padding-right: 5px;
+    color: var(--es-dim);
+    font-family: var(--es-font-data);
+    font-size: 8px;
+}
+body.estack-eq-v4 .estack-ws-select {
+    color: var(--es-text) !important;
+}
+
+body.estack-eq-v4 .venu-statusbar {
+    min-height: 24px !important;
+    margin-top: 7px;
+    padding: 4px 2px !important;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border: 0 !important;
+    border-top: 1px solid var(--es-border-soft) !important;
+    background: transparent !important;
+}
+
+/* --------------------------------------------------------------------------
+   Responsive
+   -------------------------------------------------------------------------- */
+@media (max-width: 1280px) {
+    body.estack-eq-v4 .estack-graph-modebar {
+        grid-template-columns: auto 180px minmax(0,1fr) !important;
+    }
+    body.estack-eq-v4 .estack-channel-legend {
+        padding-inline: 5px !important;
+    }
+    body.estack-eq-v4 .estack-ws-output-grid {
+        grid-template-columns: repeat(3, minmax(100px,1fr)) repeat(2, minmax(110px,.85fr));
+    }
+}
+
+@media (max-width: 1050px) {
+    body.estack-eq-v4 .venu-graph-wrap { height: 270px !important; }
+    body.estack-eq-v4 .estack-graph-modebar {
+        grid-template-columns: auto minmax(0,1fr) !important;
+        grid-template-areas:
+            "modes actions"
+            "pair pair" !important;
+    }
+    body.estack-eq-v4 .estack-xo-controls {
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+    body.estack-eq-v4 .estack-xo-readout {
+        height: 62px !important;
+        min-height: 62px !important;
+        max-height: 62px !important;
+        grid-template-columns: repeat(3, minmax(90px,1fr)) !important;
+    }
+    body.estack-eq-v4 .estack-ws-output-grid {
+        grid-template-columns: repeat(3, minmax(0,1fr));
+    }
+    body.estack-eq-v4 .estack-ws-protection-rail {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 760px) {
+    body.estack-eq-v4 .venu-graph-wrap { height: 230px !important; }
+    body.estack-eq-v4 .estack-graph-modebar {
+        grid-template-columns: 1fr !important;
+        grid-template-areas:
+            "modes"
+            "pair"
+            "actions" !important;
+        align-items: stretch !important;
+    }
+    body.estack-eq-v4 .estack-graph-modes {
+        width: 100%;
+        display: grid !important;
+        grid-template-columns: repeat(3,1fr);
+    }
+    body.estack-eq-v4 .estack-graph-modes button {
+        width: auto !important;
+        min-width: 0 !important;
+    }
+    body.estack-eq-v4 .estack-graph-actions {
+        justify-content: flex-start;
+        overflow-x: auto;
+    }
+    body.estack-eq-v4 .venu-graph-legend { justify-content: flex-start !important; }
+    body.estack-eq-v4 .estack-xo-readout {
+        height: 88px !important;
+        min-height: 88px !important;
+        max-height: 88px !important;
+        grid-template-columns: repeat(2, minmax(0,1fr)) !important;
+    }
+    body.estack-eq-v4 .estack-ws-output-grid {
+        grid-template-columns: repeat(2, minmax(0,1fr));
+    }
+    body.estack-eq-v4 .estack-ws-protection-metrics {
+        grid-template-columns: repeat(2,minmax(0,1fr));
+    }
+    body.estack-eq-v4 .estack-ws-peq-row {
+        grid-template-columns: 22px 26px minmax(115px,1fr) minmax(120px,1fr) minmax(110px,1fr) minmax(90px,1fr) 30px;
+        overflow-x: auto;
+    }
+    body.estack-eq-v4 .estack-ws-crossover-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 520px) {
+    body.estack-eq-v4 .estack-ws-output-grid {
+        grid-template-columns: repeat(2, minmax(0,1fr));
+    }
+    body.estack-eq-v4 .estack-ws-knob-field,
+    body.estack-eq-v4 .estack-ws-state-button {
+        min-height: 94px;
+    }
+    body.estack-eq-v4 .estack-ws-xo {
+        grid-template-columns: 76px minmax(0,1fr);
+    }
+    body.estack-eq-v4 .estack-ws-xo-controls {
+        grid-template-columns: 1fr;
+    }
+}
