@@ -1,7 +1,9 @@
-// E-Stack Output Workspace — measurement-first per-way editor.
-// Loaded last on Output Processing. It keeps the existing DSP mutation model,
-// graph/phase engine and safety guard, but replaces the multi-tab control surface
-// with one compact per-way workspace designed for desktop and phone use.
+// E-Stack Output Processing — unified per-way workspace.
+// -----------------------------------------------------------------------------
+// This is the ONLY Output Processing layout/controller layer.
+// DSP mutation helpers, graph engine and safety guards remain in their dedicated
+// modules. Visual structure is generated here once; there are no V2/V3/V4/V5
+// DOM-transform layers anymore.
 
 (function installEStackOutputWorkspace() {
     const PHASE_PREFIX = 'ESTACK_PHASE_';
@@ -12,10 +14,9 @@
         return Math.min(max, Math.max(min, Number.isFinite(n) ? n : min));
     }
     function wsRound(value, decimals = 1) {
-        const f = Math.pow(10, decimals);
-        return Math.round(Number(value) * f) / f;
+        const factor = Math.pow(10, decimals);
+        return Math.round(Number(value) * factor) / factor;
     }
-
     function wsElement(tag, className, text) {
         const el = document.createElement(tag);
         if (className) el.className = className;
@@ -48,12 +49,14 @@
         input.max = String(max);
         input.step = String(step);
         input.disabled = !!disabled;
+
         if (preview) {
             input.addEventListener('input', () => {
                 const n = Number(input.value);
                 if (Number.isFinite(n)) preview(wsClamp(n, min, max));
             });
         }
+
         const suffix = wsElement('span', '', unit || '');
         const apply = () => {
             const next = wsClamp(Number(input.value), min, max);
@@ -77,99 +80,56 @@
         return field;
     }
 
-    function wsSectionHead(title, meta) {
+    function wsSectionHead(title, meta = '') {
         const head = wsElement('header', 'estack-ws-section-head');
         head.append(wsElement('strong', '', title));
         if (meta) head.append(wsElement('span', '', meta));
         return head;
     }
 
-    async function wsSelectChannel(channel) {
-        if (typeof estackV4SelectChannel === 'function') {
-            await estackV4SelectChannel(channel);
-            return;
-        }
-        selectedChannel = Number(channel);
-        selectedPeqSlot = 0;
-        await DSP.downloadConfig();
-        renderAll(false);
-    }
+    function wsKnobField(options) {
+        const field = wsElement('div', 'estack-ws-knob-field');
+        const locked = !!options.disabled;
 
-    function wsWayStepper() {
-        const root = wsElement('div', 'estack-ws-waystep');
-        const channels = activeChannels();
-        const index = Math.max(0, channels.indexOf(selectedChannel));
-        const previous = channels[(index - 1 + channels.length) % channels.length];
-        const next = channels[(index + 1) % channels.length];
-
-        const prev = wsElement('button', 'estack-ws-way-arrow', '‹');
-        prev.type = 'button';
-        prev.title = `Previous output · ${channelName(previous)}`;
-        prev.addEventListener('click', () => wsSelectChannel(previous));
-
-        const current = wsElement('div', 'estack-ws-way-current');
-        const dot = wsElement('i');
-        dot.style.setProperty('--channel-color', typeof estackV4ChannelColor === 'function' ? estackV4ChannelColor(selectedChannel) : '#59d5e3');
-        current.append(dot, wsElement('strong', '', channelName()), wsElement('span', '', `OUT ${selectedChannel + 1}`));
-
-        const nxt = wsElement('button', 'estack-ws-way-arrow', '›');
-        nxt.type = 'button';
-        nxt.title = `Next output · ${channelName(next)}`;
-        nxt.addEventListener('click', () => wsSelectChannel(next));
-        root.append(prev, current, nxt);
-        return root;
-    }
-
-    function wsCrossover(kind) {
-        const entry = getCrossover(kind);
-        const card = wsElement('section', `estack-ws-compact-card estack-ws-xo estack-ws-${kind}`);
-        const label = kind === 'hpf' ? 'HIGH PASS' : 'LOW PASS';
-        card.append(wsSectionHead(label, entry ? (wsLocked() ? 'LOCKED' : 'LIVE EDIT') : 'NOT CONFIGURED'));
-        if (!entry) {
-            card.append(wsElement('div', 'estack-ws-empty', 'No crossover on this output'));
-            return card;
+        if (typeof estackEq8MakeKnob !== 'function') {
+            field.append(wsField(options.label, wsNumber(
+                options.value, options.min, options.max, options.step,
+                options.unit, locked, options.commit, options.preview
+            )));
+            return field;
         }
 
-        const [name, filter] = entry;
-        const p = filter.parameters || (filter.parameters = {});
-        const family = String(p.type || '').startsWith('Butterworth') ? 'Butterworth' : 'LinkwitzRiley';
-        const slope = Math.max(12, Number(p.order || 4) * 6);
-        const controls = wsElement('div', 'estack-ws-xo-controls');
+        const control = estackEq8MakeKnob({
+            label: options.label,
+            value: options.value,
+            min: options.min,
+            max: options.max,
+            step: options.step,
+            logarithmic: !!options.logarithmic,
+            unit: options.unit || '',
+            resetValue: options.resetValue,
+            preview: locked ? null : options.preview,
+            commit: locked ? null : options.commit
+        });
 
-        controls.append(wsField('FREQ', wsNumber(
-            Number(p.freq || 100), 16, 20000, 1, 'Hz', wsLocked(),
-            async next => {
-                p.freq = wsRound(next, 1);
-                await safeUpload(`${channelName()} ${kind.toUpperCase()} frequency`);
-                renderAll(false);
-            },
-            next => { p.freq = wsRound(next, 1); drawGraph(); }
-        )));
-
-        controls.append(wsField('TYPE', wsSelect(
-            ['LinkwitzRiley', 'Butterworth'], family,
-            value => value === 'LinkwitzRiley' ? 'LR' : 'BW', wsLocked(),
-            async value => {
-                p.type = `${value}${kind === 'hpf' ? 'Highpass' : 'Lowpass'}`;
-                await safeUpload(`${channelName()} ${kind.toUpperCase()} type`);
-                renderAll(false);
+        if (locked) {
+            control.classList.add('estack-v2-locked');
+            control.querySelectorAll('input, select, button').forEach(el => { el.disabled = true; });
+            const knob = control.querySelector('.estack-eq8-knob');
+            if (knob) {
+                knob.tabIndex = -1;
+                knob.setAttribute('aria-disabled', 'true');
+                knob.style.pointerEvents = 'none';
             }
-        )));
+        }
 
-        controls.append(wsField('SLOPE', wsSelect(
-            [12, 24, 36, 48], slope, value => `${value} dB`, wsLocked(),
-            async value => {
-                p.order = Number(value) / 6;
-                await safeUpload(`${channelName()} ${kind.toUpperCase()} slope`);
-                renderAll(false);
-            }
-        )));
-
-        card.title = name;
-        card.append(controls);
-        return card;
+        field.append(control);
+        return field;
     }
 
+    /* ----------------------------------------------------------------------
+       Phase trim
+       ---------------------------------------------------------------------- */
     function wsPhaseName(channel = selectedChannel) {
         return `${PHASE_PREFIX}CH${Number(channel)}`;
     }
@@ -183,8 +143,8 @@
     }
 
     function wsPhaseReference(channel = selectedChannel) {
-        const meta = wsPhaseMetadata(channel);
-        if (meta?.referenceHz > 0) return meta.referenceHz;
+        const metadata = wsPhaseMetadata(channel);
+        if (metadata?.referenceHz > 0) return metadata.referenceHz;
         const lpf = getCrossover('lpf', channel);
         if (lpf) return Number(lpf[1]?.parameters?.freq || 1000);
         const hpf = getCrossover('hpf', channel);
@@ -206,7 +166,9 @@
 
     function wsRemovePhase(name) {
         for (const step of (DSP?.config?.pipeline || [])) {
-            if (step?.type === 'Filter' && Array.isArray(step.names)) step.names = step.names.filter(item => item !== name);
+            if (step?.type === 'Filter' && Array.isArray(step.names)) {
+                step.names = step.names.filter(item => item !== name);
+            }
         }
         if (DSP?.config?.filters) delete DSP.config.filters[name];
     }
@@ -215,12 +177,17 @@
         const pipeline = DSP?.config?.pipeline || [];
         const mixerIndex = pipeline.findIndex(step => step?.type === 'Mixer');
         const stage = pipeline.slice(mixerIndex + 1).find(step =>
-            step?.type === 'Filter' && stepChannels(step).includes(Number(channel)) &&
-            (step.names || []).some(filterName => ['Gain', 'Delay', 'BiquadCombo'].includes(DSP?.config?.filters?.[filterName]?.type))
+            step?.type === 'Filter' &&
+            stepChannels(step).includes(Number(channel)) &&
+            (step.names || []).some(filterName =>
+                ['Gain', 'Delay', 'BiquadCombo'].includes(DSP?.config?.filters?.[filterName]?.type)
+            )
         );
         if (!stage) throw new Error(`No output filter stage found for ${channelName(channel)}`);
         const channels = stepChannels(stage);
-        if (channels.length !== 1 || channels[0] !== Number(channel)) throw new Error('Phase trim requires an independent output stage');
+        if (channels.length !== 1 || channels[0] !== Number(channel)) {
+            throw new Error('Phase trim requires an independent output stage');
+        }
         stage.names = (stage.names || []).filter(item => item !== name);
         let index = stage.names.findIndex(item => DSP?.config?.filters?.[item]?.type === 'Gain');
         if (index < 0) index = stage.names.findIndex(item => DSP?.config?.filters?.[item]?.type === 'Delay');
@@ -235,6 +202,7 @@
         const before = typeof DSP.estackConfigSnapshot === 'function'
             ? DSP.estackConfigSnapshot()
             : JSON.parse(JSON.stringify(DSP.config));
+
         try {
             if (Math.abs(phase) < .05) {
                 wsRemovePhase(name);
@@ -249,7 +217,9 @@
                 };
                 wsAttachPhase(name, channel);
             }
-            if (typeof DSP.uploadConfigGuarded !== 'function') throw new Error('Guarded configuration writer unavailable');
+            if (typeof DSP.uploadConfigGuarded !== 'function') {
+                throw new Error('Guarded configuration writer unavailable');
+            }
             await DSP.uploadConfigGuarded(before, {
                 name: `${channelName(channel)} phase trim`,
                 allowedFilterPrefixes: [PHASE_PREFIX]
@@ -264,76 +234,159 @@
         renderAll(false);
     }
 
-    function wsAlignment() {
-        const card = wsElement('section', 'estack-ws-compact-card estack-ws-alignment');
-        card.append(wsSectionHead('OUTPUT / ALIGN', wsLocked() ? 'LOCKED' : 'LIVE EDIT'));
-        const controls = wsElement('div', 'estack-ws-align-controls');
+    /* ----------------------------------------------------------------------
+       Output / alignment / protection
+       ---------------------------------------------------------------------- */
+    function wsStateButton(label, value, classes, disabled, onClick) {
+        const button = wsElement('button', `estack-ws-state-button ${classes || ''}`.trim());
+        button.type = 'button';
+        button.disabled = !!disabled;
+        button.innerHTML = `<span>${label}</span><strong>${value}</strong>`;
+        button.addEventListener('click', onClick);
+        return button;
+    }
+
+    function wsProtectionRail() {
+        const rail = wsElement('div', 'estack-ws-protection-rail');
+        const limiters = getLimiterEntries();
+        const processors = getProcessorEntries();
+
+        if (limiters.length) {
+            for (const [name, filter] of limiters) {
+                const p = filter.parameters || (filter.parameters = {});
+                const module = wsElement('article', 'estack-ws-protection-module');
+                const head = wsElement('div', 'estack-ws-protection-module-head');
+                head.append(wsElement('strong', '', 'HARD LIMITER'), wsElement('span', '', 'CEILING'));
+                const field = wsField('THRESHOLD', wsNumber(
+                    Number(p.clip_limit ?? -3), -60, 0, .1, 'dBFS', wsLocked(),
+                    async next => {
+                        p.clip_limit = wsRound(next, 1);
+                        await safeUpload(`${channelName()} limiter threshold`);
+                        renderAll(false);
+                    }
+                ), 'estack-ws-limit-field');
+                module.title = name;
+                module.append(head, field);
+                rail.append(module);
+            }
+        }
+
+        for (const [name, processor] of processors) {
+            const p = processor?.parameters || {};
+            const module = wsElement('article', 'estack-ws-protection-module');
+            const head = wsElement('div', 'estack-ws-protection-module-head');
+            head.append(
+                wsElement('strong', '', String(processor?.type || name).toUpperCase()),
+                wsElement('span', '', 'ACTIVE')
+            );
+            const metrics = wsElement('div', 'estack-ws-protection-metrics');
+            const values = [
+                ['THRESH', p.threshold, v => `${Number(v).toFixed(1)} dB`],
+                ['ATTACK', p.attack, v => `${Number(v).toFixed(3)} s`],
+                ['RELEASE', p.release, v => `${Number(v).toFixed(3)} s`],
+                ['RATIO', p.factor, v => `${Number(v)}:1`]
+            ];
+            for (const [label, value, formatter] of values) {
+                if (value === undefined) continue;
+                const metric = wsElement('span', 'estack-ws-protection-metric');
+                metric.append(wsElement('small', '', label), wsElement('strong', '', formatter(value)));
+                metrics.append(metric);
+            }
+            module.title = name;
+            module.append(head, metrics);
+            rail.append(module);
+        }
+
+        if (!rail.children.length) {
+            const module = wsElement('article', 'estack-ws-protection-module');
+            module.append(wsElement('div', 'estack-ws-empty', 'No protection module on this output'));
+            rail.append(module);
+        }
+        return rail;
+    }
+
+    function wsOutput() {
+        const section = wsElement('section', 'estack-ws-section estack-ws-output');
+        section.append(wsSectionHead('OUTPUT / ALIGN / PROTECTION', wsLocked() ? 'LOCKED' : 'LIVE EDIT'));
+        const grid = wsElement('div', 'estack-ws-output-grid');
+
         const gainEntry = getGainEntry();
         const delayEntry = getDelayEntry();
 
         if (gainEntry) {
             const p = gainEntry[1].parameters || (gainEntry[1].parameters = {});
-            controls.append(wsField('GAIN', wsNumber(
-                Number(p.gain || 0), -60, 12, .1, 'dB', wsLocked(),
-                async next => {
+            grid.append(wsKnobField({
+                label: 'GAIN', value: Number(p.gain || 0), min: -60, max: 12, step: .1,
+                unit: 'dB', resetValue: 0, disabled: wsLocked(),
+                preview: next => { p.gain = wsRound(next, 1); drawGraph(); },
+                commit: async next => {
                     p.gain = wsRound(next, 1);
                     await safeUpload(`${channelName()} output gain`);
                     renderAll(false);
-                },
-                next => { p.gain = wsRound(next, 1); drawGraph(); }
-            )));
-
-            const polarity = wsElement('button', `estack-ws-state-button ${p.inverted ? 'active warning' : ''}`.trim());
-            polarity.type = 'button';
-            polarity.disabled = wsLocked();
-            polarity.innerHTML = `<span>POLARITY</span><strong>${p.inverted ? 'INVERTED' : 'NORMAL'}</strong>`;
-            polarity.addEventListener('click', async () => {
-                p.inverted = !p.inverted;
-                await safeUpload(`${channelName()} polarity`);
-                renderAll(false);
-            });
-            controls.append(polarity);
-
-            const mute = wsElement('button', `estack-ws-state-button ${p.mute ? 'danger active' : ''}`.trim());
-            mute.type = 'button';
-            mute.disabled = wsLocked();
-            mute.innerHTML = `<span>OUTPUT</span><strong>${p.mute ? 'MUTED' : 'ON'}</strong>`;
-            mute.addEventListener('click', async () => {
-                p.mute = !p.mute;
-                await safeUpload(`${channelName()} ${p.mute ? 'muted' : 'unmuted'}`);
-                renderAll(false);
-            });
-            controls.append(mute);
+                }
+            }));
         }
 
         if (delayEntry) {
             const p = delayEntry[1].parameters || (delayEntry[1].parameters = {});
             const unit = p.unit || 'ms';
-            controls.append(wsField('DELAY', wsNumber(
-                Number(p.delay || 0), 0, unit === 'ms' ? 100 : 50000, unit === 'ms' ? .01 : 1, unit, wsLocked(),
-                async next => {
+            grid.append(wsKnobField({
+                label: 'DELAY', value: Number(p.delay || 0), min: 0,
+                max: unit === 'ms' ? 100 : 50000, step: unit === 'ms' ? .01 : 1,
+                unit, resetValue: 0, disabled: wsLocked(), preview: null,
+                commit: async next => {
                     p.delay = Number(next);
                     await safeUpload(`${channelName()} alignment delay`);
                     renderAll(false);
                 }
-            )));
+            }));
         }
 
-        const ref = wsPhaseReference();
-        controls.append(wsField(`PHASE @ ${Math.round(ref)} Hz`, wsNumber(
-            wsCurrentPhase(), -179, 0, .1, '°', wsLocked(), wsCommitPhase
-        ), 'estack-ws-phase-field'));
-        card.append(controls);
-        return card;
+        const reference = wsPhaseReference();
+        grid.append(wsKnobField({
+            label: `PHASE @ ${Math.round(reference)} Hz`, value: wsCurrentPhase(),
+            min: -179, max: 0, step: .1, unit: '°', resetValue: 0,
+            disabled: wsLocked(), preview: null, commit: wsCommitPhase
+        }));
+
+        if (gainEntry) {
+            const p = gainEntry[1].parameters || (gainEntry[1].parameters = {});
+            grid.append(wsStateButton(
+                'POLARITY', p.inverted ? 'INVERTED' : 'NORMAL',
+                p.inverted ? 'active warning' : '', wsLocked(), async () => {
+                    p.inverted = !p.inverted;
+                    await safeUpload(`${channelName()} polarity`);
+                    renderAll(false);
+                }
+            ));
+            grid.append(wsStateButton(
+                'OUTPUT', p.mute ? 'MUTED' : 'ON',
+                p.mute ? 'danger active' : '', wsLocked(), async () => {
+                    p.mute = !p.mute;
+                    await safeUpload(`${channelName()} ${p.mute ? 'muted' : 'unmuted'}`);
+                    renderAll(false);
+                }
+            ));
+        }
+
+        section.append(grid, wsProtectionRail());
+        return section;
     }
 
+    /* ----------------------------------------------------------------------
+       Parametric EQ
+       ---------------------------------------------------------------------- */
     async function wsDeletePeq(slot, entry) {
         if (!entry) return;
         const [name] = entry;
         DSP.removeFilterFromChannelPipeline(name, selectedChannel);
         if (DSP.config?.filters?.[name]) delete DSP.config.filters[name];
-        if (typeof estackPeqDisabledKey === 'function') window.localStorage.removeItem(estackPeqDisabledKey(selectedChannel, slot));
-        if (typeof estackPeqStoredGainKey === 'function') window.localStorage.removeItem(estackPeqStoredGainKey(selectedChannel, slot));
+        if (typeof estackPeqDisabledKey === 'function') {
+            window.localStorage.removeItem(estackPeqDisabledKey(selectedChannel, slot));
+        }
+        if (typeof estackPeqStoredGainKey === 'function') {
+            window.localStorage.removeItem(estackPeqStoredGainKey(selectedChannel, slot));
+        }
         await safeUpload(`${channelName()} PEQ ${slot + 1} deleted`);
         selectedPeqSlot = 0;
         renderAll(false);
@@ -341,44 +394,51 @@
 
     function wsPeqRow(slot, entry) {
         const p = entry[1].parameters || (entry[1].parameters = {});
-        const disabled = typeof estackPeqIsDisabled === 'function' && estackPeqIsDisabled(selectedChannel, slot);
-        const row = wsElement('div', `estack-ws-peq-row ${disabled ? 'bypassed' : ''}`.trim());
+        const bypassed = typeof estackPeqIsDisabled === 'function' && estackPeqIsDisabled(selectedChannel, slot);
+        const row = wsElement('div', `estack-ws-peq-row ${bypassed ? 'bypassed' : ''}`.trim());
         row.dataset.peqSlot = String(slot);
 
-        const power = wsElement('button', `estack-ws-peq-power ${disabled ? '' : 'active'}`.trim());
+        const power = wsElement('button', `estack-ws-peq-power ${bypassed ? '' : 'active'}`.trim());
         power.type = 'button';
-        power.title = disabled ? 'Enable PEQ' : 'Bypass PEQ';
+        power.title = bypassed ? 'Enable PEQ' : 'Bypass PEQ';
         power.setAttribute('aria-label', power.title);
         power.addEventListener('click', () => estackTogglePeq(slot));
 
-        const number = wsElement('strong', 'estack-ws-peq-index', String(slot + 1));
+        const index = wsElement('strong', 'estack-ws-peq-index', String(slot + 1));
         const type = wsSelect(
             ['Peaking', 'Lowshelf', 'Highshelf'], p.type || 'Peaking',
-            value => value === 'Peaking' ? 'BELL' : value === 'Lowshelf' ? 'LOW SHELF' : 'HIGH SHELF', false,
-            value => estackCommitPeqValue(slot, 'type', value)
+            value => value === 'Peaking' ? 'BELL' : value === 'Lowshelf' ? 'LOW SHELF' : 'HIGH SHELF',
+            false, value => estackCommitPeqValue(slot, 'type', value)
         );
-
-        const freq = wsNumber(Number(p.freq || 1000), 20, 20000, 1, 'Hz', false,
+        const freq = wsNumber(
+            Number(p.freq || 1000), 20, 20000, 1, 'Hz', false,
             next => estackCommitPeqValue(slot, 'freq', next),
-            next => { p.freq = next; selectedPeqSlot = slot; drawGraph(); });
-        const gain = wsNumber(Number(p.gain || 0), ESTACK_PEQ_GAIN_MIN, ESTACK_PEQ_GAIN_MAX, .1, 'dB', false,
+            next => { p.freq = next; selectedPeqSlot = slot; drawGraph(); }
+        );
+        const gain = wsNumber(
+            Number(p.gain || 0), ESTACK_PEQ_GAIN_MIN, ESTACK_PEQ_GAIN_MAX, .1, 'dB', false,
             next => estackCommitPeqValue(slot, 'gain', next),
-            next => { p.gain = next; selectedPeqSlot = slot; drawGraph(); });
-        const q = wsNumber(Number(p.q || ESTACK_PEQ_DEFAULT_Q), .1, 20, .01, 'Q', false,
+            next => { p.gain = next; selectedPeqSlot = slot; drawGraph(); }
+        );
+        const q = wsNumber(
+            Number(p.q || ESTACK_PEQ_DEFAULT_Q), .1, 20, .01, 'Q', false,
             next => estackCommitPeqValue(slot, 'q', next),
-            next => { p.q = next; selectedPeqSlot = slot; drawGraph(); });
+            next => { p.q = next; selectedPeqSlot = slot; drawGraph(); }
+        );
 
         const remove = wsElement('button', 'estack-ws-peq-delete', '×');
         remove.type = 'button';
         remove.title = `Delete PEQ ${slot + 1}`;
         remove.addEventListener('click', () => wsDeletePeq(slot, entry));
 
-        row.append(power, number,
+        row.append(
+            power, index,
             wsField('TYPE', type),
             wsField('FREQ', freq),
             wsField('GAIN', gain),
             wsField('Q', q),
-            remove);
+            remove
+        );
         row.addEventListener('pointerdown', () => {
             selectedPeqSlot = slot;
             drawGraph();
@@ -387,7 +447,7 @@
     }
 
     function wsPeq() {
-        const card = wsElement('section', 'estack-ws-card estack-ws-peq');
+        const section = wsElement('section', 'estack-ws-section estack-ws-peq');
         const slots = mapPeqSlots();
         const active = slots.map((entry, slot) => ({ entry, slot })).filter(item => !!item.entry);
         const head = wsSectionHead('PARAMETRIC EQ', `${active.length} band${active.length === 1 ? '' : 's'}`);
@@ -400,70 +460,95 @@
             if (empty >= 0) createPeqBand(empty);
         });
         head.append(add);
-        card.append(head);
+        section.append(head);
 
         const rows = wsElement('div', 'estack-ws-peq-rows');
         if (!active.length) {
             const empty = wsElement('button', 'estack-ws-peq-empty');
             empty.type = 'button';
-            empty.innerHTML = '<strong>No PEQ</strong><span>Tap to create the first band</span>';
+            empty.innerHTML = '<strong>No parametric EQ</strong><span>+ PEQ to add a correction band</span>';
             empty.addEventListener('click', () => createPeqBand(0));
             rows.append(empty);
         } else {
             active.forEach(({ entry, slot }) => rows.append(wsPeqRow(slot, entry)));
         }
-        card.append(rows);
-        return card;
+        section.append(rows);
+        return section;
     }
 
-    function wsProtection() {
-        const card = wsElement('section', 'estack-ws-card estack-ws-protection');
-        const limiters = getLimiterEntries();
-        const processors = getProcessorEntries();
-        card.append(wsSectionHead('PROTECTION', wsLocked() ? 'LOCKED' : 'LIVE EDIT'));
-        const body = wsElement('div', 'estack-ws-protection-body');
+    /* ----------------------------------------------------------------------
+       Crossover — intentionally after PEQ
+       ---------------------------------------------------------------------- */
+    function wsCrossoverPane(kind) {
+        const entry = getCrossover(kind);
+        const pane = wsElement('article', `estack-ws-xo estack-ws-${kind}`);
+        pane.append(wsElement('strong', 'estack-ws-xo-title', kind === 'hpf' ? 'HIGH PASS' : 'LOW PASS'));
 
-        if (limiters.length) {
-            for (const [name, filter] of limiters) {
-                const p = filter.parameters || (filter.parameters = {});
-                body.append(wsField('HARD LIMIT', wsNumber(
-                    Number(p.clip_limit ?? -3), -60, 0, .1, 'dBFS', wsLocked(),
-                    async next => {
-                        p.clip_limit = wsRound(next, 1);
-                        await safeUpload(`${channelName()} limiter threshold`);
-                        renderAll(false);
-                    }
-                ), 'estack-ws-limit-field'));
+        if (!entry) {
+            pane.append(wsElement('div', 'estack-ws-empty', 'Not configured'));
+            return pane;
+        }
+
+        const [name, filter] = entry;
+        const p = filter.parameters || (filter.parameters = {});
+        const family = String(p.type || '').startsWith('Butterworth') ? 'Butterworth' : 'LinkwitzRiley';
+        const slope = Math.max(12, Number(p.order || 4) * 6);
+
+        pane.append(wsKnobField({
+            label: 'FREQ', value: Number(p.freq || 100), min: 16, max: 20000,
+            step: 1, logarithmic: true, unit: 'Hz', resetValue: Number(p.freq || 100),
+            disabled: wsLocked(),
+            preview: next => { p.freq = wsRound(next, 1); drawGraph(); },
+            commit: async next => {
+                p.freq = wsRound(next, 1);
+                await safeUpload(`${channelName()} ${kind.toUpperCase()} frequency`);
+                renderAll(false);
             }
-        } else {
-            body.append(wsElement('span', 'estack-ws-protection-empty', 'No hard limiter'));
-        }
+        }));
 
-        for (const [name, processor] of processors) {
-            const p = processor?.parameters || {};
-            const summary = wsElement('div', 'estack-ws-processor-summary');
-            summary.append(wsElement('strong', '', String(processor?.type || name).toUpperCase()));
-            const values = [
-                p.threshold !== undefined ? `THR ${Number(p.threshold).toFixed(1)} dB` : '',
-                p.attack !== undefined ? `A ${Number(p.attack).toFixed(3)} s` : '',
-                p.release !== undefined ? `R ${Number(p.release).toFixed(3)} s` : '',
-                p.factor !== undefined ? `RATIO ${Number(p.factor)}:1` : ''
-            ].filter(Boolean);
-            summary.append(wsElement('span', '', values.join(' · ') || name));
-            body.append(summary);
-        }
-        card.append(body);
-        return card;
+        const controls = wsElement('div', 'estack-ws-xo-controls');
+        controls.append(wsField('TYPE', wsSelect(
+            ['LinkwitzRiley', 'Butterworth'], family,
+            value => value === 'LinkwitzRiley' ? 'LR' : 'BW', wsLocked(), async value => {
+                p.type = `${value}${kind === 'hpf' ? 'Highpass' : 'Lowpass'}`;
+                await safeUpload(`${channelName()} ${kind.toUpperCase()} type`);
+                renderAll(false);
+            }
+        )));
+        controls.append(wsField('SLOPE', wsSelect(
+            [12, 24, 36, 48], slope, value => `${value} dB`, wsLocked(), async value => {
+                p.order = Number(value) / 6;
+                await safeUpload(`${channelName()} ${kind.toUpperCase()} slope`);
+                renderAll(false);
+            }
+        )));
+        pane.title = name;
+        pane.append(controls);
+        return pane;
     }
 
+    function wsCrossover() {
+        const section = wsElement('section', 'estack-ws-section estack-ws-crossover');
+        section.append(wsSectionHead('CROSSOVER', wsLocked() ? 'LOCKED' : 'LIVE EDIT'));
+        const grid = wsElement('div', 'estack-ws-crossover-grid');
+        grid.append(wsCrossoverPane('hpf'), wsCrossoverPane('lpf'));
+        section.append(grid);
+        return section;
+    }
+
+    /* ----------------------------------------------------------------------
+       Analyzer and graph chrome
+       ---------------------------------------------------------------------- */
     function wsAnalyzerBar() {
         const bar = wsElement('section', 'estack-ws-analyzerbar');
         bar.append(wsElement('strong', '', 'ANALYZER'));
 
         if (typeof estackSpectrumView !== 'undefined' && typeof estackSetSpectrumView === 'function') {
-            const view = wsSelect(['full', 'sub', 'low', 'mid', 'high'], estackSpectrumView,
-                value => String(value).toUpperCase(), false, value => estackSetSpectrumView(value));
-            bar.append(wsField('VIEW', view));
+            bar.append(wsField('VIEW', wsSelect(
+                ['full', 'sub', 'low', 'mid', 'high'], estackSpectrumView,
+                value => String(value).toUpperCase(), false,
+                value => estackSetSpectrumView(value)
+            )));
         }
 
         if (typeof estackSpectrumMode !== 'undefined' && typeof estackSetSpectrumMode === 'function') {
@@ -481,27 +566,57 @@
         }
 
         if (typeof estackEq8RefreshHz !== 'undefined') {
-            const refresh = wsSelect([10, 15, 20, 30], estackEq8RefreshHz, value => `${value} Hz`, false, value => {
-                estackEq8RefreshHz = Number(value);
-                window.localStorage.setItem('estack.analyzer.refreshHz', String(estackEq8RefreshHz));
-                startSpectrum();
-            });
-            bar.append(wsField('REFRESH', refresh, 'estack-ws-analyzer-advanced'));
+            bar.append(wsField('REFRESH', wsSelect(
+                [10, 15, 20, 30], estackEq8RefreshHz,
+                value => `${value} Hz`, false, value => {
+                    estackEq8RefreshHz = Number(value);
+                    window.localStorage.setItem('estack.analyzer.refreshHz', String(estackEq8RefreshHz));
+                    startSpectrum();
+                }
+            ), 'estack-ws-analyzer-advanced'));
         }
         return bar;
     }
 
-    // The output page is always a per-way workspace now. No module switching is
-    // required; the graph stays in PEQ/magnitude context while all output system
-    // controls are rendered below it at the same time.
+    function mountGraphChrome(analyzer) {
+        const graph = document.querySelector('.venu-graph-wrap');
+        const modebar = document.getElementById('estackGraphModebar');
+        const readout = document.getElementById('estackXoReadout');
+        if (!graph || !modebar) return false;
+
+        // PhaseGraph creates these controls before the graph. The unified page
+        // owns final placement: graph -> command bar -> stable XO readout.
+        if (graph.nextElementSibling !== modebar) graph.insertAdjacentElement('afterend', modebar);
+        if (readout && modebar.nextElementSibling !== readout) modebar.insertAdjacentElement('afterend', readout);
+
+        let actions = modebar.querySelector('.estack-graph-actions');
+        if (!actions) {
+            actions = wsElement('div', 'estack-graph-actions');
+            const note = modebar.querySelector('.estack-phase-source-note');
+            if (note) modebar.insertBefore(actions, note);
+            else modebar.append(actions);
+        }
+
+        const legend = document.querySelector('.venu-graph-legend');
+        const edit = document.getElementById('systemEditToggle');
+        if (legend && legend.parentElement !== actions) actions.append(legend);
+        if (analyzer && analyzer.parentElement !== actions) actions.append(analyzer);
+        if (edit && edit.parentElement !== actions) actions.append(edit);
+        return true;
+    }
+
+    /* ----------------------------------------------------------------------
+       Final render overrides
+       ---------------------------------------------------------------------- */
     renderModuleTabs = function() {
         activeModule = 'peq';
         const root = document.getElementById('moduleTabs');
-        root.replaceChildren(wsWayStepper());
+        if (root) root.replaceChildren();
     };
 
     renderBandSelector = function() {
         const root = document.getElementById('bandSelector');
+        if (!root) return;
         root.replaceChildren();
         root.classList.add('estack-peq-hidden-selector');
     };
@@ -512,10 +627,7 @@
         const selectedMeta = document.getElementById('selectedChannelMeta');
         if (selectedTitle) selectedTitle.textContent = channelName();
         if (selectedMeta) selectedMeta.textContent = `OUT ${selectedChannel + 1}`;
-        const moduleTitle = document.getElementById('moduleTitle');
-        const moduleSubtitle = document.getElementById('moduleSubtitle');
-        if (moduleTitle) moduleTitle.textContent = 'PER-WAY WORKSPACE';
-        if (moduleSubtitle) moduleSubtitle.textContent = '';
+
         const edit = document.getElementById('systemEditToggle');
         if (edit) {
             edit.setAttribute('aria-pressed', String(systemEditEnabled));
@@ -532,16 +644,23 @@
         root.className = 'venu-controls estack-workspace-mode';
         root.replaceChildren();
 
-        const workspace = wsElement('div', 'estack-ws-workspace');
-        workspace.append(wsAnalyzerBar());
+        const workspace = wsElement('div', 'estack-ws-workspace estack-ws-workspace-unified');
+        const analyzer = wsAnalyzerBar();
 
-        const essentials = wsElement('div', 'estack-ws-essentials');
-        essentials.append(wsCrossover('hpf'), wsCrossover('lpf'), wsAlignment());
-        workspace.append(essentials, wsPeq(), wsProtection());
+        // Temporary DOM position makes the analyzer available even if PhaseGraph
+        // has not mounted its command bar yet. mountGraphChrome moves it later.
+        workspace.append(analyzer, wsOutput(), wsPeq(), wsCrossover());
         root.append(workspace);
+
+        requestAnimationFrame(() => mountGraphChrome(analyzer));
     };
 
-    // Keep channel selection reachable on phones even if the user is working
-    // lower in the page. The actual sticky behaviour is CSS-owned.
+    document.addEventListener('DOMContentLoaded', () => {
+        requestAnimationFrame(() => {
+            const analyzer = document.querySelector('.estack-ws-analyzerbar');
+            mountGraphChrome(analyzer);
+        });
+    });
+
     try { activeModule = 'peq'; } catch (_) {}
 })();
