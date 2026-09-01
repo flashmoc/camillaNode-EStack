@@ -1,5 +1,0 @@
-/* Compatibility loader for Input Processing.
- * The shared graph sizing and Processing-page polish now live in
- * estackProcessingPolish.css so Input and Output cannot drift apart visually.
- */
-@import url('/css/estackProcessingPolish.css');
