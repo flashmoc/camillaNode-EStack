@@ -1,0 +1,450 @@
+/*
+ * E-Stack Design System
+ * --------------------------------------------------------------------------
+ * SINGLE SOURCE OF TRUTH for cross-page visual language.
+ *
+ * Rules:
+ *  - Global colours, typography, spacing, controls, panels, states and knobs
+ *    belong here.
+ *  - Page stylesheets own layout only.
+ *  - Do not create V2/V3/V4 visual override files. Refactor this file for a
+ *    product-wide redesign, or the page's single stylesheet for page layout.
+ */
+
+:root {
+    /* Surfaces */
+    --es-bg: hsl(var(--bck-hue), 29%, 10.5%);
+    --es-bg-deep: hsl(var(--bck-hue), 31%, 7.4%);
+    --es-surface-0: hsl(var(--bck-hue), 27%, 11.8%);
+    --es-surface-1: hsl(var(--bck-hue), 25%, 14.0%);
+    --es-surface-2: hsl(var(--bck-hue), 23%, 16.2%);
+    --es-control: hsl(var(--bck-hue), 27%, 8.8%);
+    --es-control-hover: hsl(var(--bck-hue), 22%, 18%);
+
+    /* Lines */
+    --es-border: hsla(0,0%,100%,.13);
+    --es-border-strong: hsla(0,0%,100%,.22);
+    --es-border-soft: hsla(0,0%,100%,.075);
+
+    /* Type */
+    --es-text: rgba(248,251,252,.96);
+    --es-text-soft: rgba(235,242,244,.72);
+    --es-muted: rgba(229,237,239,.52);
+    --es-dim: rgba(229,237,239,.34);
+    --es-font: "Abel", "Open Sans", Arial, sans-serif;
+    --es-font-data: "Open Sans", Arial, sans-serif;
+    --es-page-title: 22px;
+    --es-section-title: 12px;
+    --es-label: 10px;
+    --es-control-text: 12px;
+    --es-value: 13px;
+    --es-caption: 9px;
+
+    /* Accent and state */
+    --es-accent: var(--eq-accent, #59d5e3);
+    --es-accent-soft: color-mix(in srgb, var(--es-accent) 13%, transparent);
+    --es-ok: #69df84;
+    --es-warn: #e7b34d;
+    --es-danger: #e46f78;
+    --es-info: #59d5e3;
+
+    /* Geometry */
+    --es-radius: 3px;
+    --es-radius-lg: 5px;
+    --es-space-1: 4px;
+    --es-space-2: 7px;
+    --es-space-3: 10px;
+    --es-space-4: 14px;
+    --es-control-h: 34px;
+    --es-control-h-compact: 28px;
+    --es-content-width: 98%;
+    --es-content-margin: 1%;
+
+    /* Backwards-compatible aliases used by older page modules. */
+    --estack-bg: var(--es-bg);
+    --estack-bg-deep: var(--es-bg-deep);
+    --estack-surface: var(--es-surface-1);
+    --estack-surface-soft: var(--es-surface-0);
+    --estack-surface-hover: var(--es-control-hover);
+    --estack-border: var(--es-border);
+    --estack-border-soft: var(--es-border-soft);
+    --estack-text: var(--es-text);
+    --estack-muted: var(--es-muted);
+    --estack-dim: var(--es-dim);
+    --estack-accent: var(--es-accent);
+    --estack-radius: var(--es-radius);
+    --estack-radius-small: var(--es-radius);
+    --estack-control-bg: var(--es-control);
+    --estack-control-bg-hover: var(--es-control-hover);
+    --estack-control-border: var(--es-border);
+}
+
+html,
+body {
+    color: var(--es-text);
+    background: var(--es-bg);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body,
+button,
+input,
+select,
+textarea {
+    font-family: var(--es-font);
+}
+
+/* --------------------------------------------------------------------------
+   Page titles
+   -------------------------------------------------------------------------- */
+#sectionMainTitle,
+.processing-page-title,
+.signal-page-title,
+.measure-page-title {
+    width: auto !important;
+    min-height: 36px !important;
+    margin: 4px var(--es-content-margin) 10px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    color: var(--es-text) !important;
+    background: transparent !important;
+    font-family: var(--es-font) !important;
+    font-size: var(--es-page-title) !important;
+    font-weight: 400 !important;
+    line-height: 1.12 !important;
+    letter-spacing: 0 !important;
+    box-shadow: none !important;
+}
+
+#sectionMainTitle,
+.processing-page-title {
+    display: flex !important;
+    align-items: center !important;
+}
+
+.signal-page-title,
+.measure-page-title {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+}
+
+#sectionMainTitle img,
+.processing-page-title img,
+.signal-page-title img,
+.measure-page-title img {
+    width: 22px !important;
+    height: 22px !important;
+    margin: 0 10px 0 0 !important;
+    padding: 0 !important;
+    object-fit: contain;
+    transform: none !important;
+    opacity: .82;
+}
+
+.signal-page-title > div:first-child,
+.measure-page-title > div:first-child {
+    display: flex !important;
+    align-items: center !important;
+}
+
+.signal-page-title > div:first-child > strong,
+.measure-page-title > div:first-child > strong {
+    color: var(--es-text) !important;
+    font-size: var(--es-page-title) !important;
+    font-weight: 400 !important;
+}
+
+/* --------------------------------------------------------------------------
+   Panels and section headings
+   -------------------------------------------------------------------------- */
+.group,
+.es-panel {
+    border: 1px solid var(--es-border-soft);
+    border-radius: var(--es-radius);
+    background: var(--es-surface-0);
+    background-image: none;
+    box-shadow: none;
+}
+
+.group {
+    margin: 8px var(--es-content-margin);
+}
+
+.group::before,
+.es-section-head,
+.estack-ws-section-head,
+.estack-peq-eq-head,
+.estack-peq-xover-title,
+.estack-eq8-analyzer-head,
+.global-v2-graph-head,
+.global-v2-eq-head,
+.input-delay-head {
+    color: var(--es-text);
+    background: transparent;
+    border-color: var(--es-border-soft);
+    box-shadow: none;
+}
+
+.es-section-head,
+.estack-ws-section-head,
+.estack-peq-eq-head,
+.estack-peq-xover-title,
+.estack-eq8-analyzer-head,
+.global-v2-graph-head,
+.global-v2-eq-head,
+.input-delay-head {
+    min-height: 32px;
+    padding: 6px 8px;
+}
+
+.es-section-head strong,
+.estack-ws-section-head strong,
+.estack-peq-eq-head strong,
+.estack-peq-xover-title strong,
+.estack-eq8-analyzer-head strong,
+.global-v2-graph-head strong,
+.global-v2-eq-head strong,
+.input-delay-head strong {
+    color: var(--es-text) !important;
+    font-size: var(--es-section-title) !important;
+    font-weight: 600 !important;
+    letter-spacing: .025em !important;
+}
+
+.es-section-head span,
+.estack-ws-section-head span,
+.estack-peq-eq-head span,
+.estack-peq-xover-title span,
+.global-v2-graph-head span,
+.input-delay-head span {
+    color: var(--es-muted) !important;
+    font-size: var(--es-caption) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Controls
+   -------------------------------------------------------------------------- */
+button,
+select,
+input[type="text"],
+input[type="number"],
+input[type="button"],
+input[type="submit"] {
+    border: 1px solid var(--es-border) !important;
+    border-radius: var(--es-radius) !important;
+    color: var(--es-text) !important;
+    background: var(--es-control) !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    outline: 0;
+}
+
+button,
+select,
+input[type="button"],
+input[type="submit"] {
+    min-height: var(--es-control-h-compact);
+    font-size: var(--es-control-text);
+}
+
+input[type="text"],
+input[type="number"] {
+    min-height: var(--es-control-h-compact);
+    font-family: var(--es-font-data);
+    font-size: var(--es-control-text);
+    font-variant-numeric: tabular-nums;
+}
+
+button:not(:disabled) { cursor: pointer; }
+
+button:hover:not(:disabled),
+select:hover:not(:disabled),
+input[type="button"]:hover:not(:disabled),
+input[type="submit"]:hover:not(:disabled) {
+    border-color: var(--es-border-strong) !important;
+    background: var(--es-control-hover) !important;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+    outline: 1px solid var(--es-accent) !important;
+    outline-offset: 2px;
+}
+
+button:disabled,
+select:disabled,
+input:disabled {
+    opacity: .45;
+    cursor: default;
+}
+
+/* Common field grammar. */
+.estack-ws-field-label,
+.signal-field > span,
+.measure-field > span,
+.estack-eq8-knob-label,
+.estack-eq8-q-label,
+.global-v2-analyzer-label {
+    color: var(--es-muted) !important;
+    font-size: var(--es-label) !important;
+    font-weight: 600 !important;
+    line-height: 1.1;
+    letter-spacing: .035em;
+}
+
+/* --------------------------------------------------------------------------
+   Shared E-Stack rotary control
+   -------------------------------------------------------------------------- */
+.estack-eq8-knob-control {
+    display: grid;
+    justify-items: center;
+    align-content: center;
+    gap: 3px;
+    min-width: 64px;
+}
+
+.estack-eq8-knob {
+    --angle: 0deg;
+    position: relative;
+    width: 46px;
+    height: 46px;
+    border: 1px solid var(--es-border-strong) !important;
+    border-radius: 50% !important;
+    background: hsl(var(--bck-hue), 20%, 14%) !important;
+    box-shadow: inset 0 0 0 5px rgba(0,0,0,.10) !important;
+    cursor: ns-resize;
+    touch-action: none;
+}
+
+.estack-eq8-knob::before {
+    content: "";
+    position: absolute;
+    inset: 5px;
+    border: 1px solid rgba(255,255,255,.045);
+    border-radius: 50%;
+}
+
+/* One centred indicator. The legacy child marker remains hidden for JS compat. */
+.estack-eq8-knob-marker { display: none !important; }
+
+.estack-eq8-knob::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 50%;
+    width: 2px;
+    height: calc(50% - 5px);
+    min-height: 8px;
+    border-radius: 2px;
+    background: var(--es-accent);
+    transform: translateX(-50%) rotate(var(--angle));
+    transform-origin: 50% 100%;
+    pointer-events: none;
+}
+
+.estack-eq8-knob:hover:not([aria-disabled="true"]),
+.estack-eq8-knob:focus-visible:not([aria-disabled="true"]) {
+    border-color: color-mix(in srgb, var(--es-accent) 62%, var(--es-border-strong)) !important;
+}
+
+.estack-eq8-number-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-height: 27px;
+}
+
+.estack-eq8-number {
+    width: 58px;
+    height: 27px !important;
+    min-height: 27px !important;
+    padding: 2px 4px !important;
+    color: var(--es-text) !important;
+    font-family: var(--es-font-data) !important;
+    font-size: 11px !important;
+    font-weight: 600;
+    text-align: right;
+}
+
+.estack-eq8-unit {
+    min-width: 16px;
+    color: var(--es-dim);
+    font-family: var(--es-font-data);
+    font-size: 8px;
+}
+
+/* --------------------------------------------------------------------------
+   Shared state / status grammar
+   -------------------------------------------------------------------------- */
+[data-state="ok"], .state-ok { color: var(--es-ok) !important; }
+[data-state="warn"], .state-warn { color: var(--es-warn) !important; }
+[data-state="error"], .state-error { color: var(--es-danger) !important; }
+
+.venu-statusbar,
+.global-v2-statusbar,
+.input-delay-status {
+    color: var(--es-muted) !important;
+    background: transparent !important;
+    border-color: var(--es-border-soft) !important;
+    font-size: var(--es-caption) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Navigation / shell visual language
+   -------------------------------------------------------------------------- */
+.leftTitle {
+    color: var(--es-text);
+    border-color: var(--es-border);
+}
+
+.navigate {
+    color: var(--es-text-soft);
+    border-radius: var(--es-radius-lg);
+}
+
+.navigate:hover {
+    color: var(--es-text);
+    background: color-mix(in srgb, var(--es-surface-2) 72%, transparent);
+}
+
+/* --------------------------------------------------------------------------
+   Responsive shared scale
+   -------------------------------------------------------------------------- */
+@media (max-width: 900px) {
+    :root {
+        --es-page-title: 20px;
+        --es-section-title: 12px;
+        --es-label: 10px;
+        --es-control-text: 12px;
+    }
+}
+
+@media (max-width: 700px) {
+    :root {
+        --es-content-width: calc(100% - 12px);
+        --es-content-margin: 6px;
+        --es-control-h: 40px;
+        --es-control-h-compact: 36px;
+    }
+
+    #sectionMainTitle,
+    .processing-page-title,
+    .signal-page-title,
+    .measure-page-title {
+        margin-left: 8px !important;
+        margin-right: 8px !important;
+    }
+
+    button,
+    select,
+    input[type="text"],
+    input[type="number"] {
+        font-size: 13px;
+    }
+}
