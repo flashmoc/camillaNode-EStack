@@ -4,22 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Output Processing</title>
-    <link rel="stylesheet" href="/css/main.css">
-    <link rel="stylesheet" href="/css/estackEqV4.css">
-    <link rel="stylesheet" href="/css/estackEqKnobGeometry.css">
-    <link rel="stylesheet" href="/css/estackEqResponsive.css">
-    <link rel="stylesheet" href="/css/estackTheme.css">
-    <link rel="stylesheet" href="/css/estackProcessingUnified.css">
-    <link rel="stylesheet" href="/css/estackPhaseGraph.css">
-    <link rel="stylesheet" href="/css/estackProcessingPolish.css">
-    <link rel="stylesheet" href="/css/estackProcessingEnergy.css">
-    <link rel="stylesheet" href="/css/estackOutputWorkspace.css">
-    <link rel="stylesheet" href="/css/estackOutputWorkspaceV2.css">
-    <link rel="stylesheet" href="/css/estackOutputWorkspaceV3.css">
-    <link rel="stylesheet" href="/css/estackOutputWorkspaceV4.css">
-    <link rel="stylesheet" href="/css/estackOutputWorkspaceV5.css">
-    <link rel="stylesheet" href="/css/estackOutputWorkspaceV6.css">
 
+    <!-- Shared product design + one page stylesheet. -->
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/estackTheme.css">
+    <link rel="stylesheet" href="/css/estackOutputProcessing.css">
+
+    <!-- DSP/editor engine. Presentation is owned only by estackOutputWorkspace.js. -->
     <script src="/src/estackEqualizer.js" defer></script>
     <script src="/src/estackProcessorVisibility.js" defer></script>
     <script src="/src/estackVenuPolish.js" defer></script>
@@ -31,18 +22,12 @@
     <script src="/src/estackSpectrumPro.js" defer></script>
     <script src="/src/estackEqEight.js" defer></script>
     <script src="/src/estackQInputFix.js" defer></script>
-    <script src="/src/estackEqEightV2.js" defer></script>
-    <script src="/src/estackOutputPhase.js" defer></script>
     <script src="/src/estackEqZeroSnap.js" defer></script>
     <script src="/src/estackEqV4.js" defer></script>
     <script src="/src/estackOutputPeq.js" defer></script>
     <script src="/src/estackPhaseGraph.js" defer></script>
     <script src="/src/estackOutputWorkspace.js" defer></script>
     <script src="/src/estackOutputWorkspaceUX.js" defer></script>
-    <script src="/src/estackOutputWorkspaceV2.js" defer></script>
-    <script src="/src/estackOutputWorkspaceV3.js" defer></script>
-    <script src="/src/estackOutputWorkspaceV4.js" defer></script>
-    <script src="/src/estackOutputWorkspaceV5.js" defer></script>
 </head>
 <body class="estack-eq-v4">
     <div id="sectionMainTitle" class="processing-page-title"><img src="/img/icon/merge.png" class="icon">Output Processing</div>
@@ -58,14 +43,14 @@
             </div>
         </div>
 
-        <div class="eq-v4-topbar">
+        <!-- Legacy engine mount. Visible controls are moved under the graph by the
+             unified workspace so core rendering contracts remain untouched. -->
+        <div class="eq-v4-topbar" aria-hidden="true">
             <nav id="moduleTabs" class="venu-module-tabs" aria-label="Output navigation"></nav>
-
             <div class="eq-v4-context">
                 <strong id="moduleTitle">Per-Way Workspace</strong>
                 <span id="moduleSubtitle"></span>
             </div>
-
             <div class="venu-graph-legend" aria-label="Select output to edit"></div>
             <button id="systemEditToggle" class="venu-system-edit" aria-pressed="false">🔒 LOCKED</button>
         </div>
