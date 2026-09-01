@@ -1,0 +1,359 @@
+/*
+ * E-Stack Input Processing page layout.
+ * Shared product tokens/components live in estackDesignSystem.css.
+ */
+
+body.global-eq-v4 {
+    margin: 0 !important;
+    padding: 0 0 18px !important;
+    color: var(--es-text);
+    background: var(--es-bg) !important;
+    font-family: var(--es-font) !important;
+}
+
+.global-v2-graph-panel,
+.global-v2-console,
+.input-processing-delay,
+.global-v2-statusbar {
+    width: var(--es-content-width) !important;
+    margin-left: var(--es-content-margin) !important;
+    margin-right: var(--es-content-margin) !important;
+}
+
+.global-v2-graph-panel {
+    margin-bottom: 9px !important;
+    border: 0 !important;
+    background: transparent !important;
+}
+
+.global-v2-graph-head {
+    min-height: 34px !important;
+    padding: 5px 2px 7px !important;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 0 !important;
+}
+.global-v2-graph-head > span {
+    color: var(--es-muted) !important;
+    font-size: 10px !important;
+    text-align: right;
+}
+
+.global-v2-canvas-wrap {
+    height: 300px !important;
+    overflow: hidden !important;
+    border: 1px solid var(--es-border) !important;
+    border-radius: var(--es-radius) !important;
+    background: var(--es-bg-deep) !important;
+}
+#globalEqCanvas {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    border: 0 !important;
+    background: transparent !important;
+}
+
+.global-v2-console.estack-peq-console.estack-eq8-console {
+    display: grid !important;
+    grid-template-columns: minmax(0,1fr) 184px !important;
+    gap: 8px !important;
+    align-items: start !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+}
+
+.global-v2-equalizer,
+.global-v2-analyzer {
+    min-width: 0;
+    border: 1px solid var(--es-border-soft) !important;
+    border-radius: var(--es-radius) !important;
+    background: var(--es-surface-0) !important;
+}
+
+.global-v2-eq-head,
+.global-v2-analyzer .estack-eq8-analyzer-head {
+    min-height: 34px !important;
+    padding: 5px 8px !important;
+    border-bottom: 1px solid var(--es-border-soft) !important;
+    background: var(--es-surface-1) !important;
+}
+.global-v2-eq-head {
+    display: flex !important;
+    align-items: center !important;
+    gap: 7px !important;
+}
+.global-v2-eq-head > div:first-child { margin-right: auto; }
+.global-v2-eq-head > div:first-child strong,
+.global-v2-eq-head > div:first-child span { display: block; }
+.global-v2-eq-head > div:first-child span {
+    margin-top: 1px;
+    color: var(--es-muted);
+    font-size: 9px;
+}
+.global-v2-reset-all {
+    min-height: 28px !important;
+    padding: 0 9px !important;
+    font-size: 10px !important;
+}
+
+.global-v2-bands.estack-peq-strips {
+    min-width: 0 !important;
+    display: grid !important;
+    grid-template-columns: repeat(10, minmax(92px,1fr)) !important;
+    gap: 0 !important;
+    padding: 0 !important;
+    overflow-x: auto !important;
+    background: transparent !important;
+}
+
+.global-v2-band.estack-peq-strip {
+    position: relative;
+    min-width: 92px;
+    min-height: 236px !important;
+    padding: 0 6px 7px !important;
+    display: flex;
+    flex-direction: column;
+    border: 0 !important;
+    border-right: 1px solid var(--es-border-soft) !important;
+    background: var(--es-surface-0) !important;
+}
+.global-v2-band.estack-peq-strip:last-child { border-right: 0 !important; }
+.global-v2-band.estack-peq-strip.off { opacity: .42; }
+.global-v2-band.estack-peq-strip.neutral { opacity: .68; }
+.global-v2-band.estack-peq-strip.selected {
+    z-index: 1;
+    outline: 1px solid var(--es-accent);
+    outline-offset: -1px;
+    background: color-mix(in srgb, var(--es-accent) 5%, var(--es-surface-0)) !important;
+}
+
+.estack-peq-strip-head {
+    min-height: 30px !important;
+    margin: 0 -6px 5px !important;
+    padding: 4px 6px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    border: 0 !important;
+    border-bottom: 1px solid var(--es-border-soft) !important;
+    background: transparent !important;
+}
+.estack-peq-strip-head strong {
+    display: grid;
+    place-items: center;
+    width: 21px;
+    height: 21px;
+    border: 1px solid var(--es-border-strong);
+    border-radius: 2px;
+    color: var(--es-text);
+    font-family: var(--es-font-data);
+    font-size: 10px;
+}
+.global-v2-band.selected .estack-peq-strip-head strong {
+    border-color: var(--es-accent);
+    color: hsl(var(--bck-hue),30%,8%);
+    background: var(--es-accent);
+}
+
+.global-v2-power {
+    width: 15px;
+    height: 15px;
+    min-height: 15px !important;
+    padding: 0 !important;
+}
+.global-v2-power.active {
+    border-color: var(--es-accent) !important;
+    background: var(--es-accent) !important;
+}
+
+.estack-eq8-controls {
+    display: grid;
+    gap: 4px;
+    padding-top: 1px;
+}
+.global-v2-band .estack-eq8-knob { width: 48px; height: 48px; }
+.global-v2-band .estack-eq8-number { width: 60px; }
+
+.estack-eq8-q-control {
+    display: grid;
+    gap: 3px;
+}
+.estack-eq8-q-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 5px;
+}
+.estack-eq8-q-value {
+    min-width: 34px;
+    color: var(--es-text-soft);
+    font-family: var(--es-font-data);
+    font-size: 10px;
+    text-align: right;
+}
+.estack-eq8-q {
+    width: 100%;
+    accent-color: var(--es-accent);
+}
+
+.estack-eq8-type {
+    display: grid;
+    grid-template-columns: repeat(3,1fr);
+    gap: 2px;
+}
+.estack-eq8-type button {
+    min-width: 0;
+    min-height: 25px !important;
+    padding: 0 2px !important;
+    font-size: 8px !important;
+}
+.estack-eq8-type button.active {
+    border-color: var(--es-accent) !important;
+    color: hsl(var(--bck-hue),30%,8%) !important;
+    background: var(--es-accent) !important;
+}
+.estack-eq8-reset {
+    width: 100%;
+    min-height: 26px !important;
+    margin-top: auto;
+    font-size: 9px !important;
+}
+
+.global-v2-analyzer {
+    display: grid;
+    gap: 7px;
+    padding: 0 8px 9px !important;
+}
+.global-v2-analyzer .estack-eq8-analyzer-head {
+    margin: 0 -8px 1px !important;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+.estack-eq8-analyzer-led {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--es-ok);
+    box-shadow: 0 0 7px color-mix(in srgb, var(--es-ok) 45%, transparent);
+}
+.global-v2-analyzer-label {
+    margin-top: 2px;
+    font-size: 9px !important;
+}
+.global-v2-analyzer-modes {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px;
+}
+.global-v2-analyzer-modes button,
+.global-v2-analyzer-button {
+    min-height: 29px !important;
+    font-size: 9px !important;
+}
+.global-v2-analyzer-modes button.active,
+.global-v2-analyzer-button.active {
+    border-color: var(--es-accent) !important;
+    color: hsl(var(--bck-hue),30%,8%) !important;
+    background: var(--es-accent) !important;
+}
+
+.input-processing-delay {
+    margin-top: 9px !important;
+    border: 1px solid var(--es-border-soft) !important;
+    border-radius: var(--es-radius) !important;
+    background: var(--es-surface-0) !important;
+}
+.input-delay-head {
+    min-height: 34px !important;
+    padding: 5px 8px !important;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    border-bottom: 1px solid var(--es-border-soft) !important;
+    background: var(--es-surface-1) !important;
+}
+.input-delay-head-copy strong,
+.input-delay-head-copy span { display: block; }
+.input-delay-head-copy span { margin-top: 1px; color: var(--es-muted); font-size: 9px; }
+#inputDelayState {
+    min-width: 64px;
+    padding: 4px 8px;
+    border: 1px solid var(--es-border);
+    border-radius: var(--es-radius);
+    color: var(--es-muted);
+    font-size: 9px;
+    text-align: center;
+}
+.input-delay-body {
+    display: grid !important;
+    grid-template-columns: minmax(260px,1fr) auto auto !important;
+    gap: 9px !important;
+    align-items: center;
+    padding: 8px !important;
+}
+.input-delay-range-wrap {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) 70px;
+    align-items: center;
+    gap: 8px;
+}
+#inputDelayRange { width: 100%; accent-color: var(--es-accent); }
+#inputDelayReadout {
+    color: var(--es-text);
+    font-family: var(--es-font-data);
+    font-size: 12px;
+    text-align: right;
+}
+.input-delay-nudge { display: flex; gap: 3px; }
+.input-delay-nudge button { min-width: 42px; height: 30px !important; min-height: 30px !important; }
+.input-delay-number-wrap { display: flex; align-items: center; gap: 4px; }
+#inputDelayNumber { width: 86px; height: 30px !important; min-height: 30px !important; }
+.input-delay-number-wrap > span { color: var(--es-muted); font-size: 9px; }
+#inputDelayReset { height: 30px !important; min-height: 30px !important; font-size: 9px !important; }
+.input-delay-status {
+    min-height: 24px;
+    padding: 4px 8px;
+    border-top: 1px solid var(--es-border-soft) !important;
+}
+
+.global-v2-statusbar {
+    min-height: 24px;
+    margin-top: 8px;
+    padding: 4px 2px;
+    border-top: 1px solid var(--es-border-soft) !important;
+}
+
+@media (max-width: 1050px) {
+    .global-v2-canvas-wrap { height: 270px !important; }
+    .global-v2-console.estack-peq-console.estack-eq8-console {
+        grid-template-columns: 1fr !important;
+    }
+    .global-v2-analyzer {
+        grid-template-columns: auto repeat(4, minmax(80px,1fr));
+        align-items: center;
+    }
+    .global-v2-analyzer .estack-eq8-analyzer-head {
+        margin: -1px 0 -1px -8px !important;
+        height: 100%;
+    }
+    .global-v2-analyzer-label { display: none; }
+    .input-delay-body { grid-template-columns: 1fr !important; }
+}
+
+@media (max-width: 700px) {
+    .global-v2-canvas-wrap { height: 230px !important; }
+    .global-v2-graph-head { align-items: flex-start; flex-direction: column; gap: 2px; }
+    .global-v2-graph-head > span { text-align: left; }
+    .global-v2-bands.estack-peq-strips { grid-template-columns: repeat(10, 102px) !important; }
+    .global-v2-analyzer { grid-template-columns: 1fr 1fr !important; }
+    .global-v2-analyzer .estack-eq8-analyzer-head { grid-column: 1 / -1; margin: -1px -8px 0 !important; }
+    .input-delay-nudge { display: grid; grid-template-columns: repeat(4,1fr); }
+    .input-delay-number-wrap { display: grid; grid-template-columns: minmax(0,1fr) auto auto; }
+    #inputDelayNumber { width: 100%; }
+}
