@@ -41,6 +41,7 @@ const required = [
     'wiimLoudnessConfig.example.json',
     'examples/measurement-batch-kick-mid.example.json',
     'docs/measurement-batch.md',
+    'docs/ui-architecture.md',
     'public/html/main.html',
     'public/html/basic.html',
     'public/html/loudness.html',
@@ -54,13 +55,16 @@ const required = [
     'public/src/estackConfigManagerFix.js',
     'public/src/estackPeqModel.js',
     'public/src/estackOutputPeq.js',
-    'public/src/estackOutputPhase.js',
+    'public/src/estackOutputWorkspace.js',
     'public/src/estackPhaseGraph.js',
     'public/src/estackQInputFix.js',
     'public/src/estackMeasurementBatch.js',
+    'public/css/estackDesignSystem.css',
+    'public/css/estackTheme.css',
+    'public/css/estackOutputProcessing.css',
+    'public/css/estackInputProcessingPage.css',
     'public/css/estackSignalGenerator.css',
-    'public/css/estackMeasurementBatch.css',
-    'public/css/estackPhaseGraph.css'
+    'public/css/estackMeasurementBatch.css'
 ];
 required.forEach(checkRequired);
 
@@ -71,6 +75,31 @@ const forbiddenTracked = [
     'public/src/estackPeqIsolationFix.js',
     'public/src/estackDynamicPeq.js',
     'public/src/estackOutputPresetGuard.js',
+
+    // Retired Output Processing presentation stack. A new numbered visual layer
+    // is an architecture regression; edit the owning workspace/page file instead.
+    'public/src/estackOutputWorkspaceV2.js',
+    'public/src/estackOutputWorkspaceV3.js',
+    'public/src/estackOutputWorkspaceV4.js',
+    'public/src/estackOutputWorkspaceV5.js',
+    'public/src/estackOutputPhase.js',
+    'public/src/estackEqEightV2.js',
+    'public/css/estackOutputWorkspace.css',
+    'public/css/estackOutputWorkspaceV2.css',
+    'public/css/estackOutputWorkspaceV3.css',
+    'public/css/estackOutputWorkspaceV4.css',
+    'public/css/estackOutputWorkspaceV5.css',
+    'public/css/estackOutputWorkspaceV6.css',
+    'public/css/estackPhaseGraph.css',
+    'public/css/estackProcessingUnified.css',
+    'public/css/estackProcessingPolish.css',
+    'public/css/estackProcessingEnergy.css',
+    'public/css/estackGlobalEqGraphHeight.css',
+    'public/css/estackInputProcessing.css',
+    'public/css/estackEqKnobGeometry.css',
+    'public/css/estackEqResponsive.css',
+    'public/css/estackEqV4.css',
+
     'views',
     'install.sh',
     '_dev.log'
@@ -118,6 +147,51 @@ for (const file of activeHtml) {
         const asset = path.join(PUBLIC, match[1].replace(/^\//, ''));
         if (!fs.existsSync(asset)) fail(`${file} references missing asset ${match[1]}`);
     }
+}
+
+/* --------------------------------------------------------------------------
+   Unified UI architecture
+   -------------------------------------------------------------------------- */
+const themeSource = fs.readFileSync(path.join(PUBLIC, 'css', 'estackTheme.css'), 'utf8');
+if (!themeSource.includes("@import url('/css/estackDesignSystem.css')")) {
+    fail('estackTheme.css is no longer the design-system compatibility entrypoint');
+}
+
+const outputHtml = fs.readFileSync(path.join(PUBLIC, 'html', 'equalizer.html'), 'utf8');
+if (!outputHtml.includes('/css/estackOutputProcessing.css')) fail('Output Processing is missing its single page stylesheet');
+if (!outputHtml.includes('/src/estackOutputWorkspace.js')) fail('Output Processing is missing its unified workspace module');
+for (const legacy of [
+    'estackOutputWorkspaceV2', 'estackOutputWorkspaceV3', 'estackOutputWorkspaceV4',
+    'estackOutputWorkspaceV5', 'estackOutputWorkspaceV6', 'estackProcessingPolish',
+    'estackProcessingEnergy', 'estackPhaseGraph.css', 'estackEqV4.css'
+]) {
+    if (outputHtml.includes(legacy)) fail(`Output Processing still loads legacy presentation layer ${legacy}`);
+}
+
+const inputHtml = fs.readFileSync(path.join(PUBLIC, 'html', 'global-eq.html'), 'utf8');
+if (!inputHtml.includes('/css/estackInputProcessingPage.css')) fail('Input Processing is missing its single page stylesheet');
+for (const legacy of [
+    'estackProcessingUnified.css', 'estackProcessingPolish.css', 'estackProcessingEnergy.css',
+    'estackGlobalEqGraphHeight.css', 'estackInputProcessing.css', 'estackEqV4.css',
+    'estackEqKnobGeometry.css', 'estackEqResponsive.css'
+]) {
+    if (inputHtml.includes(legacy)) fail(`Input Processing still loads legacy presentation layer ${legacy}`);
+}
+
+for (const htmlName of ['basic.html', 'loudness.html', 'global-eq.html', 'equalizer.html', 'signal-generator.html', 'measurement-batch.html', 'advanced.html', 'preferences.html', 'connections.html']) {
+    const html = fs.readFileSync(path.join(PUBLIC, 'html', htmlName), 'utf8');
+    if (!html.includes('/css/estackTheme.css')) fail(`${htmlName} is not connected to the shared E-Stack design system`);
+}
+
+const workspaceSource = fs.readFileSync(path.join(PUBLIC, 'src', 'estackOutputWorkspace.js'), 'utf8');
+if (!workspaceSource.includes('wsOutput(), wsPeq(), wsCrossover()')) {
+    fail('Output Processing workflow order is not Output / PEQ / Crossover');
+}
+if (!workspaceSource.includes('estackEq8MakeKnob')) {
+    fail('Output Processing does not reuse the shared E-Stack rotary control');
+}
+if (!workspaceSource.includes('allowedFilterPrefixes: [PHASE_PREFIX]')) {
+    fail('Unified Output Processing phase edit is missing guarded upload');
 }
 
 const mainHtml = fs.readFileSync(path.join(PUBLIC, 'html', 'main.html'), 'utf8');
@@ -193,10 +267,14 @@ for (const file of [
     'scripts/reapply-startup.js',
     'scripts/repo-check.js',
     'scripts/measurement-batch-selftest.js',
+    'scripts/output-phase-reference-selftest.js',
     'public/src/estackConfigManagerFix.js',
     'public/src/estackLoudness.js',
     'public/src/estackMeasurementBatch.js',
-    'public/src/estackQInputFix.js'
+    'public/src/estackQInputFix.js',
+    'public/src/estackOutputWorkspace.js',
+    'public/src/estackPhaseGraph.js',
+    'public/src/estackOutputPeq.js'
 ]) {
     try {
         execFileSync(process.execPath, ['--check', path.join(ROOT, file)], { stdio: 'pipe' });
@@ -219,6 +297,7 @@ if (failures) {
 }
 
 ok('active UI assets resolve');
+ok('unified UI architecture is enforced');
 ok('legacy duplicate paths are not tracked');
 ok('runtime state is repository-independent');
 ok('startup configuration integration is present');
