@@ -51,7 +51,12 @@
 
   function renderActiveSummary() {
     const way = selectedWay(); const summary = $('#activeWaySummary'); summary.style.setProperty('--way-color', way.color);
-    summary.innerHTML = `<div><i></i><strong>${way.name}</strong></div><span>${formatDb(way.gain)}</span><span>${way.delay.toFixed(2)} ms</span><span>${way.polarity.toUpperCase()}</span><span>${way.headroom.toFixed(1)} dB HR</span><b>${way.mute ? 'MUTED' : 'ACTIVE'}</b>`;
+    summary.innerHTML = `<button type="button" class="way-step" data-way-step="-1" aria-label="Select previous output way">‹</button><div><i></i><strong>${way.name}</strong></div><span>${formatDb(way.gain)}</span><span>${way.delay.toFixed(2)} ms</span><span>${way.polarity.toUpperCase()}</span><span>${way.headroom.toFixed(1)} dB HR</span><b>${way.mute ? 'MUTED' : 'ACTIVE'}</b><button type="button" class="way-step" data-way-step="1" aria-label="Select next output way">›</button>`;
+    summary.querySelectorAll('[data-way-step]').forEach(button => button.addEventListener('click', () => {
+      const current = state.ways.findIndex(item => item.id === state.selected);
+      state.selected = state.ways[(current + Number(button.dataset.wayStep) + state.ways.length) % state.ways.length].id;
+      state.transaction = 'applied'; renderAll();
+    }));
   }
 
   function renderCompare() {
@@ -127,9 +132,10 @@
   function drawGraph() {
     const canvas = $('#responseGraph'); const rect = canvas.getBoundingClientRect(); const scale = window.devicePixelRatio || 1; const width = Math.max(320, rect.width); const height = Math.max(220, rect.height);
     canvas.width = Math.round(width * scale); canvas.height = Math.round(height * scale); const ctx = canvas.getContext('2d'); ctx.setTransform(scale, 0, 0, scale, 0, 0); ctx.clearRect(0, 0, width, height);
-    const plot = { left: 48, right: 16, top: 18, bottom: 28 }; plot.width = width - plot.left - plot.right; plot.height = height - plot.top - plot.bottom;
+    const mobile = width < 560; const plot = { left: mobile ? 38 : 48, right: mobile ? 8 : 16, top: 18, bottom: 28 }; plot.width = width - plot.left - plot.right; plot.height = height - plot.top - plot.bottom;
     const text = getComputedStyle(document.body).getPropertyValue('--prototype-muted').trim() || 'rgba(235,242,244,.58)'; const way = selectedWay(); ctx.font = '11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'; ctx.fillStyle = text; ctx.lineWidth = 1;
-    [20,30,50,80,100,200,500,1000,2000,5000,10000,20000].forEach(freq => { const x = frequencyToX(freq, plot.width, plot.left); ctx.strokeStyle = [20,100,1000,10000,20000].includes(freq) ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.08)'; ctx.beginPath(); ctx.moveTo(x, plot.top); ctx.lineTo(x, plot.top + plot.height); ctx.stroke(); ctx.textAlign = freq === 20 ? 'left' : freq === 20000 ? 'right' : 'center'; ctx.fillText(freq >= 1000 ? `${freq / 1000}k` : String(freq), x, height - 8); });
+    const frequencyTicks = mobile ? [20, 100, 1000, 10000, 20000] : [20,30,50,80,100,200,500,1000,2000,5000,10000,20000];
+    frequencyTicks.forEach(freq => { const x = frequencyToX(freq, plot.width, plot.left); ctx.strokeStyle = [20,100,1000,10000,20000].includes(freq) ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.08)'; ctx.beginPath(); ctx.moveTo(x, plot.top); ctx.lineTo(x, plot.top + plot.height); ctx.stroke(); ctx.textAlign = freq === 20 ? 'left' : freq === 20000 ? 'right' : 'center'; ctx.fillText(freq >= 1000 ? `${freq / 1000}k` : String(freq), x, height - 8); });
     const phaseMode = state.graphMode === 'phase' || state.graphMode === 'xo'; const yTicks = phaseMode ? [180,90,0,-90,-180] : [12,0,-12,-24,-36,-48,-60];
     yTicks.forEach(value => { const y = phaseMode ? plot.top + (180 - value) / 360 * plot.height : plot.top + (18 - value) / 78 * plot.height; ctx.strokeStyle = value === 0 ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.08)'; ctx.beginPath(); ctx.moveTo(plot.left, y); ctx.lineTo(plot.left + plot.width, y); ctx.stroke(); ctx.textAlign = 'right'; ctx.fillText(`${value}${phaseMode ? '°' : ''}`, plot.left - 7, y + 4); });
     if (state.graphMode === 'magnitude') {
