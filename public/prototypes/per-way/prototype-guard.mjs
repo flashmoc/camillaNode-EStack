@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const scan = ['index.html', 'prototype.css', 'prototype.js', 'fixtures.js'];
+const scan = ['index.html', 'prototype.css', 'prototype.js', 'fixtures.js', 'integration-mode.js'];
 const forbidden = [
   'Set' + 'ConfigJson',
   'Set' + 'Volume',

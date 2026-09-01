@@ -2,7 +2,7 @@
   'use strict';
   const links = [...document.querySelectorAll('[data-page]')];
   const frame = document.querySelector('#pageFrame');
-  const routes = Object.fromEntries(links.map(link => [link.dataset.page, link.href]));
+  const routes = Object.fromEntries(links.map(link => [link.dataset.page, link.dataset.page === 'output-processing' ? new URL('../per-way/?mode=integrated', document.baseURI).href : link.href]));
   const choose = name => {
     const route = routes[name] || routes['output-processing'];
     frame.src = route;

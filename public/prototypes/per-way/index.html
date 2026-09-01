@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="../estack-ui/shared/components.css">
   <link rel="stylesheet" href="/css/estackDesignSystem.css">
   <link rel="stylesheet" href="./prototype.css">
+  <script src="./integration-mode.js"></script>
 </head>
 <body>
   <header class="prototype-lock" role="status" aria-live="polite">
@@ -35,14 +36,11 @@
         <div class="master-meter" aria-label="Mock master meter"><span style="--level:66%"></span></div>
         <span class="headroom-readout"><b>9.8</b> dB HR</span>
       </div>
-      <label class="scenario-field" for="scenarioSelect">SCENARIO
-        <select id="scenarioSelect"><option value="normal">Normal</option><option value="dirty">Dirty</option><option value="pending">Pending</option><option value="warning">Warning</option><option value="critical">Critical</option><option value="disconnected">Disconnected</option><option value="disabled">Disabled controls</option></select>
-      </label>
     </header>
 
     <main>
       <section class="way-strip" aria-label="Output way selection">
-        <div class="section-kicker"><strong>OUTPUTS</strong><span>select a way · mock meters</span></div>
+        <div class="section-kicker"><div><strong>OUTPUTS</strong><span>select a way · mock meters</span></div><label class="scenario-field" for="scenarioSelect">SCENARIO <select id="scenarioSelect"><option value="normal">Normal</option><option value="dirty">Dirty</option><option value="pending">Pending</option><option value="warning">Warning</option><option value="critical">Critical</option><option value="disconnected">Disconnected</option><option value="disabled">Disabled controls</option></select></label></div>
         <div id="waySelector" class="way-selector"></div>
       </section>
       <section class="active-way-summary" id="activeWaySummary" aria-live="polite"></section>

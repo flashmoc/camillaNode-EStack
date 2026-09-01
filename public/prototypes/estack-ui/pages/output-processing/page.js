@@ -1,1 +1,1 @@
-(() => { 'use strict'; document.documentElement.dataset.prototypePage = 'output-processing'; })();
+(() => { 'use strict'; window.location.replace('../../../per-way/?mode=integrated'); })();
