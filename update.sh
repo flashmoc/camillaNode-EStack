@@ -1,5 +1,4 @@
-#!/bin/bash
-git stash
-systemctl stop camillanode
-git pull https://github.com/ismailAtaman/camillaNode.git
-systemctl start camillanode
+#!/usr/bin/env bash
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec bash "$SCRIPT_DIR/pi-update.sh"

@@ -1,0 +1,165 @@
+/* E-Stack Advanced — single source for scrolling, wrapping and compact editor layout. */
+
+html,
+body {
+    min-height: 100%;
+    height: auto !important;
+    max-width: 100%;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+}
+
+body {
+    padding-bottom: 80px !important;
+}
+
+#pipelineVisual,
+#channelMapping,
+#advancedFilters,
+#processors {
+    width: calc(100% - 16px) !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    margin: 8px !important;
+    overflow: visible !important;
+    box-sizing: border-box;
+}
+
+#pipelineContainer,
+#advancedFilters,
+#channelMapping,
+#processors {
+    width: 100%;
+    max-width: 100%;
+    overflow: visible !important;
+}
+
+.pipelineChannel,
+.filterChannel {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: stretch;
+    gap: 6px !important;
+    width: 100% !important;
+    margin: 0 0 8px !important;
+    padding: 0 6px 7px !important;
+    overflow: visible !important;
+    box-sizing: border-box;
+}
+
+.pipelineChannel::before,
+.filterChannel::before {
+    position: static !important;
+    display: flex;
+    flex: 1 0 100%;
+    width: auto !important;
+    min-height: 25px !important;
+    margin: 0 -6px 1px !important;
+    padding: 5px 7px !important;
+    align-items: center;
+    writing-mode: horizontal-tb !important;
+    text-align: left !important;
+    font-size: 11px !important;
+    box-sizing: border-box;
+}
+
+.pipelineElement {
+    flex: 1 1 118px;
+    width: auto !important;
+    min-width: 104px;
+    max-width: 188px;
+    margin: 0 !important;
+    padding: 5px !important;
+    box-sizing: border-box;
+}
+
+.filterChannel .peqElement {
+    flex: 1 1 300px;
+    width: auto !important;
+    min-width: 250px;
+    max-width: 100%;
+    margin: 0 !important;
+    padding: 5px !important;
+    box-sizing: border-box;
+}
+
+.filterBasic,
+.filterParams,
+.peqParams {
+    width: 100%;
+    height: auto !important;
+    min-height: 32px;
+    margin: 0 !important;
+    padding: 4px !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center;
+    gap: 4px 6px;
+    box-sizing: border-box;
+}
+
+.filterBasic > select,
+.filterParams > select,
+.peqParams > select,
+.filterBasic > input,
+.filterParams > input,
+.peqParams > input {
+    flex: 0 1 110px;
+    min-width: 64px;
+    max-width: 132px !important;
+    margin: 0 !important;
+}
+
+.filterType,
+.filterSubType {
+    width: auto !important;
+    min-width: 96px;
+    flex: 1 1 112px;
+}
+
+.mixer {
+    width: calc(100% - 8px) !important;
+    margin-inline: 4px !important;
+}
+
+#pipeContextMenu {
+    max-width: calc(100vw - 30px);
+}
+
+#processors {
+    margin-bottom: 40px !important;
+}
+
+@media (max-width: 760px) {
+    body { padding-bottom: 50px !important; }
+
+    #pipelineVisual,
+    #channelMapping,
+    #advancedFilters,
+    #processors {
+        width: calc(100% - 8px) !important;
+        margin: 4px !important;
+    }
+
+    .pipelineElement {
+        flex-basis: 96px;
+        min-width: 88px;
+        max-width: none;
+    }
+
+    .filterChannel .peqElement {
+        flex-basis: 100%;
+        min-width: 0;
+    }
+
+    .filterBasic > select,
+    .filterParams > select,
+    .peqParams > select,
+    .filterBasic > input,
+    .filterParams > input,
+    .peqParams > input {
+        flex: 1 1 82px;
+        max-width: none !important;
+    }
+}

@@ -1,0 +1,123 @@
+.estack-control-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.estack-normalize-wrap {
+    flex: 0 0 auto;
+}
+
+/* Same visual language as the stereo LINK controls: one compact row rather
+ * than a two-line diagnostic-looking widget. */
+.estack-normalize-button {
+    min-width: 144px;
+    height: 31px;
+    padding: 0 9px 0 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 7px;
+    box-sizing: border-box;
+    border: 1px solid hsl(var(--bck-hue), 22%, 30%);
+    border-radius: 6px;
+    background: hsl(var(--bck-hue), 31%, 14%);
+    color: hsla(0,0%,100%,.62);
+    font-family: "Abel", sans-serif;
+    cursor: pointer;
+    transition: all 140ms linear;
+}
+
+.estack-normalize-button::before {
+    content: "↑";
+    width: 18px;
+    height: 18px;
+    flex: 0 0 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border: 1px solid hsla(var(--bck-hue), 48%, 55%, .34);
+    border-radius: 50%;
+    color: hsl(var(--bck-hue), 62%, 72%);
+    background: hsla(var(--bck-hue), 55%, 45%, .08);
+    font-family: Arial, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1;
+}
+
+.estack-normalize-button span {
+    flex: 1 1 auto;
+    color: inherit;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: .025em;
+    white-space: nowrap;
+}
+
+.estack-normalize-button small {
+    flex: 0 0 auto;
+    min-width: 42px;
+    color: hsl(var(--bck-hue), 60%, 72%);
+    font-size: 9px;
+    font-weight: 500;
+    letter-spacing: .025em;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.estack-normalize-button[data-state="raise"] {
+    border-color: hsl(var(--bck-hue), 38%, 36%);
+}
+
+.estack-normalize-button[data-state="trim"]::before,
+.estack-normalize-button[data-state="trim"] small {
+    color: #ffba6d;
+    border-color: rgba(255,186,109,.30);
+}
+
+.estack-normalize-button[data-state="normalized"] {
+    border-color: rgba(121,216,182,.34);
+}
+
+.estack-normalize-button[data-state="normalized"]::before,
+.estack-normalize-button[data-state="normalized"] small {
+    color: #79d8b6;
+    border-color: rgba(121,216,182,.30);
+}
+
+.estack-normalize-button[data-state="error"]::before,
+.estack-normalize-button[data-state="error"] small {
+    color: #ff9b9b;
+    border-color: rgba(255,155,155,.30);
+}
+
+.estack-normalize-button:hover:not(:disabled) {
+    color: #fff;
+    border-color: hsl(var(--bck-hue), 42%, 45%);
+    background: hsl(var(--bck-hue), 34%, 17%);
+}
+
+.estack-normalize-button:hover:not(:disabled)::before {
+    border-color: hsla(var(--bck-hue), 62%, 68%, .52);
+    background: hsla(var(--bck-hue), 55%, 45%, .14);
+}
+
+.estack-normalize-button:disabled {
+    opacity: .45;
+    cursor: default;
+}
+
+@media (max-width: 760px) {
+    .estack-control-head {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .estack-control-actions {
+        width: 100%;
+        flex-wrap: wrap;
+    }
+}

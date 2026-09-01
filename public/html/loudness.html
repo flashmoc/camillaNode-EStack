@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loudness</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/estackLoudness.css">
+    <link rel="stylesheet" href="/css/estackTheme.css">
+    <script src="/src/estackLoudness.js" defer></script>
+    <script src="/src/estackLoudnessMeasurementLock.js" defer></script>
+</head>
+<body class="estack-loudness-page">
+    <div id="sectionMainTitle"><img src="/img/icon/equalizer.png" class="icon">Loudness</div>
+
+    <main class="loudness-shell">
+        <header class="loudness-head">
+            <div class="loudness-head-copy">
+                <strong id="loudnessPresetTitle">REFERENCE</strong>
+                <span id="loudnessPresetSub">Flat response</span>
+                <div id="loudnessBridgeBadge" class="loudness-bridge-badge" data-state="error">
+                    <i aria-hidden="true"></i>
+                    <span id="loudnessBridgeText">LOUDNESS CONNECTION LOST</span>
+                </div>
+            </div>
+            <div class="loudness-live">
+                <div><span>WIIM</span><strong id="loudnessWiim">— %</strong></div>
+                <div><span>REAL LEVEL</span><strong id="loudnessLevel">— dB</strong></div>
+                <div><span>BASS</span><strong id="loudnessBass">+0.0 dB</strong></div>
+                <div><span>HIGH</span><strong id="loudnessHigh">+0.0 dB</strong></div>
+            </div>
+        </header>
+
+        <section class="loudness-graph" aria-label="Loudness compensation curve">
+            <canvas id="loudnessCanvas"></canvas>
+        </section>
+
+        <section class="loudness-curve-panel" aria-label="WiiM loudness curve">
+            <div class="loudness-curve-copy">
+                <strong>VOLUME CURVE</strong>
+                <span>WiiM real attenuation → CamillaDSP loudness amount</span>
+            </div>
+            <div class="loudness-curve-controls">
+                <label>
+                    <span>START</span>
+                    <input id="loudnessStartDb" type="number" min="-40" max="0" step="0.5" value="-10.0">
+                    <small>dB</small>
+                </label>
+                <label>
+                    <span>FULL</span>
+                    <input id="loudnessFullDb" type="number" min="-60" max="-5" step="0.5" value="-30.0">
+                    <small>dB</small>
+                </label>
+                <label>
+                    <span>SHAPE</span>
+                    <input id="loudnessCurvePower" type="number" min="0.25" max="4" step="0.05" value="1.00">
+                    <small>1 = linear</small>
+                </label>
+                <button id="loudnessCurveSave" type="button">APPLY CURVE</button>
+            </div>
+        </section>
+
+        <section>
+            <div id="loudnessPresets" class="loudness-presets" aria-label="Loudness presets"></div>
+        </section>
+
+        <footer class="loudness-footer">
+            <span id="loudnessStatus">Connecting to CamillaDSP…</span>
+            <span>AUX1-LINKED · CAMILLADSP NATIVE</span>
+        </footer>
+    </main>
+</body>
+</html>

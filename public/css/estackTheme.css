@@ -1,0 +1,8 @@
+/*
+ * Compatibility entrypoint.
+ *
+ * The E-Stack cross-page visual language now lives in estackDesignSystem.css.
+ * Existing pages may keep linking estackTheme.css while the HTML is simplified;
+ * no visual rules should be added here.
+ */
+@import url('/css/estackDesignSystem.css');

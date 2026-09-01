@@ -1,0 +1,177 @@
+@import url('/css/estackTheme.css');
+
+/* E-Stack shell: compact header and viewport-efficient main frame. */
+
+#mainBody {
+    overflow: hidden;
+}
+
+header {
+    position: relative;
+    display: block;
+    height: 46px !important;
+    min-height: 46px;
+    padding: 0 !important;
+    border-bottom: 1px solid var(--estack-border-soft);
+}
+
+#header,
+#header.section {
+    height: 46px;
+    min-height: 46px;
+}
+
+#title {
+    height: 46px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-left: 10px;
+    font-size: 20px;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+#title #logo {
+    width: 32px;
+    height: 32px !important;
+    margin: 0 !important;
+    flex: 0 0 32px;
+}
+
+#indicators {
+    position: absolute !important;
+    left: 200px !important;
+    right: 8px;
+    top: 11px;
+    bottom: auto !important;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    line-height: 1 !important;
+    font-size: 10px !important;
+    white-space: nowrap;
+}
+
+#indicators::-webkit-scrollbar {
+    display: none;
+}
+
+.indicator {
+    width: auto !important;
+    min-width: 70px;
+    height: 18px !important;
+    padding: 0 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    border-color: var(--estack-border-soft);
+}
+
+#presetInd {
+    min-width: 150px;
+    font-weight: 600;
+}
+
+#presetInd[data-state="warning"] {
+    color: #ffd37a;
+}
+
+#presetInd[data-state="error"] {
+    color: #ff9b9b;
+}
+
+#startupConfigControls {
+    margin: 10px 0;
+    padding: 10px;
+    border: 1px solid var(--estack-border-soft);
+    border-radius: 7px;
+}
+
+#startupConfigStatus {
+    margin-bottom: 8px;
+    font-size: 12px;
+    opacity: .85;
+}
+
+#startupConfigStatus[data-state="error"] {
+    color: #ff9b9b;
+}
+
+.startupConfigButtons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.startupConfigButtons button {
+    min-height: 30px;
+    padding: 5px 9px;
+    border: 1px solid var(--estack-border-soft);
+    border-radius: 5px;
+    background: transparent;
+    color: inherit;
+    cursor: pointer;
+}
+
+.startupConfigButtons button:hover {
+    border-color: currentColor;
+}
+
+main {
+    margin-top: 0 !important;
+    height: calc(100vh - 46px) !important;
+}
+
+#sectionLeft {
+    padding-top: 14px !important;
+}
+
+#mainframe {
+    box-sizing: border-box;
+    padding-top: 4px !important;
+}
+
+@media (max-width: 900px) {
+    header,
+    #header,
+    #header.section {
+        height: 42px !important;
+        min-height: 42px;
+    }
+
+    #title {
+        height: 42px;
+        padding-left: 7px;
+        font-size: 17px;
+    }
+
+    #title #logo {
+        width: 28px;
+        height: 28px !important;
+        flex-basis: 28px;
+    }
+
+    #indicators {
+        left: 142px !important;
+        top: 9px;
+        font-size: 9px !important;
+    }
+
+    .indicator {
+        min-width: 62px;
+        padding-inline: 7px;
+    }
+
+    #presetInd {
+        min-width: 132px;
+    }
+
+    main {
+        height: calc(100vh - 42px) !important;
+    }
+}

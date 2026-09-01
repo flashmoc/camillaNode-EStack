@@ -1,0 +1,103 @@
+/* E-Stack Control — explicit MASTER island + fine gain nudges. */
+
+.estack-mixer-strips {
+    align-items: stretch;
+}
+
+.estack-master-island,
+.estack-output-bank {
+    display: flex;
+    align-items: stretch;
+    box-sizing: border-box;
+}
+
+.estack-master-island {
+    flex: 0 0 176px;
+    justify-content: center;
+    margin-right: 34px;
+    padding-right: 20px;
+    border-right: 1px solid hsla(0,0%,100%,.11);
+}
+
+.estack-output-bank {
+    flex: 0 1 888px;
+    min-width: 0;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+/* The previous spacing rule lived on MASTER itself. The wrapper now owns it. */
+.estack-master-island .estack-mixer-strip.master {
+    margin-right: 0 !important;
+}
+.estack-master-island .estack-mixer-strip.master::after {
+    display: none !important;
+}
+
+.estack-fader-nudges {
+    width: 112px;
+    min-height: 25px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 3px;
+    margin: 0 auto 5px;
+}
+
+.estack-fader-nudges button {
+    min-width: 0;
+    height: 23px;
+    padding: 0;
+    border: 1px solid #414b4e;
+    border-radius: 3px;
+    color: #a8b0b2;
+    background: #101516;
+    font-family: "Abel", sans-serif;
+    font-size: 8px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    cursor: pointer;
+}
+
+.estack-fader-nudges button:hover:not(:disabled) {
+    border-color: #687579;
+    color: #f1f4f5;
+}
+
+.estack-fader-nudges button:active:not(:disabled) {
+    border-color: var(--channel-color);
+    color: var(--channel-color);
+}
+
+.estack-fader-nudges button:disabled {
+    opacity: .28;
+    cursor: not-allowed;
+}
+
+.estack-mixer-strip.level-locked .estack-fader-nudges {
+    opacity: .7;
+}
+
+@media (max-width: 1100px) {
+    .estack-master-island {
+        flex-basis: 164px;
+        margin-right: 20px;
+        padding-right: 12px;
+    }
+    .estack-output-bank {
+        flex: 1 1 740px;
+    }
+}
+
+@media (max-width: 760px) {
+    .estack-master-island {
+        flex: 0 0 100%;
+        margin: 0 0 14px;
+        padding: 0 0 14px;
+        border-right: 0;
+        border-bottom: 1px solid hsla(0,0%,100%,.11);
+    }
+    .estack-output-bank {
+        flex: 0 0 100%;
+        justify-content: flex-start;
+    }
+}

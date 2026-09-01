@@ -1,0 +1,151 @@
+{
+  "schema": "estack.measurement-batch",
+  "version": 1,
+  "name": "E-Stack Measurement Batch V1 - Smoke Test",
+  "description": "Safe first validation of Measurement Batch on KICK and MID L. Exercises measurement-input routing, routing/mutes, delay, phase all-pass, crossover override, baseline rebuild and final restore. This is a functional test, not an optimisation campaign.",
+  "defaults": {
+    "muteUnlisted": true,
+    "settleMs": 700,
+    "measurementInput": 4,
+    "disabledFilters": []
+  },
+  "steps": [
+    {
+      "id": "T01",
+      "name": "KICK solo - attenuated",
+      "instruction": "Verify SOURCE is IN4 and only KICK is active. Run REW only if the level is safe.",
+      "position": "Keep the microphone fixed for the whole smoke test",
+      "activeWays": ["KICK"],
+      "ways": { "KICK": { "gainOffsetDb": -15 } },
+      "rew": {
+        "measurementName": "T01_KICK_SOLO_SAFE",
+        "startHz": 80,
+        "endHz": 800,
+        "levelDbfs": -20,
+        "timingReference": true,
+        "notes": "Smoke test - REW physical IN4 - KICK solo, -15 dB relative to captured baseline"
+      }
+    },
+    {
+      "id": "T02",
+      "name": "MID L solo - attenuated",
+      "instruction": "Verify only MID L is active.",
+      "position": "Do not move the microphone",
+      "activeWays": ["MID_L"],
+      "ways": { "MID_L": { "gainOffsetDb": -15 } },
+      "rew": {
+        "measurementName": "T02_MID_L_SOLO_SAFE",
+        "startHz": 120,
+        "endHz": 1200,
+        "levelDbfs": -20,
+        "timingReference": true,
+        "notes": "Smoke test - MID L solo, -15 dB relative to captured baseline"
+      }
+    },
+    {
+      "id": "T03",
+      "name": "KICK + MID L baseline - attenuated",
+      "instruction": "Verify KICK and MID L are active and all other ways are muted. No delay, phase or crossover test override is applied.",
+      "position": "Do not move the microphone",
+      "activeWays": ["KICK", "MID_L"],
+      "ways": {
+        "KICK": { "gainOffsetDb": -15 },
+        "MID_L": { "gainOffsetDb": -15 }
+      },
+      "rew": {
+        "measurementName": "T03_KICK_MID_BASELINE_SAFE",
+        "startHz": 120,
+        "endHz": 1200,
+        "levelDbfs": -20,
+        "timingReference": true,
+        "notes": "Smoke test - baseline processing rebuilt from session snapshot"
+      }
+    },
+    {
+      "id": "T04",
+      "name": "MID L delay +0.50 ms",
+      "instruction": "Check that MID L delay is exactly baseline +0.50 ms while KICK remains at its captured baseline delay.",
+      "position": "Do not move the microphone",
+      "activeWays": ["KICK", "MID_L"],
+      "ways": {
+        "KICK": { "gainOffsetDb": -15 },
+        "MID_L": { "gainOffsetDb": -15, "delayOffsetMs": 0.5 }
+      },
+      "rew": {
+        "measurementName": "T04_MID_L_DELAY_P050_SAFE",
+        "startHz": 120,
+        "endHz": 1200,
+        "levelDbfs": -20,
+        "timingReference": true,
+        "notes": "Smoke test - MID L delay offset +0.50 ms"
+      }
+    },
+    {
+      "id": "T05",
+      "name": "MID L phase -45 deg at HPF",
+      "instruction": "Check that an E-Stack AllpassFO phase filter is applied to MID L and referenced to its current HPF.",
+      "position": "Do not move the microphone",
+      "activeWays": ["KICK", "MID_L"],
+      "ways": {
+        "KICK": { "gainOffsetDb": -15 },
+        "MID_L": {
+          "gainOffsetDb": -15,
+          "phase": { "degrees": -45, "reference": "hpf" }
+        }
+      },
+      "rew": {
+        "measurementName": "T05_MID_L_PHASE_M45_HPF_SAFE",
+        "startHz": 120,
+        "endHz": 1200,
+        "levelDbfs": -20,
+        "timingReference": true,
+        "notes": "Smoke test - MID L -45 degrees referenced to current HPF"
+      }
+    },
+    {
+      "id": "T06",
+      "name": "XO 275 Hz LR24 + MID phase -45 deg",
+      "instruction": "Check KICK LPF and MID L HPF are 275 Hz LR24. MID L phase must be recalculated as -45 degrees at the new 275 Hz HPF.",
+      "position": "Do not move the microphone",
+      "activeWays": ["KICK", "MID_L"],
+      "ways": {
+        "KICK": { "gainOffsetDb": -15 },
+        "MID_L": {
+          "gainOffsetDb": -15,
+          "phase": { "degrees": -45, "reference": "hpf" }
+        }
+      },
+      "crossovers": {
+        "KICK": { "lpf": { "freqHz": 275, "family": "LinkwitzRiley", "order": 4 } },
+        "MID_L": { "hpf": { "freqHz": 275, "family": "LinkwitzRiley", "order": 4 } }
+      },
+      "rew": {
+        "measurementName": "T06_XO275_LR24_PHASE_M45_SAFE",
+        "startHz": 120,
+        "endHz": 1200,
+        "levelDbfs": -20,
+        "timingReference": true,
+        "notes": "Smoke test - validates crossover-before-phase calculation order"
+      }
+    },
+    {
+      "id": "T07",
+      "name": "Return to captured processing - attenuated",
+      "instruction": "Before finishing, verify delay, phase and crossover test overrides have disappeared. Only the -15 dB smoke-test attenuation remains on KICK and MID L.",
+      "position": "Do not move the microphone",
+      "activeWays": ["KICK", "MID_L"],
+      "ways": {
+        "KICK": { "gainOffsetDb": -15 },
+        "MID_L": { "gainOffsetDb": -15 }
+      },
+      "rew": {
+        "measurementName": "T07_RETURN_BASELINE_SAFE",
+        "startHz": 120,
+        "endHz": 1200,
+        "levelDbfs": -20,
+        "timingReference": true,
+        "notes": "Smoke test - confirms each step is rebuilt from captured baseline rather than accumulated"
+      }
+    }
+  ]
+}

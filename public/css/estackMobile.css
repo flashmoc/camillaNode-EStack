@@ -1,0 +1,219 @@
+/* E-Stack mobile shell.
+   The desktop layout is unchanged. On phones the permanent left toolbar was
+   consuming most of the viewport, leaving the DSP iframe unusably narrow. */
+
+@media (max-width: 760px) {
+    :root {
+        --toolbar-width: 100%;
+        --font-size: 16px;
+        width: 100%;
+        height: 100%;
+        min-height: 100dvh;
+    }
+
+    html,
+    body,
+    #mainBody {
+        width: 100%;
+        min-width: 0;
+        height: 100%;
+        min-height: 100dvh;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        overscroll-behavior: none;
+    }
+
+    #mainBody > header {
+        box-sizing: border-box;
+        height: 68px;
+        min-height: 68px;
+        padding: 7px 10px 5px;
+        border-bottom: 1px solid hsla(0, 0%, 100%, .08);
+    }
+
+    #title {
+        height: 54px;
+        min-width: 0;
+        gap: 8px;
+    }
+
+    #title #logo {
+        width: 44px !important;
+        height: 44px !important;
+        margin: 0 !important;
+        flex: 0 0 44px;
+        border-radius: 50%;
+    }
+
+    #title span {
+        min-width: 0;
+        margin: 0 !important;
+        font-size: 23px;
+        line-height: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* The desktop telemetry row is too wide for a phone. Runtime meters remain
+       available in Control/CamillaGUI; hiding it gives the DSP UI the space it needs. */
+    #indicators {
+        display: none !important;
+    }
+
+    #mainBody > main {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) !important;
+        grid-template-rows: 58px minmax(0, 1fr) !important;
+        width: 100%;
+        height: calc(100dvh - 68px) !important;
+        min-height: 0;
+        margin: 0 !important;
+        overflow: hidden;
+    }
+
+    /* Mobile navigation becomes a compact horizontal tab strip. */
+    #sectionLeft {
+        box-sizing: border-box;
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: stretch;
+        gap: 3px;
+        width: 100%;
+        height: 58px !important;
+        min-height: 58px;
+        padding: 6px 7px !important;
+        margin: 0 !important;
+        overflow-x: auto !important;
+        overflow-y: hidden !important;
+        border: 0 !important;
+        border-bottom: 1px solid hsla(0, 0%, 100%, .12) !important;
+        background: hsl(var(--bck-hue), 35%, 11%);
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    #sectionLeft::-webkit-scrollbar { display: none; }
+    #sectionLeft > * { display: none !important; }
+
+    #sectionLeft > .navigate[target="/connections"],
+    #sectionLeft > .navigate[target="/basic"],
+    #sectionLeft > .navigate[target="/html/loudness.html"],
+    #sectionLeft > .navigate[target="/html/global-eq.html"],
+    #sectionLeft > .navigate[target="/equalizer"],
+    #sectionLeft > .navigate[target="/advanced"],
+    #sectionLeft > .navigate[target="/preferences"],
+    #sectionLeft > #manageConfigsNav {
+        box-sizing: border-box;
+        display: flex !important;
+        flex: 0 0 auto;
+        width: auto !important;
+        height: 44px !important;
+        min-height: 44px;
+        margin: 0 !important;
+        padding: 8px 11px !important;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        font-size: 15px;
+        line-height: 1;
+        white-space: nowrap;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+    }
+
+    #sectionLeft > .navigate img {
+        width: 19px;
+        height: 19px;
+        padding-right: 7px;
+        flex: 0 0 19px;
+    }
+
+    #sectionLeft > .navigate:hover,
+    #sectionLeft > .navigate:active {
+        background: hsl(var(--bck-hue), 40%, 18%);
+        border-color: hsl(var(--bck-hue), 35%, 25%);
+    }
+
+    #sectionMain {
+        box-sizing: border-box;
+        display: block;
+        width: 100% !important;
+        min-width: 0;
+        height: 100% !important;
+        min-height: 0;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: hidden !important;
+        border: 0 !important;
+    }
+
+    #mainframe {
+        box-sizing: border-box;
+        display: block;
+        width: 100% !important;
+        min-width: 0 !important;
+        height: 100% !important;
+        min-height: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        overflow: auto !important;
+    }
+
+    dialog {
+        box-sizing: border-box;
+        width: calc(100vw - 24px) !important;
+        max-width: calc(100vw - 24px) !important;
+        max-height: calc(100dvh - 40px) !important;
+        left: 50% !important;
+        top: 50% !important;
+        transform: translate(-50%, -50%) !important;
+    }
+
+    #manageConfigs {
+        padding: 14px !important;
+        overflow: auto !important;
+    }
+
+    #manageConfigs #configName {
+        box-sizing: border-box;
+        width: 100% !important;
+        min-height: 44px;
+        margin: 7px 0 10px;
+        padding: 8px 10px;
+        font-size: 16px;
+    }
+
+    #manageConfigs #configList {
+        max-height: 40dvh;
+        margin-bottom: 10px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #manageConfigs > .navigate {
+        box-sizing: border-box;
+        display: flex !important;
+        width: 100% !important;
+        min-height: 44px !important;
+        margin: 5px 0 !important;
+        padding: 9px 11px !important;
+        align-items: center;
+    }
+}
+
+@media (max-width: 390px) {
+    #title span { font-size: 21px; }
+    #sectionLeft > .navigate[target="/connections"],
+    #sectionLeft > .navigate[target="/basic"],
+    #sectionLeft > .navigate[target="/html/loudness.html"],
+    #sectionLeft > .navigate[target="/html/global-eq.html"],
+    #sectionLeft > .navigate[target="/equalizer"],
+    #sectionLeft > .navigate[target="/advanced"],
+    #sectionLeft > .navigate[target="/preferences"],
+    #sectionLeft > #manageConfigsNav {
+        padding-inline: 9px !important;
+    }
+}

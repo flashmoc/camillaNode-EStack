@@ -1,7 +1,32 @@
-/node_modules
-/config
-*.zip
-.github
-/*.md
-sampleConfig.json
+node_modules/
+
+# Runtime state: machine-local, never committed.
+/config/*
+!/config/.gitkeep
+camillaNodeConfig.json
+currentConfig.json
 savedConfigs.dat
+startupConfig.json
+wiimLoudnessConfig.json
+wiimLoudnessStatus.json
+
+# Raspberry-local spectrum variants used by the E-Stack analyzer path.
+# The canonical template setupFiles/spectrum.yml stays tracked; local tuned
+# copies stay on the Raspberry and must survive application updates.
+setupFiles/spectrum_preview.yml
+setupFiles/spectrum_real.yml
+setupFiles/spectrum_white.yml
+setupFiles/spectrum_*.yml.bak
+
+# Local environment / logs.
+.env
+.env.*
+!.env.example
+*.log
+npm-debug.log*
+.DS_Store
+
+# Generated archives and demo runtime files.
+*.zip
+dev/*.pid
+dev/*.log

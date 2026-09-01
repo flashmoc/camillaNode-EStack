@@ -1,0 +1,217 @@
+body.estack-signal-generator {
+    margin: 0;
+    padding: 0 0 18px;
+    color: #eef2f3;
+    background: hsl(var(--bck-hue), 30%, 11%);
+    font-family: "Abel", sans-serif;
+    font-size: 14px;
+}
+
+body.estack-signal-generator main.signal-page {
+    width: 98%;
+    height: auto;
+    min-height: 0;
+    margin: 0 1%;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+}
+
+.signal-page-title {
+    width: 98%;
+    margin: 8px 1% 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+}
+.signal-page-title > div { display: flex; align-items: center; gap: 9px; }
+.signal-page-title img { width: 25px; height: 25px; filter: invert(1); opacity: .82; }
+.signal-page-title strong { font-size: 28px; font-weight: 400; }
+
+.signal-runtime-state {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    min-width: 160px;
+    text-align: right;
+}
+.signal-runtime-state strong { color: #79d8b6; font-size: 10px; letter-spacing: .05em; }
+.signal-runtime-state.active strong { color: #ffba6d; }
+
+.signal-panel {
+    border: 1px solid hsla(0,0%,100%,.10);
+    background: transparent;
+}
+
+.signal-controls {
+    display: grid;
+    grid-template-columns: minmax(130px,.75fr) minmax(150px,.8fr) minmax(300px,1.5fr) minmax(130px,.7fr);
+    gap: 10px;
+    align-items: end;
+    padding: 12px;
+    border-bottom: 1px solid hsla(0,0%,100%,.07);
+}
+.signal-field { display: grid; gap: 5px; min-width: 0; }
+.signal-field > span {
+    color: hsla(0,0%,100%,.45);
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+}
+.signal-field select,
+.signal-number,
+.signal-bandwidth-value {
+    height: 34px;
+    border: 1px solid hsla(0,0%,100%,.15);
+    border-radius: 2px;
+    background: hsl(var(--bck-hue), 22%, 13%);
+    color: #eef2f3;
+}
+.signal-field select { width: 100%; padding: 0 8px; }
+.signal-number {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+}
+.signal-number input {
+    width: 100%;
+    min-width: 0;
+    height: 32px;
+    padding: 0 8px;
+    border: 0;
+    outline: 0;
+    color: inherit;
+    background: transparent;
+    text-align: right;
+}
+.signal-number span { padding-right: 8px; color: hsla(0,0%,100%,.35); font-size: 8px; }
+.signal-bandwidth-value {
+    display: grid;
+    place-items: center;
+    color: #59d5e3;
+    font-size: 11px;
+    letter-spacing: .06em;
+}
+
+.signal-level-control {
+    display: grid;
+    grid-template-columns: minmax(140px,1fr) 115px;
+    align-items: center;
+    gap: 10px;
+    min-height: 34px;
+}
+.signal-level-number { width: 115px; }
+.signal-level-slider {
+    appearance: none;
+    width: 100%;
+    height: 22px;
+    margin: 0;
+    background: transparent;
+    cursor: ew-resize;
+}
+.signal-level-slider::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: 2px;
+    background: hsla(0,0%,100%,.18);
+}
+.signal-level-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 13px;
+    height: 18px;
+    margin-top: -7px;
+    border: 1px solid #59d5e3;
+    border-radius: 2px;
+    background: #59d5e3;
+}
+.signal-level-slider::-moz-range-track { height: 4px; border-radius: 2px; background: hsla(0,0%,100%,.18); }
+.signal-level-slider::-moz-range-thumb { width: 13px; height: 18px; border: 1px solid #59d5e3; border-radius: 2px; background: #59d5e3; }
+
+.signal-block {
+    padding: 10px 12px;
+    border-bottom: 1px solid hsla(0,0%,100%,.07);
+}
+.signal-block[hidden],
+.signal-field[hidden] { display: none !important; }
+.signal-block-head { margin-bottom: 7px; }
+.signal-block-head strong { font-size: 10px; }
+
+.signal-targets { display: grid; grid-template-columns: repeat(6, minmax(80px, 1fr)); gap: 5px; }
+.signal-target {
+    min-height: 46px;
+    padding: 6px 8px;
+    border: 1px solid hsla(0,0%,100%,.12);
+    border-radius: 2px;
+    background: transparent;
+    color: hsla(0,0%,100%,.58);
+    text-align: left;
+}
+.signal-target strong,
+.signal-target span { display: block; }
+.signal-target strong { font-size: 10px; }
+.signal-target span { margin-top: 2px; color: hsla(0,0%,100%,.30); font-size: 8px; }
+.signal-target.active { border-color: #59d5e3; background: rgba(89,213,227,.11); color: #fff; }
+
+.quick-frequencies { display: flex; flex-wrap: wrap; gap: 5px; }
+.quick-frequencies button {
+    min-width: 44px;
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid hsla(0,0%,100%,.12);
+    border-radius: 2px;
+    background: transparent;
+    color: hsla(0,0%,100%,.63);
+    font-size: 9px;
+}
+.quick-frequencies button:hover:not(:disabled) { border-color: #59d5e3; color: #fff; }
+
+.signal-actions {
+    min-height: 54px;
+    padding: 8px 12px;
+    display: grid;
+    grid-template-columns: minmax(220px,1fr) auto auto;
+    align-items: center;
+    gap: 8px;
+}
+.signal-safety { color: #ffd18a; font-size: 9px; font-weight: 500; }
+.signal-start,
+.signal-stop {
+    height: 34px;
+    padding: 0 14px;
+    border-radius: 2px;
+    background: transparent;
+    font-size: 9px;
+    letter-spacing: .04em;
+}
+.signal-start { border: 1px solid rgba(89,213,227,.55); color: #77ded1; }
+.signal-stop { border: 1px solid rgba(235,91,76,.55); color: #ff9e91; }
+.signal-start:hover:not(:disabled) { background: rgba(89,213,227,.10); }
+.signal-stop:hover:not(:disabled) { background: rgba(235,91,76,.09); }
+
+.signal-statusbar {
+    min-height: 24px;
+    padding: 4px 2px;
+    color: hsla(0,0%,100%,.45);
+    font-size: 9px;
+}
+#signalPageStatus[data-state="busy"] { color: #ffd37a; }
+#signalPageStatus[data-state="error"] { color: #ff9b9b; }
+
+button:disabled,
+input:disabled,
+select:disabled { opacity: .42; cursor: not-allowed; }
+
+@media (max-width: 1050px) {
+    .signal-controls { grid-template-columns: repeat(2, minmax(180px,1fr)); }
+    .signal-targets { grid-template-columns: repeat(3, minmax(90px,1fr)); }
+}
+
+@media (max-width: 720px) {
+    .signal-page-title { align-items: flex-start; }
+    .signal-runtime-state { min-width: 0; }
+    .signal-controls { grid-template-columns: 1fr; }
+    .signal-level-control { grid-template-columns: 1fr 105px; }
+    .signal-targets { grid-template-columns: repeat(2, minmax(90px,1fr)); }
+    .signal-actions { grid-template-columns: 1fr; }
+    .signal-start, .signal-stop { width: 100%; }
+}

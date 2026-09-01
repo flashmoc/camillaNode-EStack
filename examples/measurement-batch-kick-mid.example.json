@@ -1,0 +1,163 @@
+{
+  "schema": "estack.measurement-batch",
+  "version": 1,
+  "name": "KICK ↔ MID L crossover example",
+  "description": "Example semi-automatic REW campaign. Each step is rebuilt from the DSP state captured when START BATCH is pressed.",
+  "defaults": {
+    "muteUnlisted": true,
+    "settleMs": 500,
+    "disabledFilters": []
+  },
+  "steps": [
+    {
+      "id": "M01",
+      "name": "KICK solo",
+      "activeWays": ["KICK"],
+      "instruction": "Run the REW sweep. Do not change CamillaDSP manually.",
+      "rew": {
+        "measurementName": "M01_KICK_SOLO",
+        "startHz": 80,
+        "endHz": 800,
+        "levelDbfs": -20,
+        "timingReference": true
+      }
+    },
+    {
+      "id": "M02",
+      "name": "MID L solo",
+      "activeWays": ["MID_L"],
+      "rew": {
+        "measurementName": "M02_MID_L_SOLO",
+        "startHz": 120,
+        "endHz": 1200,
+        "levelDbfs": -20,
+        "timingReference": true
+      }
+    },
+    {
+      "id": "M03",
+      "name": "KICK + MID L baseline",
+      "activeWays": ["KICK", "MID_L"],
+      "rew": {
+        "measurementName": "M03_KICK_MID_BASELINE",
+        "startHz": 120,
+        "endHz": 1200,
+        "levelDbfs": -20,
+        "timingReference": true
+      }
+    },
+    {
+      "id": "M04",
+      "name": "MID L polarity inverted",
+      "activeWays": ["KICK", "MID_L"],
+      "ways": {
+        "MID_L": { "polarity": "inverted" }
+      },
+      "rew": {
+        "measurementName": "M04_MID_L_POL_INV",
+        "startHz": 120,
+        "endHz": 1200,
+        "levelDbfs": -20,
+        "timingReference": true
+      }
+    },
+    {
+      "id": "M05",
+      "name": "MID L delay +0.50 ms",
+      "activeWays": ["KICK", "MID_L"],
+      "ways": {
+        "MID_L": { "delayOffsetMs": 0.5 }
+      },
+      "rew": {
+        "measurementName": "M05_MID_L_DELAY_P050",
+        "startHz": 120,
+        "endHz": 1200,
+        "levelDbfs": -20,
+        "timingReference": true
+      }
+    },
+    {
+      "id": "M06",
+      "name": "Crossover 275 Hz LR24",
+      "activeWays": ["KICK", "MID_L"],
+      "crossovers": {
+        "KICK": {
+          "lpf": { "freqHz": 275, "family": "LinkwitzRiley", "order": 4 }
+        },
+        "MID_L": {
+          "hpf": { "freqHz": 275, "family": "LinkwitzRiley", "order": 4 }
+        }
+      },
+      "rew": {
+        "measurementName": "M06_XO_275_LR24",
+        "startHz": 120,
+        "endHz": 1200,
+        "levelDbfs": -20,
+        "timingReference": true
+      }
+    },
+    {
+      "id": "M07",
+      "name": "Crossover 325 Hz LR24",
+      "activeWays": ["KICK", "MID_L"],
+      "crossovers": {
+        "KICK": {
+          "lpf": { "freqHz": 325, "family": "LinkwitzRiley", "order": 4 }
+        },
+        "MID_L": {
+          "hpf": { "freqHz": 325, "family": "LinkwitzRiley", "order": 4 }
+        }
+      },
+      "rew": {
+        "measurementName": "M07_XO_325_LR24",
+        "startHz": 120,
+        "endHz": 1200,
+        "levelDbfs": -20,
+        "timingReference": true
+      }
+    },
+    {
+      "id": "M08",
+      "name": "MID L phase -45° at 300 Hz HPF",
+      "activeWays": ["KICK", "MID_L"],
+      "ways": {
+        "MID_L": {
+          "phase": { "degrees": -45, "reference": "hpf" }
+        }
+      },
+      "rew": {
+        "measurementName": "M08_MID_L_PHASE_M45_HPF",
+        "startHz": 120,
+        "endHz": 1200,
+        "levelDbfs": -20,
+        "timingReference": true
+      }
+    },
+    {
+      "id": "M09",
+      "name": "XO 275 Hz + MID L phase -45°",
+      "activeWays": ["KICK", "MID_L"],
+      "ways": {
+        "MID_L": {
+          "phase": { "degrees": -45, "reference": "hpf" }
+        }
+      },
+      "crossovers": {
+        "KICK": {
+          "lpf": { "freqHz": 275, "family": "LinkwitzRiley", "order": 4 }
+        },
+        "MID_L": {
+          "hpf": { "freqHz": 275, "family": "LinkwitzRiley", "order": 4 }
+        }
+      },
+      "rew": {
+        "measurementName": "M09_XO275_MID_PHASE_M45",
+        "startHz": 120,
+        "endHz": 1200,
+        "levelDbfs": -20,
+        "timingReference": true,
+        "notes": "The all-pass is recalculated after the 275 Hz HPF is applied, so -45° is referenced to 275 Hz for this step."
+      }
+    }
+  ]
+}

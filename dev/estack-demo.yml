@@ -1,0 +1,320 @@
+title: "E-Stack HW mirror - Codespaces"
+description: >
+  Cloud-safe mirror of the current E-Stack hardware configuration.
+  DSP routing, crossovers, gains, delays, protection compressors and hard
+  limiters match EStack_HW_RASPIAUDIO.yml. Only the physical ALSA capture and
+  playback devices are replaced by an 8-channel stdin stream and /dev/null.
+
+devices:
+  samplerate: 48000
+  chunksize: 128
+  queuelimit: 1
+  target_level: 256
+  enable_rate_adjust: false
+  silence_timeout: 0
+  volume_limit: 0
+  volume_ramp_time: 400
+
+  capture:
+    type: Stdin
+    channels: 8
+    format: S32_LE
+
+  playback:
+    type: File
+    channels: 8
+    filename: "/dev/null"
+    format: S32_LE
+
+filters:
+  high_hpf_2000_lr24:
+    type: BiquadCombo
+    description: "DE360 + XT120 : HPF actuel"
+    parameters:
+      type: LinkwitzRileyHighpass
+      freq: 4077.7
+      order: 4
+
+  high_l_delay:
+    type: Delay
+    parameters: {delay: 0.0, unit: ms, subsample: false}
+  high_l_gain:
+    type: Gain
+    parameters: {gain: -0.1, scale: dB, inverted: false, mute: false}
+  high_l_hard_limit:
+    type: Limiter
+    description: "Valable seulement après calibration physique du Fosi"
+    parameters: {soft_clip: false, clip_limit: -0.5}
+
+  high_r_delay:
+    type: Delay
+    parameters: {delay: 0.0, unit: ms, subsample: false}
+  high_r_gain:
+    type: Gain
+    parameters: {gain: -0.1, scale: dB, inverted: false, mute: false}
+  high_r_hard_limit:
+    type: Limiter
+    description: "Valable seulement après calibration physique du Fosi"
+    parameters: {soft_clip: false, clip_limit: -0.5}
+
+  kick_delay:
+    type: Delay
+    parameters: {delay: 0.0, unit: ms, subsample: false}
+  kick_gain:
+    type: Gain
+    parameters: {gain: -18.2, scale: dB, inverted: true, mute: false}
+  kick_hard_limit:
+    type: Limiter
+    description: "PROVISOIRE : hypothèse E-1200 ~41 dB"
+    parameters: {soft_clip: false, clip_limit: -16.7}
+  kick_hpf_130_lr24:
+    type: BiquadCombo
+    description: "SAKB28 : HPF 130 Hz LR24"
+    parameters:
+      type: LinkwitzRileyHighpass
+      freq: 130.0
+      order: 4
+  kick_lpf_300_lr24:
+    type: BiquadCombo
+    description: "KICK -> MID : départ 300 Hz LR24"
+    parameters:
+      type: LinkwitzRileyLowpass
+      freq: 300.0
+      order: 4
+
+  mid_hpf_300_lr24:
+    type: BiquadCombo
+    description: "SAMH5 : départ 300 Hz LR24"
+    parameters:
+      type: LinkwitzRileyHighpass
+      freq: 300.0
+      order: 4
+  mid_l_delay:
+    type: Delay
+    parameters: {delay: 0.0, unit: ms, subsample: false}
+  mid_l_gain:
+    type: Gain
+    parameters: {gain: -8.8, scale: dB, inverted: false, mute: false}
+  mid_l_hard_limit:
+    type: Limiter
+    description: "E-400 en gain fixe 26 dB ; cible 25.3 Vrms"
+    parameters: {soft_clip: false, clip_limit: -4.4}
+  mid_lpf_2000_lr24:
+    type: BiquadCombo
+    description: "SAMH5 -> DE360/XT120 : LPF actuel"
+    parameters:
+      type: LinkwitzRileyLowpass
+      freq: 3991.4
+      order: 4
+  mid_r_delay:
+    type: Delay
+    parameters: {delay: 0.0, unit: ms, subsample: false}
+  mid_r_gain:
+    type: Gain
+    parameters: {gain: -8.8, scale: dB, inverted: false, mute: false}
+  mid_r_hard_limit:
+    type: Limiter
+    description: "E-400 en gain fixe 26 dB ; cible 25.3 Vrms"
+    parameters: {soft_clip: false, clip_limit: -4.4}
+
+  sub_delay:
+    type: Delay
+    parameters: {delay: 0.0, unit: ms, subsample: false}
+  sub_gain:
+    type: Gain
+    parameters: {gain: -13.5, scale: dB, inverted: false, mute: false}
+  sub_hard_limit:
+    type: Limiter
+    description: "PROVISOIRE : hypothèse E-1200 ~41 dB"
+    parameters: {soft_clip: false, clip_limit: -13.5}
+  sub_hpf_40_bw24:
+    type: BiquadCombo
+    description: "SATL110 : HPF 40 Hz Butterworth 24 dB/oct"
+    parameters:
+      type: ButterworthHighpass
+      freq: 40.0
+      order: 4
+  sub_lpf_130_lr24:
+    type: BiquadCombo
+    description: "SUB -> KICK : départ 130 Hz LR24"
+    parameters:
+      type: LinkwitzRileyLowpass
+      freq: 130.0
+      order: 4
+
+mixers:
+  estack_preview:
+    description: >
+      SUB and KICK are L+R sums at -6.0206 dB/source. MID and HIGH stay stereo.
+      OUT7 and OUT8 are intentionally silent.
+    channels:
+      in: 8
+      out: 8
+    mapping:
+      - dest: 0
+        sources:
+          - channel: 0
+            gain: -6.0206
+            scale: dB
+            inverted: false
+          - channel: 1
+            gain: -6.0206
+            scale: dB
+            inverted: false
+      - dest: 1
+        sources:
+          - channel: 0
+            gain: -6.0206
+            scale: dB
+            inverted: false
+          - channel: 1
+            gain: -6.0206
+            scale: dB
+            inverted: false
+      - dest: 2
+        sources:
+          - channel: 0
+            gain: 0.0
+            scale: dB
+            inverted: false
+      - dest: 3
+        sources:
+          - channel: 1
+            gain: 0.0
+            scale: dB
+            inverted: false
+      - dest: 4
+        sources:
+          - channel: 0
+            gain: 0.0
+            scale: dB
+            inverted: false
+      - dest: 5
+        sources:
+          - channel: 1
+            gain: 0.0
+            scale: dB
+            inverted: false
+
+processors:
+  high_l_protection:
+    type: Compressor
+    parameters:
+      channels: 8
+      attack: 0.001
+      release: 0.15
+      threshold: -1.5
+      factor: 20.0
+      makeup_gain: 0.0
+      monitor_channels: [4]
+      process_channels: [4]
+  high_r_protection:
+    type: Compressor
+    parameters:
+      channels: 8
+      attack: 0.001
+      release: 0.15
+      threshold: -1.5
+      factor: 20.0
+      makeup_gain: 0.0
+      monitor_channels: [5]
+      process_channels: [5]
+  kick_protection:
+    type: Compressor
+    parameters:
+      channels: 8
+      attack: 0.005
+      release: 0.3
+      threshold: -17.7
+      factor: 20.0
+      makeup_gain: 0.0
+      monitor_channels: [1]
+      process_channels: [1]
+  mid_l_protection:
+    type: Compressor
+    parameters:
+      channels: 8
+      attack: 0.002
+      release: 0.2
+      threshold: -5.4
+      factor: 20.0
+      makeup_gain: 0.0
+      monitor_channels: [2]
+      process_channels: [2]
+  mid_r_protection:
+    type: Compressor
+    parameters:
+      channels: 8
+      attack: 0.002
+      release: 0.2
+      threshold: -5.4
+      factor: 20.0
+      makeup_gain: 0.0
+      monitor_channels: [3]
+      process_channels: [3]
+  sub_protection:
+    type: Compressor
+    parameters:
+      channels: 8
+      attack: 0.01
+      release: 0.5
+      threshold: -14.5
+      factor: 20.0
+      makeup_gain: 0.0
+      monitor_channels: [0]
+      process_channels: [0]
+
+pipeline:
+  - type: Mixer
+    name: estack_preview
+
+  - type: Filter
+    channels: [0]
+    names: [sub_hpf_40_bw24, sub_lpf_130_lr24, sub_gain, sub_delay]
+  - type: Filter
+    channels: [1]
+    names: [kick_hpf_130_lr24, kick_lpf_300_lr24, kick_gain, kick_delay]
+  - type: Filter
+    channels: [2]
+    names: [mid_hpf_300_lr24, mid_lpf_2000_lr24, mid_l_gain, mid_l_delay]
+  - type: Filter
+    channels: [3]
+    names: [mid_hpf_300_lr24, mid_lpf_2000_lr24, mid_r_gain, mid_r_delay]
+  - type: Filter
+    channels: [4]
+    names: [high_hpf_2000_lr24, high_l_gain, high_l_delay]
+  - type: Filter
+    channels: [5]
+    names: [high_hpf_2000_lr24, high_r_gain, high_r_delay]
+
+  - type: Processor
+    name: sub_protection
+  - type: Processor
+    name: kick_protection
+  - type: Processor
+    name: mid_l_protection
+  - type: Processor
+    name: mid_r_protection
+  - type: Processor
+    name: high_l_protection
+  - type: Processor
+    name: high_r_protection
+
+  - type: Filter
+    channels: [0]
+    names: [sub_hard_limit]
+  - type: Filter
+    channels: [1]
+    names: [kick_hard_limit]
+  - type: Filter
+    channels: [2]
+    names: [mid_l_hard_limit]
+  - type: Filter
+    channels: [3]
+    names: [mid_r_hard_limit]
+  - type: Filter
+    channels: [4]
+    names: [high_l_hard_limit]
+  - type: Filter
+    channels: [5]
+    names: [high_r_hard_limit]

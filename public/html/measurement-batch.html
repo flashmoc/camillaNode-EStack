@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Measurement Batch</title>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/estackTheme.css">
+    <link rel="stylesheet" href="/css/estackMeasurementBatch.css">
+    <link rel="stylesheet" href="/css/estackMeasurementBatchV2.css">
+    <script src="/src/estackMeasurementBatch.js" defer></script>
+    <script src="/src/estackMeasurementBatchEditor.js" defer></script>
+    <script src="/src/estackMeasurementBatchInput.js" defer></script>
+</head>
+<body class="estack-measurement-batch">
+    <div class="measure-page-title">
+        <div>
+            <img src="/img/icon/advanced.png" alt="">
+            <strong>Measurement Batch</strong>
+        </div>
+        <div id="measureRuntimeState" class="measure-runtime-state" data-state="empty">
+            <strong>NO BATCH</strong>
+        </div>
+    </div>
+
+    <main class="measure-page">
+        <section class="measure-import-panel">
+            <div class="measure-import-copy">
+                <strong id="batchName">No measurement batch loaded</strong>
+                <span id="batchDescription">Import, create or edit a versioned E-Stack measurement campaign.</span>
+            </div>
+            <div class="measure-import-actions">
+                <input id="batchFileInput" type="file" accept="application/json,.json" hidden>
+                <button id="importBatch" type="button">IMPORT</button>
+                <button id="editBatch" type="button">NEW / EDIT</button>
+                <button id="exportBatch" type="button">EXPORT</button>
+                <button id="clearBatch" type="button">CLEAR</button>
+            </div>
+        </section>
+
+        <section class="measure-progress-panel">
+            <div class="measure-progress-copy">
+                <span id="batchProgressLabel">0 / 0</span>
+                <strong id="batchProgressText">Waiting for a batch</strong>
+            </div>
+            <div class="measure-progress-track" aria-hidden="true">
+                <i id="batchProgressBar"></i>
+            </div>
+        </section>
+
+        <section class="measure-workspace">
+            <aside class="measure-sequence-panel">
+                <div class="measure-sequence-head">
+                    <strong>SEQUENCE</strong>
+                    <span id="sequenceCount">0 measurements</span>
+                </div>
+                <div id="measurementSequence" class="measure-sequence"></div>
+            </aside>
+
+            <article class="measure-current-card">
+                <div class="measure-current-head">
+                    <div>
+                        <span id="measurementCounter">—</span>
+                        <strong id="measurementName">No active measurement</strong>
+                    </div>
+                    <button id="copyRewName" type="button" disabled>COPY REW NAME</button>
+                </div>
+
+                <div class="measure-current-scroll">
+                    <div id="measurementPosition" class="measure-position" hidden></div>
+                    <p id="measurementInstruction" class="measure-instruction">Start the batch to snapshot the live DSP configuration and prepare measurement 1.</p>
+
+                    <div class="measure-block">
+                        <div class="measure-block-head"><strong>ACTIVE WAYS</strong></div>
+                        <div id="measurementWays" class="measure-way-grid"></div>
+                    </div>
+
+                    <div class="measure-block">
+                        <div class="measure-block-head"><strong>DSP DELTA</strong><span>Rebuilt from captured baseline</span></div>
+                        <div id="measurementOverrides" class="measure-delta-grid"></div>
+                    </div>
+
+                    <div class="measure-block measure-rew-block">
+                        <div class="measure-block-head"><strong>REW</strong><span>Manual now · API-ready metadata</span></div>
+                        <div class="measure-rew-grid">
+                            <div><span>NAME</span><strong id="rewName">—</strong></div>
+                            <div><span>SWEEP</span><strong id="rewSweep">—</strong></div>
+                            <div><span>LEVEL</span><strong id="rewLevel">—</strong></div>
+                            <div><span>TIMING REF</span><strong id="rewTiming">—</strong></div>
+                        </div>
+                        <p id="rewNotes" class="measure-rew-notes" hidden></p>
+                    </div>
+                </div>
+
+                <div class="measure-actions">
+                    <button id="previousMeasurement" type="button" disabled>PREVIOUS</button>
+                    <button id="retryMeasurement" type="button" disabled>REAPPLY</button>
+                    <button id="nextMeasurement" class="measure-primary" type="button" disabled>START BATCH</button>
+                    <button id="abortMeasurement" class="measure-danger" type="button" disabled>ABORT &amp; RESTORE</button>
+                </div>
+            </article>
+        </section>
+
+        <div class="measure-footer">
+            <div class="measure-statusbar"><span id="measurePageStatus"></span></div>
+            <code>iPhone · POST /api/measurement-batch/next</code>
+        </div>
+    </main>
+
+    <dialog id="batchEditorDialog" class="measure-editor-dialog">
+        <div class="measure-editor-shell">
+            <div class="measure-editor-head">
+                <div>
+                    <strong>Batch Editor</strong>
+                    <span>E-Stack Measurement Batch v1 · edits are validated by the same server model as imported JSON.</span>
+                </div>
+                <div class="measure-editor-head-actions">
+                    <button id="editorExport" type="button">EXPORT JSON</button>
+                    <button id="editorClose" type="button">CLOSE</button>
+                </div>
+            </div>
+
+            <div class="measure-editor-body">
+                <aside class="measure-editor-sidebar">
+                    <div class="measure-editor-section">
+                        <div class="measure-editor-section-title"><strong>BATCH</strong></div>
+                        <div class="measure-editor-field">
+                            <label for="editorBatchName">NAME</label>
+                            <input id="editorBatchName" type="text" maxlength="120">
+                        </div>
+                        <div class="measure-editor-field" style="margin-top:5px">
+                            <label for="editorBatchDescription">DESCRIPTION</label>
+                            <textarea id="editorBatchDescription" maxlength="1200"></textarea>
+                        </div>
+                        <div class="measure-editor-grid" style="margin-top:5px">
+                            <div class="measure-editor-field">
+                                <label for="editorSettleMs">SETTLE ms</label>
+                                <input id="editorSettleMs" type="number" min="0" max="5000" step="50">
+                            </div>
+                            <div class="measure-editor-field">
+                                <label for="editorMuteUnlisted">UNLISTED WAYS</label>
+                                <select id="editorMuteUnlisted">
+                                    <option value="true">MUTED</option>
+                                    <option value="false">BASELINE</option>
+                                </select>
+                            </div>
+                            <div class="measure-editor-field wide">
+                                <label for="editorBatchDisabled">DEFAULT FILTERS OFF · comma separated</label>
+                                <input id="editorBatchDisabled" type="text" placeholder="e.g. GLOBAL_EQ">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="measure-editor-section-title">
+                        <strong>STEPS</strong>
+                        <span id="editorStepCount">0</span>
+                    </div>
+                    <div id="editorStepList" class="measure-editor-step-list"></div>
+                    <div class="measure-editor-step-actions">
+                        <button id="editorAddStep" type="button">+ STEP</button>
+                        <button id="editorDuplicateStep" type="button">DUPLICATE</button>
+                        <button id="editorMoveUp" type="button">↑</button>
+                        <button id="editorMoveDown" type="button">↓</button>
+                        <button id="editorDeleteStep" class="editor-danger" type="button">DELETE</button>
+                    </div>
+                </aside>
+
+                <div class="measure-editor-main">
+                    <div class="measure-editor-section">
+                        <div class="measure-editor-section-title"><strong>STEP</strong><span id="editorStepPosition"></span></div>
+                        <div class="measure-editor-grid">
+                            <div class="measure-editor-field">
+                                <label for="editorStepId">ID</label>
+                                <input id="editorStepId" type="text" maxlength="64">
+                            </div>
+                            <div class="measure-editor-field">
+                                <label for="editorStepName">NAME</label>
+                                <input id="editorStepName" type="text" maxlength="160">
+                            </div>
+                            <div class="measure-editor-field wide">
+                                <label for="editorInstruction">INSTRUCTION</label>
+                                <textarea id="editorInstruction" maxlength="1000"></textarea>
+                            </div>
+                            <div class="measure-editor-field">
+                                <label for="editorPosition">MIC / PHYSICAL POSITION</label>
+                                <input id="editorPosition" type="text" maxlength="240">
+                            </div>
+                            <div class="measure-editor-field">
+                                <label for="editorDisabledFilters">FILTERS OFF · comma separated</label>
+                                <input id="editorDisabledFilters" type="text">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="measure-editor-section">
+                        <div class="measure-editor-section-title"><strong>ACTIVE WAYS</strong><span>Unchecked ways are muted when muteUnlisted is enabled</span></div>
+                        <div id="editorActiveWays" class="measure-editor-checkboxes"></div>
+                    </div>
+
+                    <div class="measure-editor-section">
+                        <div class="measure-editor-section-title"><strong>WAY OVERRIDES</strong><span>Blank = captured baseline · gain Δ cannot be positive</span></div>
+                        <div class="measure-editor-table-wrap">
+                            <table class="measure-editor-table" id="editorWayTable">
+                                <thead><tr>
+                                    <th>WAY</th><th>DELAY ms</th><th>DELAY Δ ms</th><th>POLARITY</th><th>GAIN Δ dB</th><th>PHASE °</th><th>PHASE REF</th><th>REF Hz</th>
+                                </tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="measure-editor-section">
+                        <div class="measure-editor-section-title"><strong>CROSSOVERS</strong><span>Blank = baseline · family/order can be changed without changing frequency</span></div>
+                        <div class="measure-editor-table-wrap">
+                            <table class="measure-editor-table" id="editorXoTable">
+                                <thead><tr>
+                                    <th>WAY</th><th>HPF Hz</th><th>HPF FAMILY</th><th>HPF ORDER</th><th>LPF Hz</th><th>LPF FAMILY</th><th>LPF ORDER</th>
+                                </tr></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <div class="measure-editor-section">
+                        <div class="measure-editor-section-title"><strong>REW</strong><span>Metadata now · automatic-runner compatible later</span></div>
+                        <div class="measure-editor-grid three">
+                            <div class="measure-editor-field">
+                                <label for="editorRewName">MEASUREMENT NAME</label>
+                                <input id="editorRewName" type="text" maxlength="120">
+                            </div>
+                            <div class="measure-editor-field">
+                                <label for="editorRewStart">START Hz</label>
+                                <input id="editorRewStart" type="number" min="5" max="24000">
+                            </div>
+                            <div class="measure-editor-field">
+                                <label for="editorRewEnd">END Hz</label>
+                                <input id="editorRewEnd" type="number" min="5" max="24000">
+                            </div>
+                            <div class="measure-editor-field">
+                                <label for="editorRewLevel">LEVEL dBFS</label>
+                                <input id="editorRewLevel" type="number" min="-80" max="0" step="0.5">
+                            </div>
+                            <div class="measure-editor-field">
+                                <label for="editorRewTiming">TIMING REFERENCE</label>
+                                <select id="editorRewTiming">
+                                    <option value="">CURRENT</option>
+                                    <option value="true">ON</option>
+                                    <option value="false">OFF</option>
+                                </select>
+                            </div>
+                            <div class="measure-editor-field wide">
+                                <label for="editorRewNotes">NOTES</label>
+                                <textarea id="editorRewNotes" maxlength="800"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="measure-editor-footer">
+                <span id="batchEditorStatus">Changes are local until SAVE BATCH.</span>
+                <div class="measure-editor-footer-actions">
+                    <button id="editorReset" type="button">RELOAD</button>
+                    <button id="editorSave" class="editor-primary" type="button">SAVE BATCH</button>
+                </div>
+            </div>
+        </div>
+    </dialog>
+</body>
+</html>

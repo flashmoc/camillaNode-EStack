@@ -2,58 +2,50 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=100vw, initial-scale=1.0">
-    <title>Connections</title>        
-    <script src="/src/main.js"></script>    
-    <link rel="stylesheet" href="css/main.css">
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connections</title>
+    <script src="/src/main.js"></script>
+    <link rel="stylesheet" href="/css/main.css">
+    <link rel="stylesheet" href="/css/estackTheme.css">
 </head>
 
 <body>
-    <div id="sectionMainTitle"><img src="img/icon/connections.png" class="icon">Connections</div>
-    <script type="module" >
-        import camillaDSP from "/src/camillaDSP.js"        
+    <div id="sectionMainTitle"><img src="/img/icon/connections.png" class="icon">Connections</div>
+    <script type="module">
+        import camillaDSP from "/src/camillaDSP.js";
+        import installEStackCompatibility from "/src/estackCompat.js";
+        import installEStackConnectionDecouple from "/src/estackConnectionDecouple.js";
+
+        installEStackCompatibility(camillaDSP);
+        installEStackConnectionDecouple(camillaDSP);
         window.camillaDSP = camillaDSP;
-        document.addEventListener("DOMContentLoaded",connectionsOnLoad)
+        document.addEventListener("DOMContentLoaded", connectionsOnLoad);
     </script>
 
-        
     <script>
-        
         function connectionsOnLoad() {
-            // Load saved details from local storage if they exist.
-            const server = window.localStorage.getItem("server")
-            const port  = window.localStorage.getItem("port")
-            const spectrumPort = window.localStorage.getItem("spectrumPort")
-            if (server!=undefined) {
+            const server = window.localStorage.getItem("server");
+            const port = window.localStorage.getItem("port");
+            const spectrumPort = window.localStorage.getItem("spectrumPort");
+            if (server !== undefined && server !== null) {
                 document.getElementById("server").value = server;
-                document.getElementById("port").value=port;
-                document.getElementById("spectrumPort").value=spectrumPort;
+                document.getElementById("port").value = port;
+                document.getElementById("spectrumPort").value = spectrumPort;
             } else {
                 document.getElementById("server").value = window.location.hostname;
-                document.getElementById("port").value=3146;
-                document.getElementById("spectrumPort")=6413;
+                document.getElementById("port").value = 1234;
+                document.getElementById("spectrumPort").value = 6413;
             }
         }
     </script>
-    <style>
-        span, #state {
-            text-align: left;
-        }
-    </style>
-    <p>Please enter the IP address aand port settings for your CamillaDSP instances below.</p>
-    <div id="connectionsSection">        
-        <span>IP Address</span><input id="server" type="text" value="opizero2.local">
-        <span>Audio Port</span><input id="port" type="text" value="3146">
+
+    <p style="margin: 0 12px 10px; color: var(--estack-muted);">CamillaDSP connection endpoints used by E-Stack.</p>
+    <div id="connectionsSection">
+        <span>IP Address</span><input id="server" type="text" value="estack-dsp.local">
+        <span>Audio Port</span><input id="port" type="text" value="1234">
         <span>Spectrum Port</span><input id="spectrumPort" type="text" value="6413">
-        <div style="grid-column: 1 / span 2; display: flex; justify-content: right;"><button onclick="connect(camillaDSP)">Connect</button>        </div>
+        <div style="grid-column: 1 / span 2; display: flex; justify-content: flex-end;"><button onclick="connect(camillaDSP)">Connect</button></div>
     </div>
-    <br>
     <div id="state"></div>
-
-
-
-
-    
 </body>
 </html>

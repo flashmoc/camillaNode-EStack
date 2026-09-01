@@ -2,42 +2,70 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=100vw, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Output Processing</title>
+
+    <!-- Shared product design + one page stylesheet. -->
     <link rel="stylesheet" href="/css/main.css">
-    <script src="/src/equalizer.js"></script>
-    <title>Equalizer</title>
+    <link rel="stylesheet" href="/css/estackTheme.css">
+    <link rel="stylesheet" href="/css/estackOutputProcessing.css">
+
+    <!-- DSP/editor engine. Presentation is owned only by estackOutputWorkspace.js. -->
+    <script src="/src/estackEqualizer.js" defer></script>
+    <script src="/src/estackProcessorVisibility.js" defer></script>
+    <script src="/src/estackVenuPolish.js" defer></script>
+    <script src="/src/estackGlobalGraph.js" defer></script>
+    <script src="/src/estackEditorRestore.js" defer></script>
+    <script src="/src/estackPeqModel.js" defer></script>
+    <script src="/src/estackPeqPipelineOrder.js" defer></script>
+    <script src="/src/estackOutputScope.js" defer></script>
+    <script src="/src/estackSpectrumPro.js" defer></script>
+    <script src="/src/estackEqEight.js" defer></script>
+    <script src="/src/estackQInputFix.js" defer></script>
+    <script src="/src/estackEqZeroSnap.js" defer></script>
+    <script src="/src/estackEqV4.js" defer></script>
+    <script src="/src/estackOutputPeq.js" defer></script>
+    <script src="/src/estackPhaseGraph.js" defer></script>
+    <script src="/src/estackOutputWorkspace.js" defer></script>
+    <script src="/src/estackOutputWorkspaceUX.js" defer></script>
 </head>
-<body>
+<body class="estack-eq-v4">
+    <div id="sectionMainTitle" class="processing-page-title"><img src="/img/icon/merge.png" class="icon">Output Processing</div>
 
-    <div id="sectionMainTitle"><img src="img/icon/equalizer.png" class="icon">Equalizer</div>
-    
-    <script type="module">        
-        import camillaDSP from "/src/camillaDSP.js";       
-        import EQKnob from '/src/knob.js';
-        import plot from '/src/eqplot.js';        
-        import savedConfigs from "/src/savedConfigs.js";     
-        import filter from "/src/filter.js"        
-    
-        window.filter = filter;
-        window.savedConfigs = new savedConfigs();                
-        window.camillaDSP = camillaDSP;                        
-        window.EQKnob=EQKnob;
-        window.plot = plot;               
-    </script>
-<!-- 
-    <input type="button" onclick="DSP.sendDSPMessage('GetConfigJson').then(r=>console.log(r));" value="Show Config">    
-    <input type="button" onclick="DSP.mergeFilters(DSP.config.filters)" value="Convert Configs"> 
-    <br><br>
--->
+    <div class="eq-v4-shell">
+        <div class="eq-v4-engine-mount" aria-hidden="true">
+            <strong id="selectedChannelTitle">Output</strong>
+            <span id="selectedChannelMeta"></span>
+            <nav id="channelTabs" class="venu-output-tabs"></nav>
+            <div class="venu-rta-strip">
+                <div class="venu-rta-label"><strong>LIVE SPECTRUM</strong><span>Analyzer</span></div>
+                <div class="venu-rta-canvas-wrap"><canvas id="rtaCanvas"></canvas></div>
+            </div>
+        </div>
 
-    <div id="spectrum" class="group">
+        <!-- Legacy engine mount. Visible controls are moved under the graph by the
+             unified workspace so core rendering contracts remain untouched. -->
+        <div class="eq-v4-topbar" aria-hidden="true">
+            <nav id="moduleTabs" class="venu-module-tabs" aria-label="Output navigation"></nav>
+            <div class="eq-v4-context">
+                <strong id="moduleTitle">Per-Way Workspace</strong>
+                <span id="moduleSubtitle"></span>
+            </div>
+            <div class="venu-graph-legend" aria-label="Select output to edit"></div>
+            <button id="systemEditToggle" class="venu-system-edit" aria-pressed="false">🔒 LOCKED</button>
+        </div>
+
+        <div class="venu-workspace">
+            <div class="venu-graph-wrap" aria-label="System response and live analyzer">
+                <canvas id="responseCanvas"></canvas>
+            </div>
+            <div id="bandSelector" class="venu-band-selector"></div>
+            <div id="moduleControls" class="venu-controls"></div>
+            <div class="venu-statusbar">
+                <span id="estackEqStatus">Loading DSP…</span>
+                <span id="estackEqCount"></span>
+            </div>
+        </div>
     </div>
-    
-    <canvas id="plotCanvas" width="1024" height="500"></canvas>
-    
-    <div class="group" id="basicControls" label="Basic Controls"></div> 
-    <div class="group PEQ" id="PEQ" label="Parametric EQ"></div>    
-
-    
 </body>
 </html>
