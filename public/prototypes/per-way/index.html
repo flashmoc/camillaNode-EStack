@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'none'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>E-Stack Per Way — UI Prototype</title>
+  <link rel="stylesheet" href="/css/estackDesignSystem.css">
+  <link rel="stylesheet" href="./prototype.css">
+</head>
+<body>
+  <header class="prototype-lock" role="status" aria-live="polite">
+    <strong>UI PROTOTYPE — MOCK DATA — NO DSP WRITE</strong>
+    <span>Static fixture model · isolated interaction only</span>
+  </header>
+
+  <div class="app-shell">
+    <header class="system-bar" aria-label="Mock system context">
+      <div class="brand-block">
+        <span class="brand-mark" aria-hidden="true">E</span>
+        <div><strong>E-Stack · Per Way</strong><span>Future operator surface</span></div>
+      </div>
+      <div class="system-context" id="systemContext">
+        <span class="status-chip ok" data-role="dsp-state"><i></i> DSP MOCK ONLINE</span>
+        <span class="status-chip" data-role="preset-state">REFERENCE · SAVED</span>
+        <span class="status-chip" data-role="clip-state">NO CLIP</span>
+        <span class="status-chip" data-role="limit-state">LIMITERS ARMED</span>
+      </div>
+      <div class="master-cluster" aria-label="Mock master level">
+        <label for="masterLevel">MASTER</label>
+        <div class="value-unit"><input id="masterLevel" type="number" value="-12.0" step="0.1" min="-80" max="6"><span>dB</span></div>
+        <div class="master-meter" aria-label="Mock master meter"><span style="--level:66%"></span></div>
+        <span class="headroom-readout"><b>9.8</b> dB HR</span>
+      </div>
+      <label class="scenario-field" for="scenarioSelect">SCENARIO
+        <select id="scenarioSelect"><option value="normal">Normal</option><option value="dirty">Dirty</option><option value="pending">Pending</option><option value="warning">Warning</option><option value="critical">Critical</option><option value="disconnected">Disconnected</option><option value="disabled">Disabled controls</option></select>
+      </label>
+    </header>
+
+    <main>
+      <section class="way-strip" aria-label="Output way selection">
+        <div class="section-kicker"><strong>OUTPUTS</strong><span>select a way · mock meters</span></div>
+        <div id="waySelector" class="way-selector"></div>
+      </section>
+      <section class="active-way-summary" id="activeWaySummary" aria-live="polite"></section>
+
+      <section class="graph-section" aria-labelledby="graphHeading">
+        <div class="graph-toolbar">
+          <div class="toolbar-group"><span class="toolbar-label" id="graphHeading">RESPONSE</span><div class="segmented" id="graphModes" role="group" aria-label="Graph display mode"><button type="button" data-mode="magnitude" class="active" aria-pressed="true">Magnitude</button><button type="button" data-mode="phase" aria-pressed="false">Phase</button><button type="button" data-mode="xo" aria-pressed="false">XO Align</button></div></div>
+          <div class="toolbar-group graph-options"><label>COMPARE <select id="compareWay"><option value="none">None</option></select></label><label class="toggle-label"><input id="analyzerToggle" type="checkbox" checked> Analyzer</label><span class="status-chip neutral">SIMULATED CURVES</span></div>
+        </div>
+        <div class="graph-wrap"><canvas id="responseGraph" width="1400" height="360" role="img" aria-label="Simulated selected-way response graph"></canvas></div>
+        <div class="graph-readout" id="graphReadout" aria-live="polite"></div>
+      </section>
+
+      <div class="workspace-grid">
+        <section class="processor-section output-section" aria-labelledby="outputHeading">
+          <header class="section-head"><div><strong id="outputHeading">OUTPUT / ALIGN / PROTECTION</strong><span id="outputMeta">Selected way</span></div><div class="edit-state"><span id="transactionState" class="transaction applied">APPLIED</span><button type="button" id="revertButton" class="quiet">Revert local</button><button type="button" id="applyButton">Apply mock</button></div></header>
+          <div class="control-rack" id="outputRack">
+            <div class="control-block emphasis"><label for="gainInput">GAIN</label><div class="precise-control"><input id="gainRange" type="range" min="-60" max="12" step="0.1" aria-label="Gain coarse adjustment"><div class="value-unit"><input id="gainInput" type="number" min="-60" max="12" step="0.1"><span>dB</span></div></div></div>
+            <div class="control-block"><label for="delayInput">DELAY</label><div class="nudge-row"><button type="button" data-nudge="delay" data-delta="-0.1" aria-label="Decrease delay by 0.1 milliseconds">−0.10</button><button type="button" data-nudge="delay" data-delta="-0.01" aria-label="Decrease delay by 0.01 milliseconds">−0.01</button><div class="value-unit"><input id="delayInput" type="number" min="0" max="100" step="0.01"><span>ms</span></div><button type="button" data-nudge="delay" data-delta="0.01" aria-label="Increase delay by 0.01 milliseconds">+0.01</button><button type="button" data-nudge="delay" data-delta="0.1" aria-label="Increase delay by 0.1 milliseconds">+0.10</button></div><span class="secondary-value" id="delaySecondary">0 samples · 0.00 m</span></div>
+            <div class="control-block"><label for="phaseInput">PHASE TRIM</label><div class="precise-control"><input id="phaseRange" type="range" min="-179" max="0" step="0.1" aria-label="Phase trim coarse adjustment"><div class="value-unit"><input id="phaseInput" type="number" min="-179" max="0" step="0.1"><span>°</span></div></div><span class="secondary-value" id="phaseReference">Reference 1.00 kHz</span></div>
+            <div class="control-block state-control"><span class="field-label">POLARITY</span><div class="segmented two" id="polarityControl" role="group" aria-label="Polarity"><button type="button" data-value="normal">Normal</button><button type="button" data-value="inverted">Inverted</button></div></div>
+            <div class="control-block state-control"><span class="field-label">OUTPUT STATE</span><div class="state-actions"><button type="button" id="muteButton" class="state-button">Mute</button><button type="button" id="bypassButton" class="state-button">Bypass</button></div></div>
+          </div>
+          <div class="protection-rail">
+            <div class="protection-summary"><span class="field-label">PROTECTION</span><strong id="protectionState">NORMAL</strong><span id="protectionDetail">8.6 dB headroom</span></div>
+            <label class="toggle-line"><input id="limiterEnabled" type="checkbox" checked><span>Hard limiter</span></label>
+            <label class="inline-field">CLIP LIMIT<div class="value-unit"><input id="limiterThreshold" type="number" min="-30" max="0" step="0.1"><span>dBFS</span></div></label>
+            <label class="inline-field">ATTACK<div class="value-unit"><input id="attackInput" type="number" min="0.001" max="1" step="0.001" value="0.010"><span>s</span></div></label>
+            <label class="inline-field">RELEASE<div class="value-unit"><input id="releaseInput" type="number" min="0.01" max="5" step="0.01" value="0.50"><span>s</span></div></label>
+            <label class="inline-field">RATIO<div class="value-unit"><input id="ratioInput" type="number" min="1" max="20" step="0.1" value="2"><span>:1</span></div></label>
+          </div>
+        </section>
+
+        <section class="processor-section peq-section" aria-labelledby="peqHeading">
+          <header class="section-head"><div><strong id="peqHeading">PARAMETRIC EQ</strong><span id="peqMeta">Selected way · mock filters</span></div><div class="section-actions"><button type="button" id="addPeqButton">+ Band</button></div></header>
+          <div class="peq-table-head" aria-hidden="true"><span>#</span><span>ON</span><span>TYPE</span><span>FREQUENCY</span><span>GAIN</span><span>Q</span><span></span></div><div id="peqEditor" class="peq-editor"></div>
+        </section>
+
+        <section class="processor-section crossover-section" aria-labelledby="crossoverHeading">
+          <header class="section-head"><div><strong id="crossoverHeading">CROSSOVER</strong><span>Filter edges · selected way</span></div></header><div class="crossover-grid" id="crossoverEditor"></div>
+        </section>
+      </div>
+    </main>
+    <footer class="prototype-footer"><span>Prototype state is discarded on reload.</span><span>No network control path is implemented.</span></footer>
+  </div>
+  <script src="./fixtures.js" defer></script><script src="./prototype.js" defer></script>
+</body>
+</html>
