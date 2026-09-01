@@ -1,0 +1,8 @@
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body { margin: 0; color: var(--color-text-primary); background: var(--color-canvas); font: var(--font-size-control)/1.45 var(--font-family-ui); }
+button, input, select { font: inherit; }
+a { color: var(--color-accent); }
+h1, h2, h3, p { margin-top: 0; }
+:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; box-shadow: var(--focus-ring); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }

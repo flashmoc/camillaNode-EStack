@@ -1,0 +1,27 @@
+.app-frame { min-height: 100vh; display: grid; grid-template-rows: auto auto 1fr; }
+.shell-top { padding: var(--space-3) var(--space-4); display: grid; grid-template-columns: minmax(180px,1fr) auto auto; align-items: center; gap: var(--space-4); border-bottom: 1px solid var(--color-border-subtle); background: var(--color-surface-1); }
+.shell-brand { display: flex; align-items: center; gap: var(--space-3); }
+.shell-mark { width: 40px; height: 40px; display: grid; place-items: center; border: 1px solid var(--color-accent); border-radius: 50%; color: var(--color-accent); font-weight: 800; }
+.shell-brand strong, .shell-brand small { display: block; }
+.shell-brand small { color: var(--color-text-secondary); }
+.shell-context { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
+.shell-master { display: grid; grid-template-columns: auto auto; gap: 2px var(--space-2); padding-left: var(--space-4); border-left: 1px solid var(--color-border-subtle); }
+.shell-master span { color: var(--color-muted); font-size: var(--font-size-caption); }
+.shell-master strong { font-family: var(--font-family-data); font-size: var(--font-size-value); }
+.shell-nav { padding: 0 var(--space-3); display: flex; overflow-x: auto; border-bottom: 1px solid var(--color-border-subtle); background: var(--color-control); scrollbar-width: thin; }
+.shell-nav a { min-height: 48px; padding: 0 var(--space-3); display: inline-flex; align-items: center; flex: 0 0 auto; border-bottom: 3px solid transparent; color: var(--color-text-secondary); text-decoration: none; white-space: nowrap; }
+.shell-nav a:hover { color: var(--color-text-primary); background: var(--color-surface-2); }
+.shell-nav a[aria-current="page"] { border-color: var(--color-accent); color: var(--color-text-primary); background: var(--color-surface-1); }
+.shell-content { min-height: 720px; background: var(--color-canvas); }
+.shell-content iframe { width: 100%; height: calc(100vh - 160px); min-height: 720px; display: block; border: 0; background: var(--color-canvas); }
+@media (max-width: 900px) {
+  .shell-top { grid-template-columns: 1fr auto; }
+  .shell-context { grid-column: 1 / -1; justify-content: flex-start; }
+}
+@media (max-width: 560px) {
+  .shell-top { padding: var(--space-2) var(--space-3); }
+  .shell-brand small, .shell-context .optional { display: none; }
+  .shell-master { padding-left: var(--space-2); }
+  .shell-nav { position: sticky; top: 0; z-index: 5; }
+  .shell-content iframe { height: calc(100vh - 154px); min-height: 640px; }
+}
