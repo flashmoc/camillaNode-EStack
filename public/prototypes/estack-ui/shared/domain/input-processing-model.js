@@ -90,8 +90,9 @@
     const disabled = new Set(disabledSlots);
     return (bands || []).reduce((sum, band) => disabled.has(band.slot) || isNeutral(band) ? sum : sum + responseAt(band, frequency, sampleRate), 0);
   }
-  function configWithoutOwnedInputSteps(config) {
-    const copy = clone(config); copy.pipeline = (copy.pipeline || []).filter(step => step?.description !== GLOBAL_EQ_STEP_DESCRIPTION && step?.description !== INPUT_DELAY_STEP_DESCRIPTION);
+  function configWithoutPipelineSteps(config, descriptions) {
+    const copy = clone(config); const removable = new Set(descriptions);
+    copy.pipeline = (copy.pipeline || []).filter(step => !removable.has(step?.description));
     return copy;
   }
   function configWithoutNamedFilters(config, names) {
@@ -100,7 +101,7 @@
   function assertEqual(value, expected, label) { if (JSON.stringify(value) !== JSON.stringify(expected)) throw new Error(`${label} changed unexpectedly.`); }
   function assertEqMutation(before, after) {
     const allowed = GLOBAL_EQ_SLOT_NAMES;
-    assertEqual(configWithoutOwnedInputSteps(configWithoutNamedFilters(before, allowed)), configWithoutOwnedInputSteps(configWithoutNamedFilters(after, allowed)), 'Protected DSP configuration');
+    assertEqual(configWithoutPipelineSteps(configWithoutNamedFilters(before, allowed), [GLOBAL_EQ_STEP_DESCRIPTION]), configWithoutPipelineSteps(configWithoutNamedFilters(after, allowed), [GLOBAL_EQ_STEP_DESCRIPTION]), 'Protected DSP configuration');
     const globalSteps = (after.pipeline || []).filter(step => step?.description === GLOBAL_EQ_STEP_DESCRIPTION);
     if (globalSteps.length > 1) throw new Error('More than one dedicated Global EQ step exists.');
     if (globalSteps.length) {
@@ -112,7 +113,7 @@
   }
   function assertDelayMutation(before, after) {
     const allowed = [INPUT_DELAY_FILTER];
-    assertEqual(configWithoutOwnedInputSteps(configWithoutNamedFilters(before, allowed)), configWithoutOwnedInputSteps(configWithoutNamedFilters(after, allowed)), 'Protected DSP configuration');
+    assertEqual(configWithoutPipelineSteps(configWithoutNamedFilters(before, allowed), [INPUT_DELAY_STEP_DESCRIPTION]), configWithoutPipelineSteps(configWithoutNamedFilters(after, allowed), [INPUT_DELAY_STEP_DESCRIPTION]), 'Protected DSP configuration');
     const steps = (after.pipeline || []).filter(step => step?.description === INPUT_DELAY_STEP_DESCRIPTION);
     if (steps.length > 1) throw new Error('More than one dedicated input delay step exists.');
     if (steps.length) {

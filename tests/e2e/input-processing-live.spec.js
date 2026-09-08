@@ -32,11 +32,14 @@ async function inputFrame(page) {
   await expect.poll(() => page.frames().some(frame => new URL(frame.url()).pathname.endsWith('/pages/input-processing/page.html'))).toBeTruthy();
   return page.frames().find(frame => new URL(frame.url()).pathname.endsWith('/pages/input-processing/page.html'));
 }
-function protectedView(config) {
-  const next = clone(config); globalNames.forEach(name => delete next.filters[name]); delete next.filters[DELAY_FILTER]; next.pipeline = next.pipeline.filter(step => step.description !== GLOBAL_STEP && step.description !== DELAY_STEP); return next;
+function eqProtectedView(config) {
+  const next = clone(config); globalNames.forEach(name => delete next.filters[name]); next.pipeline = next.pipeline.filter(step => step.description !== GLOBAL_STEP); return next;
+}
+function delayProtectedView(config) {
+  const next = clone(config); delete next.filters[DELAY_FILTER]; next.pipeline = next.pipeline.filter(step => step.description !== DELAY_STEP); return next;
 }
 function assertEqScope(before, after, expectedGain) {
-  expect(protectedView(after)).toEqual(protectedView(before));
+  expect(eqProtectedView(after)).toEqual(eqProtectedView(before));
   expect(after.filters.GLOBAL_EQ_01.parameters.gain).toBeCloseTo(expectedGain, 6);
   const step = after.pipeline.find(entry => entry.description === GLOBAL_STEP); expect(step).toMatchObject({ type: 'Filter', channels: [0, 1], names: ['GLOBAL_EQ_01'], bypassed: false });
   expect(after.pipeline.indexOf(step)).toBeLessThan(after.pipeline.findIndex(entry => entry.type === 'Mixer'));
@@ -47,6 +50,7 @@ test.describe('Input Processing live CamillaNode demo', () => {
     await requireDemoRuntime(request); const original = await dspCommand('GetConfigJson'); const originalEq = original.filters.GLOBAL_EQ_01?.parameters?.gain ?? 0; expect(Number(originalEq)).toBeGreaterThanOrEqual(-12); expect(Number(originalEq)).toBeLessThanOrEqual(12);
     expect(Number(original.filters[DELAY_FILTER]?.parameters?.delay || 0)).toBe(0);
     const testGain = Number(originalEq) >= 11.8 ? Number((Number(originalEq) - .2).toFixed(1)) : Number((Number(originalEq) + .2).toFixed(1));
+    const secondGain = testGain >= 11.8 ? Number((testGain - .2).toFixed(1)) : Number((testGain + .2).toFixed(1));
     const keys = globalNames.map(name => `estack.globalEq.disabled.${name}`); const storage = {};
     await page.goto('/estack-dsp/?transport=camillanode#input-processing'); keys.forEach(key => { storage[key] = null; });
     for (const key of keys) storage[key] = await page.evaluate(item => window.localStorage.getItem(item), key);
@@ -61,8 +65,11 @@ test.describe('Input Processing live CamillaNode demo', () => {
       const eqChanged = await dspCommand('GetConfigJson'); assertEqScope(original, eqChanged, testGain);
       const delay = frame.locator('#delayNumber'); await delay.fill('1.0'); await delay.press('Tab');
       await expect.poll(async () => Number((await dspCommand('GetConfigJson')).filters[DELAY_FILTER]?.parameters?.delay)).toBeCloseTo(1, 6);
-      const delayChanged = await dspCommand('GetConfigJson'); expect(protectedView(delayChanged)).toEqual(protectedView(original)); expect(delayChanged.pipeline.find(step => step.description === DELAY_STEP)).toMatchObject({ type: 'Filter', channels: [0, 1], names: [DELAY_FILTER], bypassed: false });
+      const delayChanged = await dspCommand('GetConfigJson'); expect(delayProtectedView(delayChanged)).toEqual(delayProtectedView(eqChanged)); expect(delayChanged.filters.GLOBAL_EQ_01).toEqual(eqChanged.filters.GLOBAL_EQ_01); expect(delayChanged.pipeline.find(step => step.description === GLOBAL_STEP)).toEqual(eqChanged.pipeline.find(step => step.description === GLOBAL_STEP)); expect(delayChanged.pipeline.find(step => step.description === DELAY_STEP)).toMatchObject({ type: 'Filter', channels: [0, 1], names: [DELAY_FILTER], bypassed: false });
+      await gain.fill(String(secondGain)); await gain.press('Tab'); await expect.poll(async () => Number((await dspCommand('GetConfigJson')).filters.GLOBAL_EQ_01?.parameters?.gain)).toBeCloseTo(secondGain, 6);
+      const eqWithDelay = await dspCommand('GetConfigJson'); assertEqScope(delayChanged, eqWithDelay, secondGain); expect(eqWithDelay.filters[DELAY_FILTER]).toEqual(delayChanged.filters[DELAY_FILTER]); expect(eqWithDelay.pipeline.find(step => step.description === DELAY_STEP)).toEqual(delayChanged.pipeline.find(step => step.description === DELAY_STEP));
       await delay.fill('0'); await delay.press('Tab'); await expect.poll(async () => (await dspCommand('GetConfigJson')).filters[DELAY_FILTER]).toBeUndefined();
+      const delayRemoved = await dspCommand('GetConfigJson'); expect(delayProtectedView(delayRemoved)).toEqual(delayProtectedView(eqWithDelay));
       await gain.fill(String(originalEq)); await gain.press('Tab'); await expect.poll(async () => (await dspCommand('GetConfigJson')).filters.GLOBAL_EQ_01?.parameters?.gain ?? 0).toBeCloseTo(Number(originalEq), 6);
       expect(await dspCommand('GetConfigJson')).toEqual(original); restoredByProduct = true;
       console.log(`Input E2E GLOBAL_EQ_01 gain: ${Number(originalEq).toFixed(1)} dB -> ${testGain.toFixed(1)} dB -> ${Number(originalEq).toFixed(1)} dB`); console.log('Input E2E delay: 0.0 ms -> 1.0 ms -> 0.0 ms');
