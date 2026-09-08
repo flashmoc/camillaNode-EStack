@@ -55,7 +55,10 @@ sets. This prevents accidental use on Raspberry hardware.
 - `npm run demo:bg` — idempotent background launcher.
 - `npm run demo:restart` — stop only verified demo-owned PIDs, then launch in
   the background.
-- `npm run demo:check` — verify every service and the product/runtime route.
+- `npm run demo:check` — wait for the existing background demo to become ready,
+  then verify every service and the product/runtime route. It waits up to 75
+  seconds by default (`ESTACK_DEMO_CHECK_TIMEOUT_SEC` can override this) and
+  never starts services itself.
 
 State, PID files and logs live in `/workspaces/.estack-camillanode-demo/` in
 Codespaces or `$XDG_CACHE_HOME/estack-camillanode-demo/` in a local Dev
