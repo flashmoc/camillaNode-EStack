@@ -2,7 +2,9 @@
   'use strict';
   const service = window.EStackInputProcessingService;
   const model = window.EStackInputProcessingModel;
-  if (!service || !model || window.EStackDSPBridge?.mode !== 'camillanode') throw new Error('Live Input Processing domain is unavailable.');
+  const importer = window.EStackInputProcessingImport;
+  const savedConfigs = window.EStackSavedConfigClient;
+  if (!service || !model || !importer || !savedConfigs || window.EStackDSPBridge?.mode !== 'camillanode') throw new Error('Live Input Processing domain is unavailable.');
 
   const $ = selector => document.querySelector(selector);
   const spectrumFrequencies = [25,30,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000,5000,6300,8000,10000,12500,16000,20000];
@@ -14,6 +16,8 @@
   let spectrumTimer = null;
   let busy = false;
   let dragging = null;
+  let pendingImport = null;
+  let selectedPresetId = null;
 
   const db = value => `${Number(value).toFixed(1).replace('-', '−')}`;
   const hz = value => Number(value) >= 1000 ? `${(Number(value) / 1000).toFixed(Number(value) >= 10000 ? 0 : 1).replace('.0', '')} kHz` : `${Math.round(value)} Hz`;
@@ -27,10 +31,15 @@
     disabled = new Set(model.GLOBAL_EQ_SLOT_NAMES.filter(slot => { try { return window.localStorage.getItem(disabledKey(slot)) === 'true'; } catch (_) { return false; } }));
   }
   function persistDisabled(slot, value) { try { window.localStorage.setItem(disabledKey(slot), String(!!value)); } catch (_) { /* browser preference only */ } }
-  function setBusy(value) { busy = value; document.querySelectorAll('#eqBands button,#eqBands input,#eqBands select,#eqReset,#delayRange,#delayNumber,.delay-nudge button,#delayReset').forEach(control => { control.disabled = value; }); }
+  function setBusy(value) { busy = value; document.querySelectorAll('#eqBands button,#eqBands input,#eqBands select,#eqReset,#delayRange,#delayNumber,.delay-nudge button,#delayReset,#importDialog button,#presetDialog button,#presetDialog input').forEach(control => { control.disabled = value; }); }
   function setStatus(text, state = '') { const el = $('#inputState'); el.textContent = text; el.className = `ui-status ${state ? `is-${state}` : ''}`; }
   function liveBands() { return latest?.slots || model.GLOBAL_EQ_SLOT_NAMES.map(model.defaultBand); }
   function activeBands() { return liveBands().filter(band => !disabled.has(band.slot) && !model.isNeutral(band)); }
+  function serializableBands() { return importer.serializeBands(liveBands().map(band => ({ ...band, enabled: !disabled.has(band.slot) }))); }
+  function setDisabledStates(bands) {
+    const next = new Set((bands || []).filter(band => band.enabled === false).map(band => model.slotName(band.slot)));
+    model.GLOBAL_EQ_SLOT_NAMES.forEach(slot => persistDisabled(slot, next.has(slot))); disabled = next;
+  }
   function setPreview(slot, field, value) {
     if (!latest) return; const index = model.slotIndex(slot); const limits = valueLimits(field);
     latest.slots[index] = model.normalizeBand(index, { ...latest.slots[index], [field]: clamp(value, limits[0], limits[1]), present: latest.slots[index].present });
@@ -120,6 +129,40 @@
     if (busy) return; setBusy(true); setStatus('APPLYING');
     try { await service.setDelay(value); setStatus('DSP API READY', 'success'); } catch (error) { setStatus(`ERROR · ${error.message}`, 'danger'); await service.refresh().catch(() => {}); } finally { setBusy(false); render(); }
   }
+  async function applyCompleteBands(bands, label) {
+    const complete = importer.completeBands(bands); const nextDisabled = complete.filter(band => band.enabled === false).map(band => band.slot);
+    if (busy) return false; setBusy(true); setStatus('APPLYING');
+    try { await service.applyBands(complete, { disabledSlots: nextDisabled }); setDisabledStates(complete); setStatus('DSP API READY', 'success'); return true; }
+    catch (error) { setStatus(`ERROR · ${error.message}`, 'danger'); await service.refresh().catch(() => {}); throw error; }
+    finally { setBusy(false); render(); }
+  }
+  function importStatus(text, state = '') { const output = $('#importStatus'); output.textContent = text; output.dataset.state = state; }
+  function presetStatus(text, state = '') { const output = $('#presetStatus'); output.textContent = text; output.dataset.state = state; }
+  async function refreshPresetList() {
+    const list = $('#presetList'); const records = await savedConfigs.listByType('global-eq'); selectedPresetId = null; list.replaceChildren();
+    if (!records.length) { const empty = document.createElement('p'); empty.className = 'preset-empty'; empty.textContent = 'No saved Global EQ presets.'; list.append(empty); return records; }
+    records.forEach(record => { const button = document.createElement('button'); button.type = 'button'; button.className = 'preset-item'; button.dataset.presetId = String(record.id); button.textContent = record.name; button.addEventListener('click', () => { selectedPresetId = String(record.id); list.querySelectorAll('.preset-item').forEach(item => item.classList.toggle('is-selected', item === button)); $('#presetName').value = record.name; presetStatus(`Selected '${record.name}'.`); }); list.append(button); }); return records;
+  }
+  async function saveCurrentPreset() {
+    const name = String($('#presetName').value || '').trim(); if (!name) { presetStatus('Enter a preset name.', 'error'); return; }
+    try {
+      const existing = (await savedConfigs.listByType('global-eq')).find(record => record.name === name); if (existing && !confirm(`Replace Global EQ preset '${name}'?`)) { presetStatus('Save cancelled.'); return; }
+      const record = { type: 'global-eq', name, createdDate: existing?.createdDate || new Date().toISOString(), data: { format: 'estack-global-eq-v1', bands: serializableBands() } };
+      await savedConfigs.save(record, !!existing); await refreshPresetList(); presetStatus(`'${name}' saved.`, 'success');
+    } catch (error) { presetStatus(`SAVE ERROR · ${error.message}`, 'error'); }
+  }
+  async function loadSelectedPreset() {
+    if (!selectedPresetId) { presetStatus('Select a preset first.', 'error'); return; }
+    try {
+      const record = await savedConfigs.getById(selectedPresetId); if (!record || record.type !== 'global-eq' || record.data?.format !== 'estack-global-eq-v1' || !Array.isArray(record.data?.bands)) throw new Error('Invalid Global EQ preset.');
+      await applyCompleteBands(record.data.bands, `Preset '${record.name}'`); presetStatus(`'${record.name}' loaded.`, 'success');
+    } catch (error) { presetStatus(`LOAD ERROR · ${error.message}`, 'error'); }
+  }
+  async function deleteSelectedPreset() {
+    if (!selectedPresetId) { presetStatus('Select a preset first.', 'error'); return; }
+    try { const record = await savedConfigs.getById(selectedPresetId); if (!record) throw new Error('Preset no longer exists.'); if (!confirm(`Delete Global EQ preset '${record.name}'?`)) return; await savedConfigs.delete(record.id); await refreshPresetList(); presetStatus(`'${record.name}' deleted.`, 'success'); }
+    catch (error) { presetStatus(`DELETE ERROR · ${error.message}`, 'error'); }
+  }
   async function pollSpectrum() {
     try {
       const levels = await service.readSpectrum(); if (!Array.isArray(levels)) throw new Error('invalid spectrum data');
@@ -132,6 +175,14 @@
     $('#delayRange').addEventListener('input', event => { $('#delayNumber').value = event.target.value; $('#delayReadout').textContent = `${Number(event.target.value).toFixed(1)} ms`; });
     $('#delayRange').addEventListener('change', event => setDelay(event.target.value)); $('#delayNumber').addEventListener('change', event => setDelay(event.target.value)); $('#delayReset').addEventListener('click', () => setDelay(0));
     document.querySelectorAll('[data-nudge]').forEach(button => button.addEventListener('click', () => setDelay((latest?.delay || 0) + Number(button.dataset.nudge)))); window.addEventListener('resize', draw);
+    document.querySelectorAll('[data-dialog-close]').forEach(button => button.addEventListener('click', () => $(`#${button.dataset.dialogClose}`).close()));
+    $('#importEq').addEventListener('click', () => { pendingImport = null; $('#importText').value = ''; $('#applyImport').disabled = true; importStatus('Paste text or choose a file.'); $('#importDialog').showModal(); });
+    $('#chooseImportFile').addEventListener('click', () => $('#importFile').click());
+    $('#importFile').addEventListener('change', async event => { const file = event.target.files?.[0]; if (!file) return; $('#importText').value = await file.text(); pendingImport = null; $('#applyImport').disabled = true; importStatus(`${file.name} loaded. Select PARSE before applying.`, 'success'); });
+    $('#parseImport').addEventListener('click', () => { try { pendingImport = importer.parse($('#importText').value); $('#applyImport').disabled = false; importStatus(`${pendingImport.detected} band${pendingImport.detected === 1 ? '' : 's'} detected (${pendingImport.format}).`, 'success'); } catch (error) { pendingImport = null; $('#applyImport').disabled = true; importStatus(error.message, 'error'); } });
+    $('#applyImport').addEventListener('click', async () => { if (!pendingImport) return; try { await applyCompleteBands(pendingImport.bands, 'Imported EQ'); importStatus(`${pendingImport.detected} band${pendingImport.detected === 1 ? '' : 's'} imported.`, 'success'); pendingImport = null; $('#applyImport').disabled = true; } catch (error) { importStatus(error.message, 'error'); } });
+    $('#presetEq').addEventListener('click', async () => { $('#presetDialog').showModal(); presetStatus('Loading presets…'); try { await refreshPresetList(); presetStatus('Select a preset or save the current EQ.'); } catch (error) { presetStatus(`ERROR · ${error.message}`, 'error'); } });
+    $('#savePreset').addEventListener('click', saveCurrentPreset); $('#loadPreset').addEventListener('click', loadSelectedPreset); $('#deletePreset').addEventListener('click', deleteSelectedPreset);
   }
   service.subscribe(snapshot => { latest = { ...snapshot, slots: snapshot.slots.map(slot => ({ ...slot })) }; render(); });
   loadDisabled(); bind(); setStatus('CONNECTING'); service.refresh().then(() => { setStatus('DSP API READY', 'success'); spectrumTimer = window.setInterval(pollSpectrum, 170); pollSpectrum(); }).catch(error => setStatus(`UNAVAILABLE · ${error.message}`, 'danger'));

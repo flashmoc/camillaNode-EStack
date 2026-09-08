@@ -98,7 +98,12 @@
   function configWithoutNamedFilters(config, names) {
     const copy = clone(config); names.forEach(name => delete copy.filters?.[name]); return copy;
   }
-  function assertEqual(value, expected, label) { if (JSON.stringify(value) !== JSON.stringify(expected)) throw new Error(`${label} changed unexpectedly.`); }
+  function canonicalize(value) {
+    if (Array.isArray(value)) return value.map(canonicalize);
+    if (value && typeof value === 'object') return Object.keys(value).sort().reduce((result, key) => { result[key] = canonicalize(value[key]); return result; }, {});
+    return value;
+  }
+  function assertEqual(value, expected, label) { if (JSON.stringify(canonicalize(value)) !== JSON.stringify(canonicalize(expected))) throw new Error(`${label} changed unexpectedly.`); }
   function assertEqMutation(before, after) {
     const allowed = GLOBAL_EQ_SLOT_NAMES;
     assertEqual(configWithoutPipelineSteps(configWithoutNamedFilters(before, allowed), [GLOBAL_EQ_STEP_DESCRIPTION]), configWithoutPipelineSteps(configWithoutNamedFilters(after, allowed), [GLOBAL_EQ_STEP_DESCRIPTION]), 'Protected DSP configuration');

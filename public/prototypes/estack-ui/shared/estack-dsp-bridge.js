@@ -103,7 +103,7 @@
     mode: hardware ? 'camillanode' : 'local',
     get endpoint() { return hardware ? socketUrl() : null; },
     get connected() { return phase === 'connected'; },
-    connect, disconnect, command, connectSpectrum, spectrumCommand,
+    connect, disconnect, command, connectSpectrum, spectrumCommand, api,
     subscribe(listener) { listeners.add(listener); listener({ mode: hardware ? 'camillanode' : 'local', phase, endpoint: hardware ? socketUrl() : null }); return () => listeners.delete(listener); }
   });
 })();

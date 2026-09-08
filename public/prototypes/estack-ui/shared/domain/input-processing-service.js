@@ -30,9 +30,9 @@
   }
   function removeDedicatedStep(config, description) { config.pipeline = (config.pipeline || []).filter(step => step?.description !== description); }
   async function upload(before, next, assertion) {
-    assertion(before, next);
+    try { assertion(before, next); } catch (error) { error.message = `Mutation preflight failed: ${error.message}`; throw error; }
     await window.EStackDSPBridge.command({ SetConfigJson: JSON.stringify(next) });
-    const after = await getConfig(); assertion(before, after); latest = snapshot(after); emit(latest); return latest;
+    const after = await getConfig(); try { assertion(before, after); } catch (error) { error.message = `Mutation readback failed: ${error.message}`; throw error; } latest = snapshot(after); emit(latest); return latest;
   }
   function currentBands(config) { return model.bandsFromConfig(config); }
   function applyGlobalStep(config, allBands, disabledSlots) {
@@ -45,6 +45,16 @@
     const before = await getConfig(); requireInputTopology(before); const next = clone(before); const index = model.slotIndex(slot); const name = model.slotName(index);
     const old = currentBands(before)[index]; const candidate = model.normalizeBand(index, { ...old, ...patch, present: true });
     if (model.isDefaultBand(candidate)) delete next.filters[name]; else next.filters[name] = model.filterForBand(candidate);
+    applyGlobalStep(next, currentBands(next), options.disabledSlots || []);
+    return upload(before, next, model.assertEqMutation);
+  }
+  async function applyBands(bands, options = {}) {
+    if (!Array.isArray(bands)) throw new Error('Global EQ import must contain bands.');
+    const before = await getConfig(); requireInputTopology(before); const next = clone(before);
+    const complete = model.GLOBAL_EQ_SLOT_NAMES.map((name, index) => model.normalizeBand(index, { ...(bands[index] || model.defaultBand(index)), present: true }));
+    complete.forEach(band => {
+      if (model.isDefaultBand(band)) delete next.filters[band.slot]; else next.filters[band.slot] = model.filterForBand(band);
+    });
     applyGlobalStep(next, currentBands(next), options.disabledSlots || []);
     return upload(before, next, model.assertEqMutation);
   }
@@ -63,5 +73,5 @@
     return upload(before, next, model.assertDelayMutation);
   }
   async function readSpectrum() { return window.EStackDSPBridge.spectrumCommand('GetPlaybackSignalPeak'); }
-  window.EStackInputProcessingService = Object.freeze({ refresh, setBand, resetAll, setDelay, readSpectrum, get snapshot() { return latest; }, subscribe(listener) { listeners.add(listener); if (latest) listener(latest); return () => listeners.delete(listener); } });
+  window.EStackInputProcessingService = Object.freeze({ refresh, setBand, applyBands, resetAll, setDelay, readSpectrum, get snapshot() { return latest; }, subscribe(listener) { listeners.add(listener); if (latest) listener(latest); return () => listeners.delete(listener); } });
 })();

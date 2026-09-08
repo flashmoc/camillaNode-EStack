@@ -15,6 +15,13 @@ startup recall workflow. `global-eq` records are input/global EQ presets. The
 legacy saved-config client keeps type/name/id semantics; the product must retain
 those data formats and APIs while it migrates the related pages.
 
+`EStackSavedConfigClient` is the product's reusable client for this collection.
+It always reads the complete array before a save or delete and writes the
+complete array back after modifying one record. It matches a replacement by
+`type` plus `name`, preserves the existing ID on overwrite, and deletes only by
+the selected ID. Listing by type is presentation-only; it must never be used to
+produce the collection sent to `/saveConfigFile`.
+
 ## Browser-local preferences
 
 Browser storage is for presentation/operator preferences only. It is not DSP

@@ -2,8 +2,8 @@
 
 ## Status
 
-**CORE LIVE MIGRATION ACCEPTED IN SIMULATION — PRESETS/IMPORT PENDING —
-RASPBERRY HARDWARE ACCEPTANCE PENDING**
+**SOFTWARE PARITY ACCEPTED IN SIMULATION — RASPBERRY HARDWARE ACCEPTANCE
+PENDING**
 
 Live Input Processing is available through:
 
@@ -34,7 +34,9 @@ Types are `Peaking`, `Lowshelf` and `Highshelf`. Ranges are frequency
 
 The on/off presentation state is browser-only and is stored separately for
 each named slot, for example `estack.globalEq.disabled.GLOBAL_EQ_01`. It is
-not stored in CamillaDSP or a preset. A disabled slot, or a slot whose gain is
+not stored in CamillaDSP. Global EQ presets serialize that presentation state
+as each band's `enabled` field, which is copied back to those browser keys
+when a preset or import is applied. A disabled slot, or a slot whose gain is
 within `abs(gain) < 0.05 dB`, is excluded from the active EQ pipeline while
 retaining its stable UI identity.
 
@@ -91,15 +93,48 @@ axis. It is separate from the analyzer. The analyzer reads real
 `0.58` and SLOW smoothing is `0.16`. If spectrum transport is unavailable the
 page shows an unavailable analyzer state and never creates synthetic data.
 
-## Deferred work
+## Global EQ presets and import
 
-Global EQ presets, REW/APO/CSV/plain-text/E-Stack JSON/config JSON import,
-`/getConfigFile`, `/saveConfigFile`, `savedConfigs.dat` and system preset
-behavior are Stage 2B and are intentionally not implemented here.
+Global EQ presets use the existing same-origin CamillaNode saved-config APIs:
+`GET /getConfigFile` and `POST /saveConfigFile`. They remain a mixed
+`savedConfigs.dat` collection, so product writes always load the complete
+collection, change only the intended `global-eq` record, and save the complete
+collection again. Filtering by type is presentation-only: a Global EQ save or
+delete must never remove `estack-system` or any other record type.
+
+The product's shared `EStackSavedConfigClient` owns those collection
+operations. A preset has the historical contract below; exactly ten bands are
+saved in stable slot order and Input Delay is deliberately excluded.
+
+```json
+{
+  "id": "<generated or existing id>",
+  "type": "global-eq",
+  "name": "My EQ",
+  "createdDate": "<ISO date>",
+  "data": {
+    "format": "estack-global-eq-v1",
+    "bands": [
+      { "type": "Peaking", "freq": 63, "gain": -2.5, "q": 0.7, "enabled": true }
+    ]
+  }
+}
+```
+
+Imports accept REW/Equalizer APO (`PK`, `LS`/`LSC`, `HS`/`HSC`, including
+`OFF`), comma or whitespace tables (with optional leading index), E-Stack JSON
+arrays/preset records, and CamillaDSP configuration JSON containing
+`GLOBAL_EQ_01`…`GLOBAL_EQ_10`. Values are normalized through the Global EQ
+model and capped at ten bands; missing slots become canonical neutral slots.
+Parsing has no DSP side effects. The operator explicitly applies the parsed
+data, then `applyBands()` performs one guarded live DSP transaction affecting
+only `GLOBAL_EQ_*` filters and `E-Stack global input EQ`. It preserves
+`ESTACK_INPUT_DELAY`, `E-Stack input delay`, and all unrelated DSP state.
 
 ## Acceptance boundary
 
-The Input Processing simulation test performs reversible Global EQ and Input
-Delay mutations through the product, verifies protected configuration, and
-restores the exact demo configuration. `SIMULATION/E2E PASS != RASPBERRY
-HARDWARE ACCEPTANCE`.
+The Input Processing simulation test performs reversible Global EQ, delay,
+import and preset mutations through the product, verifies protected
+configuration, and restores the exact demo DSP configuration and complete
+saved-config collection. `SIMULATION/E2E PASS != RASPBERRY HARDWARE
+ACCEPTANCE`.
