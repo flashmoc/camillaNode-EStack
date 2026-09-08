@@ -2,13 +2,11 @@
 set -Eeuo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck source=demo-environment.sh
+source "$ROOT_DIR/dev/demo-environment.sh"
+estack_demo_require_context
 
-# Keep all demo-owned files on /workspaces in Codespaces. /tmp can be tiny.
-if [[ "${CODESPACES:-false}" == "true" && -d /workspaces ]]; then
-    CACHE_DIR="/workspaces/.estack-camillanode-demo"
-else
-    CACHE_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/estack-camillanode-demo"
-fi
+CACHE_DIR="$(estack_demo_cache_dir)"
 
 BIN_DIR="$CACHE_DIR/bin"
 RUN_DIR="$CACHE_DIR/run"
@@ -27,14 +25,15 @@ GUI_CONFIG="$RUN_DIR/camillagui.yml"
 
 mkdir -p "$BIN_DIR" "$RUN_DIR" "$LOG_DIR" "$TMP_DIR" "$GUI_CONFIG_DIR" "$GUI_COEFF_DIR"
 
-# Used by .devcontainer/postStartCommand. The normal `npm run demo` path stays
-# attached to the terminal so Ctrl+C stops the complete demo cleanly.
-if [[ "${1:-}" == "--background" ]]; then
-    nohup bash "$0" --foreground >"$LOG_DIR/launcher.log" 2>&1 </dev/null &
-    echo $! > "$RUN_DIR/launcher.pid"
-    echo "E-Stack demo launcher started in background (PID $!)."
-    exit 0
-fi
+MODE="foreground"
+for argument in "$@"; do
+    case "$argument" in
+        --background) MODE="background" ;;
+        --foreground) MODE="foreground" ;;
+        --restart) ;;
+        *) echo "Unknown demo option: $argument" >&2; exit 2 ;;
+    esac
+done
 
 case "$(uname -m)" in
     x86_64|amd64) CAMILLA_ARCH="amd64" ;;
@@ -49,25 +48,74 @@ CAMILLA_BIN="$BIN_DIR/camilladsp-$CAMILLA_VERSION-$CAMILLA_ARCH"
 CAMILLAGUI_HOME="$CACHE_DIR/camillagui-$CAMILLAGUI_VERSION-$CAMILLA_ARCH"
 CAMILLAGUI_BIN="$CAMILLAGUI_HOME/camillagui_backend/camillagui_backend"
 
-stop_previous_codespace_demo() {
-    # Never interfere with real Raspberry services if this helper is run there.
-    if [[ "${CODESPACES:-false}" != "true" ]]; then
-        return
+pid_command() {
+    tr '\0' ' ' <"/proc/$1/cmdline" 2>/dev/null || true
+}
+
+is_demo_owned_pid() {
+    local command
+    command="$(pid_command "$1")"
+    [[ -n "$command" && ( "$command" == *"$CACHE_DIR"* || "$command" == *"$ROOT_DIR/index.js"* || "$command" == *"$ROOT_DIR/dev/generate-input-demo.py"* || "$command" == *"$ROOT_DIR/dev/start-demo.sh"* ) ]]
+}
+
+stop_pid_file() {
+    local file="$1" label="$2" pid
+    [[ -f "$file" ]] || return 0
+    pid="$(<"$file")"
+    [[ "$pid" =~ ^[0-9]+$ ]] || { rm -f "$file"; return 0; }
+    # A background launcher records its own PID. Never terminate the current
+    # launcher while it is bringing its own services up.
+    [[ "$pid" == "$$" ]] && return 0
+    if ! kill -0 "$pid" >/dev/null 2>&1; then rm -f "$file"; return 0; fi
+    if ! is_demo_owned_pid "$pid"; then
+        echo "Refusing to stop $label PID $pid: it is not owned by this demo." >&2
+        return 1
     fi
+    echo "Stopping stale demo $label (PID $pid)..."
+    kill "$pid" >/dev/null 2>&1 || true
+    for ((attempt=1; attempt<=30; attempt++)); do
+        kill -0 "$pid" >/dev/null 2>&1 || { rm -f "$file"; return 0; }
+        sleep 0.1
+    done
+    kill -KILL "$pid" >/dev/null 2>&1 || true
+    rm -f "$file"
+}
 
-    pkill -f '[n]odemon index.js' >/dev/null 2>&1 || true
-    pkill -f '[n]ode index.js' >/dev/null 2>&1 || true
-    pkill -f '[g]enerate-input-demo.py' >/dev/null 2>&1 || true
-    pkill -f '[c]amillagui_backend' >/dev/null 2>&1 || true
+release_demo_port() {
+    local port="$1" owners pid attempt
+    command -v fuser >/dev/null 2>&1 || return 0
+    for ((attempt=1; attempt<=30; attempt++)); do
+        owners="$(fuser -n tcp "$port" 2>/dev/null || true)"
+        [[ -z "$owners" ]] && return 0
+        for pid in $owners; do
+            [[ "$pid" =~ ^[0-9]+$ ]] || continue
+            if ! is_demo_owned_pid "$pid"; then
+                echo "Port $port is occupied by non-demo PID $pid; refusing to kill it." >&2
+                return 1
+            fi
+            echo "Stopping stale demo process on port $port (PID $pid)..."
+            kill "$pid" >/dev/null 2>&1 || true
+        done
+        sleep 0.1
+    done
+    echo "Demo-owned process did not release port $port in time." >&2
+    return 1
+}
 
-    if command -v fuser >/dev/null 2>&1; then
-        fuser -k 1234/tcp >/dev/null 2>&1 || true
-        fuser -k 6413/tcp >/dev/null 2>&1 || true
-        fuser -k 8080/tcp >/dev/null 2>&1 || true
-        fuser -k 5005/tcp >/dev/null 2>&1 || true
-    fi
-
-    rm -f /tmp/estack-demo.raw /tmp/camilladsp-demo.raw 2>/dev/null || true
+stop_previous_demo() {
+    # This script only runs with ESTACK_DEMO_CONTEXT=1, set by the Dev Container.
+    # PID files plus /proc command verification prevent broad host/process cleanup.
+    stop_pid_file "$RUN_DIR/launcher.pid" 'launcher'
+    stop_pid_file "$RUN_DIR/camillanode.pid" 'CamillaNode'
+    stop_pid_file "$RUN_DIR/camillagui.pid" 'CamillaGUI'
+    stop_pid_file "$RUN_DIR/spectrum.pid" 'spectrum CamillaDSP'
+    stop_pid_file "$RUN_DIR/main.pid" 'main CamillaDSP'
+    stop_pid_file "$RUN_DIR/input.pid" 'demo input generator'
+    release_demo_port 1234
+    release_demo_port 6413
+    release_demo_port 5005
+    release_demo_port 8080
+    rm -f "$RUN_DIR/input.fifo" "$RUN_DIR/main.pid" "$RUN_DIR/spectrum.pid" "$RUN_DIR/camillagui.pid" "$RUN_DIR/camillanode.pid" "$RUN_DIR/input.pid"
     sleep 0.3
 }
 
@@ -77,7 +125,7 @@ ensure_system_dependencies() {
         return
     fi
 
-    echo "Installing CamillaDSP ALSA runtime library (one-time Codespace setup)..."
+    echo "Installing CamillaDSP ALSA runtime library (one-time Dev Container setup)..."
     sudo apt-get update -qq
     if ! sudo apt-get install -y libasound2; then
         sudo apt-get install -y libasound2t64
@@ -179,8 +227,17 @@ PY
     return 1
 }
 
-# Recover from previous tests first, then prepare binaries and runtime configs.
-stop_previous_codespace_demo
+# Recover only demo-owned processes before preparing binaries and runtime configs.
+# The same safe lifecycle is used by Codespaces and local VS Code Dev Containers.
+stop_previous_demo
+if [[ "$MODE" == "background" ]]; then
+    nohup bash "$0" --foreground >"$LOG_DIR/launcher.log" 2>&1 </dev/null &
+    launcher_pid=$!
+    echo "$launcher_pid" > "$RUN_DIR/launcher.pid"
+    echo "E-Stack demo launcher started in background (PID $launcher_pid)."
+    echo "Run 'npm run demo:check' to wait for and verify all four services."
+    exit 0
+fi
 ensure_system_dependencies
 download_camilladsp
 download_camillagui
@@ -215,25 +272,41 @@ if [[ ! -d node_modules ]]; then
     npm install --no-audit --no-fund
 fi
 
+export ESTACK_DEMO=1
+export CAMILLANODE_PORT=8080
+export CAMILLADSP_PROXY_HOST=127.0.0.1
+export CAMILLADSP_PORT=1234
+export CAMILLA_SPECTRUM_PORT=6413
+
 MAIN_PID=""
 SPECTRUM_PID=""
 GUI_PID=""
+NODE_PID=""
+INPUT_PID=""
+INPUT_FIFO="$RUN_DIR/input.fifo"
 cleanup() {
     local status=$?
     trap - EXIT INT TERM
+    [[ -n "$NODE_PID" ]] && kill "$NODE_PID" >/dev/null 2>&1 || true
     [[ -n "$GUI_PID" ]] && kill "$GUI_PID" >/dev/null 2>&1 || true
     [[ -n "$MAIN_PID" ]] && kill "$MAIN_PID" >/dev/null 2>&1 || true
     [[ -n "$SPECTRUM_PID" ]] && kill "$SPECTRUM_PID" >/dev/null 2>&1 || true
-    pkill -f '[g]enerate-input-demo.py' >/dev/null 2>&1 || true
-    rm -f "$RUN_DIR/main.pid" "$RUN_DIR/spectrum.pid" "$RUN_DIR/camillagui.pid"
+    [[ -n "$INPUT_PID" ]] && kill "$INPUT_PID" >/dev/null 2>&1 || true
+    rm -f "$RUN_DIR/launcher.pid" "$RUN_DIR/main.pid" "$RUN_DIR/spectrum.pid" "$RUN_DIR/camillagui.pid" "$RUN_DIR/camillanode.pid" "$RUN_DIR/input.pid" "$INPUT_FIFO"
     exit "$status"
 }
 trap cleanup EXIT INT TERM
 
 # CH1/CH2 carry -30 dBFS noise. CH3-CH8 remain exact digital silence.
 # The statefile lets CamillaGUI resolve this exact runtime config as active.
+rm -f "$INPUT_FIFO"
+mkfifo -m 600 "$INPUT_FIFO"
+python3 "$ROOT_DIR/dev/generate-input-demo.py" >"$INPUT_FIFO" 2>"$LOG_DIR/input-demo.log" &
+INPUT_PID=$!
+echo "$INPUT_PID" > "$RUN_DIR/input.pid"
+
 "$CAMILLA_BIN" --port 1234 --loglevel warn -s "$STATE_FILE" "$MAIN_CONFIG" \
-    < <(python3 "$ROOT_DIR/dev/generate-input-demo.py") \
+    < "$INPUT_FIFO" \
     >"$LOG_DIR/camilladsp-main.log" 2>&1 &
 MAIN_PID=$!
 echo "$MAIN_PID" > "$RUN_DIR/main.pid"
@@ -298,13 +371,23 @@ PY
     sleep 0.1
 done
 
-export ESTACK_DEMO=1
-export CAMILLANODE_PORT=8080
-export CAMILLADSP_PROXY_HOST=127.0.0.1
-export CAMILLADSP_PORT=1234
-export CAMILLA_SPECTRUM_PORT=6413
+# Start the existing CamillaNode backend last. It owns the browser-facing
+# WebSocket proxies; ports 1234/6413 stay internal to this Linux demo stack.
+node "$ROOT_DIR/index.js" >"$LOG_DIR/camillanode.log" 2>&1 &
+NODE_PID=$!
+echo "$NODE_PID" > "$RUN_DIR/camillanode.pid"
+if ! wait_for_port 8080 "CamillaNode"; then
+    echo "CamillaNode exited before opening port 8080:" >&2
+    cat "$LOG_DIR/camillanode.log" >&2 || true
+    exit 1
+fi
+if ! kill -0 "$NODE_PID" >/dev/null 2>&1; then
+    echo "CamillaNode exited unexpectedly:" >&2
+    cat "$LOG_DIR/camillanode.log" >&2 || true
+    exit 1
+fi
 
-printf '\nE-Stack cloud demo is ready:\n'
+printf '\nE-Stack Linux demo is ready:\n'
 printf '  Demo input:    CH1/CH2 noise @ -30 dBFS; CH3-CH8 digital silence\n'
 printf '  Main DSP:      ws://127.0.0.1:1234\n'
 printf '  Spectrum DSP:  ws://127.0.0.1:6413\n'
@@ -315,6 +398,7 @@ if [[ -n "${CODESPACE_NAME:-}" && -n "${GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN
     printf '  GUI browser:   https://%s-5005.%s/gui/index.html\n' "$CODESPACE_NAME" "$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN"
 fi
 printf '\nRuntime/cache: %s\n' "$CACHE_DIR"
+printf 'Logs: %s\n' "$LOG_DIR"
 printf 'Keep this command running while you work. Ctrl+C stops the complete demo.\n\n'
 
-npm start
+wait "$NODE_PID"

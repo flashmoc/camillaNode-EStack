@@ -17,6 +17,8 @@ DSP backend.
    preferences.
 5. [Control](pages/control.md) — the current migrated page and its hardware
    acceptance state.
+6. [Development simulation and E2E](development.md) — canonical Linux
+   Dev Container/Codespaces workflow and software-validation gate.
 
 ## Supporting documents
 

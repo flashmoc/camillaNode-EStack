@@ -12,3 +12,6 @@
    tests for every safety-critical change.
 7. Do not create patch stacks named `Fix`, `V2`, `V3` or `Final`.
 8. Real hardware writes require an explicit hardware-acceptance task.
+9. For software validation, use the canonical Linux Dev Container workflow in
+   [docs/development.md](docs/development.md): `npm run demo:check`, `npm test`
+   and relevant E2E tests. Simulation/E2E never replaces Raspberry acceptance.

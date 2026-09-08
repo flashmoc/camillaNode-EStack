@@ -39,22 +39,13 @@ Machine-local runtime state is intentionally not tracked by Git:
 - `savedConfigs.dat`
 - `config/*.json`
 
-## Codespaces / development
+## Development simulation
 
-```bash
-cd /workspaces/camillaNode-EStack
-git switch camilladsp-4.1-estack
-git pull
-npm run demo
-```
-
-The demo starts the main CamillaDSP instance, spectrum DSP, CamillaGUI backend and CamillaNode. Open the forwarded CamillaNode port `8080`.
-
-Static repository checks:
-
-```bash
-npm run check
-```
+The canonical software environment is Linux in the repository Dev Container:
+it is identical in Codespaces and on a Windows workstation with Docker Desktop.
+Run `npm run demo:check`, `npm test` and `npm run e2e` inside that container.
+See [development simulation and E2E](docs/development.md) for the full workflow,
+ports, logs, restart procedure and the separate Raspberry acceptance boundary.
 
 ## Raspberry Pi
 

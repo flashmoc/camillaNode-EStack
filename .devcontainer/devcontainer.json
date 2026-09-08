@@ -1,6 +1,10 @@
 {
   "name": "E-Stack CamillaNode",
   "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "containerEnv": {
+    "ESTACK_DEMO_CONTEXT": "1",
+    "PLAYWRIGHT_BROWSERS_PATH": "0"
+  },
   "forwardPorts": [8080, 5005],
   "portsAttributes": {
     "8080": {
@@ -12,6 +16,6 @@
       "onAutoForward": "notify"
     }
   },
-  "postCreateCommand": "npm install --no-audit --no-fund",
+  "postCreateCommand": "npm install --no-audit --no-fund && npx playwright install --with-deps chromium",
   "postStartCommand": "bash dev/start-demo.sh --background"
 }
