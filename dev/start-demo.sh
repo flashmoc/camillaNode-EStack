@@ -53,9 +53,17 @@ pid_command() {
 }
 
 is_demo_owned_pid() {
-    local command
+    local command working_directory
     command="$(pid_command "$1")"
-    [[ -n "$command" && ( "$command" == *"$CACHE_DIR"* || "$command" == *"$ROOT_DIR/index.js"* || "$command" == *"$ROOT_DIR/dev/generate-input-demo.py"* || "$command" == *"$ROOT_DIR/dev/start-demo.sh"* ) ]]
+    if [[ -n "$command" && ( "$command" == *"$CACHE_DIR"* || "$command" == *"$ROOT_DIR/index.js"* || "$command" == *"$ROOT_DIR/dev/generate-input-demo.py"* || "$command" == *"$ROOT_DIR/dev/start-demo.sh"* ) ]]; then
+        return 0
+    fi
+
+    # Older background launchers used a relative script path. Accept only that
+    # exact command when its process working directory is this workspace; this
+    # makes a one-time restart safe while newer launchers use the absolute path.
+    working_directory="$(readlink -f "/proc/$1/cwd" 2>/dev/null || true)"
+    [[ "$command" == 'bash dev/start-demo.sh --foreground ' && "$working_directory" == "$ROOT_DIR" ]]
 }
 
 stop_pid_file() {
@@ -231,7 +239,7 @@ PY
 # The same safe lifecycle is used by Codespaces and local VS Code Dev Containers.
 stop_previous_demo
 if [[ "$MODE" == "background" ]]; then
-    nohup bash "$0" --foreground >"$LOG_DIR/launcher.log" 2>&1 </dev/null &
+    nohup bash "$ROOT_DIR/dev/start-demo.sh" --foreground >"$LOG_DIR/launcher.log" 2>&1 </dev/null &
     launcher_pid=$!
     echo "$launcher_pid" > "$RUN_DIR/launcher.pid"
     echo "E-Stack demo launcher started in background (PID $launcher_pid)."

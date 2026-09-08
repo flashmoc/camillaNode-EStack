@@ -9,6 +9,11 @@ GitHub Codespaces and VS Code Dev Containers on a Windows/Docker workstation.
 There is no Windows CamillaDSP substitute, fake Node DSP server or browser
 fixture used as the live E2E backend.
 
+The canonical Dev Container is
+`mcr.microsoft.com/devcontainers/javascript-node:1-22-bookworm` (Debian 12,
+Node 22). It intentionally uses a Playwright-supported Linux base instead of
+the historical generic Ubuntu 20.04 image.
+
 ```text
 CamillaDSP main       127.0.0.1:1234  internal
 CamillaDSP spectrum   127.0.0.1:6413  internal
@@ -27,18 +32,25 @@ Ports `1234` and `6413` are not exposed to the host browser for product use.
 1. Clone/open the repository in VS Code.
 2. Start Docker Desktop (or an equivalent Linux container runtime).
 3. Run **Dev Containers: Reopen in Container**.
-4. Let `postCreateCommand` install Node dependencies and the Chromium revision
-   paired with Playwright.
-5. The demo starts automatically on container start. If necessary run
+4. After an image or dependency change, use **Dev Containers: Rebuild
+   Container** rather than reusing a previous container filesystem.
+5. Let `postCreateCommand` run deterministic `npm ci` and install the Chromium
+   revision paired with Playwright.
+6. The demo starts automatically on container start. If necessary run
    `npm run demo:bg`, then wait with `npm run demo:check`.
-6. Open `http://localhost:8080/estack-dsp/?transport=camillanode#control`.
-7. Open `http://localhost:5005/gui/index.html` for CamillaGUI.
-8. Run `npm test` and `npm run e2e` inside the Dev Container.
+7. Open `http://localhost:8080/estack-dsp/?transport=camillanode#control`.
+8. Open `http://localhost:5005/gui/index.html` for CamillaGUI.
+9. Run `npm test` and `npm run e2e` inside the Dev Container.
 
 The Windows host needs only Docker Desktop, VS Code and the Dev Containers
 extension. Native Windows Bash, CamillaDSP, CamillaGUI and a second Node
 backend are not prerequisites. Native source editing is fine; the complete
 software validation environment is Linux in the container.
+
+Tracked shell scripts are always committed and checked out as LF through
+`.gitattributes`; `npm run check` fails with the exact path if a tracked `.sh`
+contains CRLF or a bare carriage return. This protects bind-mounted Windows
+checkouts without relying on a developer-specific `core.autocrlf` setting.
 
 ## Codespaces
 
@@ -73,6 +85,9 @@ port is reported and left untouched.
 ## Software validation
 
 ```bash
+npm ci
+npx playwright install --with-deps chromium
+npm run demo:restart
 npm run demo:check
 npm test
 npm run e2e
@@ -81,6 +96,11 @@ npm run e2e
 `npm run e2e` uses Playwright `1.63.0` and its matching Chromium revision,
 installed by `.devcontainer` with `npx playwright install --with-deps chromium`.
 The browser runs inside Linux, not through Windows automation.
+
+For a clean local validation after rebuilding the container, run the sequence
+above and then repeat `npm run demo:restart` followed by `npm run demo:check`.
+The second cycle proves that only demo-owned processes are cleaned up and that
+the canonical readiness check remains reliable after a restart.
 
 The Stage 0 Control test opens the product with
 `?transport=camillanode`, requires loopback plus `/api/runtime` demo mode,

@@ -105,8 +105,8 @@ test.describe('Control live CamillaNode demo', () => {
         await expect(frame.locator('article.master-strip')).toHaveCount(1);
         await expect(frame.locator('[data-link-toggle]')).toHaveCount(2);
         await expect(frame.locator('[data-mute]')).toHaveCount(6);
-        await expect(frame.locator('article.mixer-strip')).not.toContainText('OUT 7');
-        await expect(frame.locator('article.mixer-strip')).not.toContainText('OUT 8');
+        await expect(frame.locator('article.mixer-strip').filter({ hasText: 'OUT 7' })).toHaveCount(0);
+        await expect(frame.locator('article.mixer-strip').filter({ hasText: 'OUT 8' })).toHaveCount(0);
         await expect.poll(() => frame.locator('[data-input-meter]').count()).toBeGreaterThan(0);
 
         let restoredByProduct = false;

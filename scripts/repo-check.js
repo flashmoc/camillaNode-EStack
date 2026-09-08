@@ -117,6 +117,13 @@ function trackedFiles() {
 }
 
 const tracked = trackedFiles();
+for (const file of tracked.filter(file => file.endsWith('.sh'))) {
+    const contents = fs.readFileSync(path.join(ROOT, file));
+    if (contents.includes(0x0d)) {
+        fail(`shell script has CRLF/CR line endings: ${file} (tracked .sh files must use LF)`);
+    }
+}
+
 for (const forbidden of forbiddenTracked) {
     if (tracked.some(file => file === forbidden || file.startsWith(`${forbidden}/`))) {
         fail(`legacy path is still tracked: ${forbidden}`);
@@ -305,5 +312,6 @@ ok('CamillaDSP restart startup recall integration is present');
 ok('keyboard Q entry integration is present');
 ok('WiiM loudness bridge integration is present');
 ok('Measurement Batch integration and interlocks are present');
+ok('tracked shell scripts use LF line endings');
 ok('JavaScript and installer syntax parse');
 console.log('\nE-Stack repository check passed.');
