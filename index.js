@@ -49,7 +49,13 @@ app.use(express.static(PUBLIC_DIR));
 // directly.
 const ESTACK_DSP_DIR = path.join(PUBLIC_DIR, 'prototypes', 'estack-ui');
 const ESTACK_DSP_PER_WAY_DIR = path.join(PUBLIC_DIR, 'prototypes', 'per-way');
-app.get('/estack-dsp', (_req, res) => res.redirect(308, '/estack-dsp/'));
+// Express uses non-strict routing by default, so a string route for
+// "/estack-dsp" would also match "/estack-dsp/" and redirect to itself forever.
+// Use an exact regexp for the slash-normalization redirect.
+app.get(/^\/estack-dsp$/, (req, res) => {
+    const query = req.originalUrl.includes('?') ? req.originalUrl.slice(req.originalUrl.indexOf('?')) : '';
+    res.redirect(308, `/estack-dsp/${query}`);
+});
 app.use('/estack-dsp/per-way', express.static(ESTACK_DSP_PER_WAY_DIR));
 app.use('/estack-dsp', express.static(ESTACK_DSP_DIR));
 
@@ -319,7 +325,7 @@ function bridgeWebSocket(client, upstream) {
         if (client.readyState === WebSocket.OPEN) client.send(data, { binary: isBinary });
     });
     upstream.on('error', error => {
-        console.error('WebSocket proxy upstream error:', error.message);
+        console.error(`WebSocket proxy upstream error: ${error.message}`);
         closeBoth();
     });
     upstream.on('close', closeBoth);
