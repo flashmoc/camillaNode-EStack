@@ -17,7 +17,9 @@ DSP backend.
    preferences.
 5. [Control](pages/control.md) — the current migrated page and its hardware
    acceptance state.
-6. [Development simulation and E2E](development.md) — canonical Linux
+6. [Input Processing](pages/input-processing.md) — live Global EQ/Input Delay
+   core and its Stage 2B boundary.
+7. [Development simulation and E2E](development.md) — canonical Linux
    Dev Container/Codespaces workflow and software-validation gate.
 
 ## Supporting documents
