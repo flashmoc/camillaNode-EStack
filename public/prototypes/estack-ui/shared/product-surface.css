@@ -1,0 +1,251 @@
+/*
+ * E-Stack product surface
+ *
+ * Shared visual contract for every prototype page. Page styles may arrange
+ * their own controls and data, but panels, headers and touch controls use the
+ * same material, spacing and hierarchy everywhere.
+ */
+
+.page-sr-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+:is(.control-page, .input-page, .loudness-page, .advanced-page, .signal-page, .pending-page) {
+  width: min(1480px, 100%);
+  margin-inline: auto;
+  padding: clamp(12px, 1.5vw, 22px);
+  display: grid;
+  gap: 12px;
+}
+
+/* Shared panel shell: a calm console surface with a compact information bar. */
+:root .ui-panel {
+  border-color: color-mix(in srgb, var(--color-accent) 12%, var(--color-border-subtle));
+  border-radius: var(--radius-md);
+  overflow: clip;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.018), transparent 84px),
+    var(--color-surface-1);
+  box-shadow: 0 10px 24px rgba(0,0,0,.16);
+}
+
+:root .ui-panel__head,
+:root .ui-toolbar {
+  min-height: var(--prototype-panel-header-height);
+  padding: 9px 14px;
+  position: relative;
+  isolation: isolate;
+  border-bottom-color: color-mix(in srgb, var(--color-accent) 13%, var(--color-border-subtle));
+  background:
+    linear-gradient(90deg, rgba(89,213,227,.09), transparent 32%),
+    var(--color-surface-2);
+}
+
+:root .ui-panel__head::before {
+  content: "";
+  width: 3px;
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 0;
+  background: linear-gradient(var(--color-accent), rgba(89,213,227,.18));
+}
+
+:root .ui-panel__head > * { position: relative; z-index: 1; }
+
+:root .ui-panel__head > div:first-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+:root .ui-panel__head h2 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: .055em;
+}
+
+:root .ui-panel__head p {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: var(--font-size-caption);
+  line-height: 1.3;
+}
+
+:root .ui-panel__body { padding: var(--space-4); }
+
+:root .ui-button,
+:root .ui-select,
+:root .ui-number {
+  border-color: color-mix(in srgb, var(--color-accent) 14%, var(--color-border-subtle));
+  border-radius: var(--radius-sm);
+  background: linear-gradient(180deg, rgba(255,255,255,.025), transparent), var(--color-control);
+  transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease, color 140ms ease;
+}
+
+:root .ui-button:hover:not(:disabled),
+:root .ui-select:hover:not(:disabled),
+:root .ui-number:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--color-accent) 58%, var(--color-border-strong));
+  background-color: var(--color-surface-raised);
+}
+
+:root .ui-button:focus-visible,
+:root .ui-select:focus-visible,
+:root .ui-number:focus-visible,
+:root .ui-slider:focus-visible {
+  outline: 0;
+  box-shadow: var(--focus-ring);
+}
+
+:root .ui-button.is-active,
+:root .ui-button[aria-pressed="true"] {
+  color: var(--color-canvas);
+  border-color: var(--color-accent);
+  background: linear-gradient(180deg, #74e0eb, var(--color-accent));
+}
+
+:root .ui-badge,
+:root .ui-status {
+  border-color: color-mix(in srgb, currentColor 32%, var(--color-border-subtle));
+  background: rgba(6, 20, 22, .72);
+}
+
+:root .ui-alert {
+  border-color: color-mix(in srgb, currentColor 50%, var(--color-border-subtle));
+  box-shadow: inset 3px 0 currentColor;
+}
+
+/* Common data cards found in processing, routing and generator pages. */
+.eq-band,
+.pipeline-step,
+.preset,
+.device,
+.route,
+.processor,
+.target,
+.signal-block {
+  border-color: color-mix(in srgb, var(--color-accent) 10%, var(--color-border-subtle));
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.012), transparent 56px),
+    var(--color-control);
+}
+
+.eq-band:hover,
+.pipeline-step:hover,
+.preset:hover,
+.device:hover,
+.route:hover,
+.processor:hover,
+.target:hover {
+  border-color: color-mix(in srgb, var(--color-accent) 34%, var(--color-border-subtle));
+}
+
+canvas {
+  border-color: color-mix(in srgb, var(--color-accent) 12%, var(--color-border-subtle));
+  background: #081315;
+}
+
+.mock-note {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 10px;
+  letter-spacing: .045em;
+  text-align: center;
+}
+
+/* Shared workbench patterns for the service, measurement and settings tools. */
+.workbench-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(280px, .85fr);
+  gap: 12px;
+}
+
+.workbench-stack { display: grid; gap: 12px; }
+
+.workbench-card {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--color-accent) 10%, var(--color-border-subtle));
+  background: linear-gradient(180deg, rgba(255,255,255,.018), transparent 72px), var(--color-control);
+}
+
+.workbench-card h3,
+.workbench-card p { margin: 0; }
+.workbench-card h3 { font-size: 12px; letter-spacing: .045em; }
+.workbench-card > p { margin-top: 4px; color: var(--color-muted); font-size: var(--font-size-caption); }
+
+.detail-list { margin: 12px 0 0; display: grid; gap: 1px; background: var(--color-border-subtle); }
+.detail-list > div { min-width: 0; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--color-surface-1); }
+.detail-list dt { color: var(--color-muted); font-size: 10px; font-weight: 800; letter-spacing: .05em; }
+.detail-list dd { min-width: 0; margin: 0; color: var(--color-text-primary); font: 700 12px var(--font-family-data); text-align: right; overflow-wrap: anywhere; }
+
+.setting-list { display: grid; gap: 1px; background: var(--color-border-subtle); }
+.setting-row { min-width: 0; padding: 11px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; background: var(--color-surface-1); }
+.setting-row > div { min-width: 0; display: grid; gap: 3px; }
+.setting-row strong { font-size: 12px; }
+.setting-row small { color: var(--color-muted); font-size: 11px; line-height: 1.35; }
+.setting-row .ui-select { max-width: 185px; }
+
+.data-grid { margin-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.data-cell { min-width: 0; padding: 10px; border: 1px solid var(--color-border-subtle); background: rgba(0,0,0,.12); }
+.data-cell span { display: block; color: var(--color-muted); font-size: 10px; font-weight: 800; letter-spacing: .05em; }
+.data-cell strong { display: block; margin-top: 5px; color: var(--color-text-primary); font: 700 15px var(--font-family-data); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.action-row { padding: 12px 14px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--color-border-subtle); background: rgba(0,0,0,.12); }
+.action-row > :first-child { margin-right: auto; color: var(--color-muted); font-size: 11px; }
+
+.form-grid { padding: 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.form-grid label { min-width: 0; display: grid; gap: 6px; color: var(--color-text-secondary); font-size: 10px; font-weight: 800; letter-spacing: .05em; }
+.form-grid .ui-select, .form-grid .ui-number { width: 100%; }
+
+.status-line { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: var(--color-muted); font-size: 11px; }
+
+@media (max-width: 700px) {
+  :is(.control-page, .input-page, .loudness-page, .advanced-page, .signal-page, .pending-page) {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  :root .ui-panel__head,
+  :root .ui-toolbar {
+    min-height: 48px;
+    padding: 8px 10px;
+    gap: 8px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  :root .ui-panel__head h2 { font-size: 12px; }
+
+  :root .ui-panel__head > :last-child:not(:first-child) {
+    max-width: 100%;
+  }
+
+  :root .ui-button,
+  :root .ui-select,
+  :root .ui-number {
+    min-height: var(--prototype-touch-target);
+  }
+
+  :root .ui-number { min-width: 76px; }
+
+  .workbench-grid { grid-template-columns: 1fr; }
+  .workbench-card { padding: 12px; }
+  .detail-list > div, .setting-row { padding: 10px; }
+  .data-grid { grid-template-columns: 1fr 1fr; }
+  .form-grid { padding: 12px; grid-template-columns: 1fr; gap: 10px; }
+  .action-row { padding: 10px; align-items: stretch; flex-direction: column; }
+  .action-row > :first-child { margin-right: 0; }
+  .action-row .ui-button { width: 100%; }
+}

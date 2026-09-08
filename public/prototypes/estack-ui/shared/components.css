@@ -1,3 +1,5 @@
+@import url("./product-surface.css?v=product-v1");
+
 .ui-button, .ui-select, .ui-number { min-height: var(--control-height-md); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-sm); color: var(--color-text-primary); background: var(--color-control); }
 .ui-button { padding: 0 var(--space-3); cursor: pointer; }
 .ui-button:hover:not(:disabled), .ui-select:hover:not(:disabled), .ui-number:hover:not(:disabled) { border-color: var(--color-border-strong); background-color: var(--color-surface-2); }

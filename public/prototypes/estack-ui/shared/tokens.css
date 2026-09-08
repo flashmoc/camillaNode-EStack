@@ -29,6 +29,9 @@
   --radius-md: 6px;
   --control-height-sm: 32px;
   --control-height-md: 40px;
+  --prototype-control-height: 38px;
+  --prototype-touch-target: 44px;
+  --prototype-panel-header-height: 52px;
   --font-family-ui: "Open Sans", Arial, sans-serif;
   --font-family-data: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --font-size-caption: 11px;

@@ -2,7 +2,7 @@
   'use strict';
   const fixture = window.EStackPrototypeFixtures;
   const clone = value => JSON.parse(JSON.stringify(value));
-  const state = { system: clone(fixture.system), ways: clone(fixture.ways), selected: 1, compare: '0', graphMode: 'magnitude', analyzer: true, transaction: 'applied', scenario: 'normal', snapshot: null };
+  const state = { system: clone(fixture.system), ways: clone(fixture.ways), selected: 1, compare: '0', graphMode: 'magnitude', analyzer: true, allCrossovers: true, transaction: 'applied', scenario: 'normal', snapshot: null };
   state.snapshot = clone(state.ways);
   const $ = selector => document.querySelector(selector);
   const $$ = selector => [...document.querySelectorAll(selector)];
@@ -63,7 +63,7 @@
     const select = $('#compareWay'); const current = state.compare; select.replaceChildren();
     const none = document.createElement('option'); none.value = 'none'; none.textContent = 'None'; select.appendChild(none);
     state.ways.filter(item => item.id !== state.selected).forEach(way => { const option = document.createElement('option'); option.value = String(way.id); option.textContent = way.name; select.appendChild(option); });
-    select.value = current === String(state.selected) ? 'none' : current; state.compare = select.value;
+    select.value = current === String(state.selected) ? 'none' : current; state.compare = select.value; select.disabled = state.allCrossovers;
   }
 
   function renderOutput() {
@@ -117,20 +117,27 @@
 
   function renderCrossover() { const way = selectedWay(); const root = $('#crossoverEditor'); root.replaceChildren(crossoverBlock('hpf', way.hpf), crossoverBlock('lpf', way.lpf)); }
   function frequencyToX(freq, width, left) { return left + Math.log10(freq / 20) / Math.log10(20000 / 20) * width; }
-  function filterShape(freq, edge, highPass, slope) { const octaves = Math.log2(Math.max(1e-6, freq / edge)); const sign = highPass ? octaves : -octaves; return sign >= 0 ? 0 : Math.max(-54, sign * slope); }
+  function filterShape(freq, edge, highPass, slope, type) {
+    const ratio = highPass ? edge / Math.max(freq, 1e-6) : freq / edge;
+    const order = Math.max(1, slope / (type === 'LR' ? 12 : 6));
+    const multiplier = type === 'LR' ? 20 : 10;
+    return -multiplier * Math.log10(1 + ratio ** (2 * order));
+  }
   function peqGainAt(freq, band) { if (!band.enabled) return 0; const x = Math.log2(freq / band.freq); if (band.type === 'Lowshelf') return band.gain / (1 + Math.exp(5 * x)); if (band.type === 'Highshelf') return band.gain / (1 + Math.exp(-5 * x)); const width = Math.max(0.08, 1 / band.q); return band.gain * Math.exp(-(x * x) / (2 * width * width)); }
-  function responseAt(freq, way) { let value = way.gain; if (way.hpf.enabled) value += filterShape(freq, way.hpf.freq, true, way.hpf.slope); if (way.lpf.enabled) value += filterShape(freq, way.lpf.freq, false, way.lpf.slope); way.peq.forEach(band => { value += peqGainAt(freq, band); }); return value; }
+  function responseAt(freq, way) { let value = way.gain; if (way.hpf.enabled) value += filterShape(freq, way.hpf.freq, true, way.hpf.slope, way.hpf.type); if (way.lpf.enabled) value += filterShape(freq, way.lpf.freq, false, way.lpf.slope, way.lpf.type); way.peq.forEach(band => { value += peqGainAt(freq, band); }); return value; }
+  function crossoverAt(freq, way) { let value = 0; if (way.hpf.enabled) value += filterShape(freq, way.hpf.freq, true, way.hpf.slope, way.hpf.type); if (way.lpf.enabled) value += filterShape(freq, way.lpf.freq, false, way.lpf.slope, way.lpf.type); return value; }
   function phaseAt(freq, way) { const centre = way.lpf.enabled ? way.lpf.freq : way.hpf.freq; const x = Math.log2(freq / centre); return Math.max(-180, Math.min(180, -80 * Math.tanh(x * 0.8) + way.phase)); }
   function analyzerAt(freq, way) { return responseAt(freq, way) - 18 + Math.sin(Math.log(freq) * 7.1 + way.id) * 2.4 + Math.sin(Math.log(freq) * 13.7) * 1.2; }
 
-  function drawCurve(ctx, way, plot, mode, alpha = 1, width = 2) {
-    ctx.save(); ctx.strokeStyle = way.color; ctx.globalAlpha = alpha; ctx.lineWidth = width; ctx.beginPath();
-    for (let i = 0; i <= 360; i++) { const t = i / 360; const freq = 20 * (1000 ** t); const x = plot.left + t * plot.width; const raw = mode === 'phase' ? phaseAt(freq, way) : responseAt(freq, way); const y = mode === 'phase' ? plot.top + (180 - raw) / 360 * plot.height : plot.top + (18 - raw) / 78 * plot.height; if (!i) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
+  function drawCurve(ctx, way, plot, mode, alpha = 1, width = 2, magnitudeAt = responseAt) {
+    ctx.save(); ctx.beginPath(); ctx.rect(plot.left, plot.top, plot.width, plot.height); ctx.clip(); ctx.strokeStyle = way.color; ctx.globalAlpha = alpha; ctx.lineWidth = width; ctx.beginPath();
+    for (let i = 0; i <= 360; i++) { const t = i / 360; const freq = 20 * (1000 ** t); const x = plot.left + t * plot.width; const raw = mode === 'phase' ? phaseAt(freq, way) : magnitudeAt(freq, way); const y = mode === 'phase' ? plot.top + (180 - raw) / 360 * plot.height : plot.top + (18 - raw) / 78 * plot.height; if (!i) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
     ctx.stroke(); ctx.restore();
   }
 
   function drawGraph() {
     const canvas = $('#responseGraph'); const rect = canvas.getBoundingClientRect(); const scale = window.devicePixelRatio || 1; const width = Math.max(320, rect.width); const height = Math.max(220, rect.height);
+    canvas.setAttribute('aria-label', state.allCrossovers ? `Simulated all-way crossover ${state.graphMode === 'magnitude' ? 'response' : 'phase'} graph` : 'Simulated selected-way response graph');
     canvas.width = Math.round(width * scale); canvas.height = Math.round(height * scale); const ctx = canvas.getContext('2d'); ctx.setTransform(scale, 0, 0, scale, 0, 0); ctx.clearRect(0, 0, width, height);
     const mobile = width < 560; const plot = { left: mobile ? 38 : 48, right: mobile ? 8 : 16, top: 18, bottom: 28 }; plot.width = width - plot.left - plot.right; plot.height = height - plot.top - plot.bottom;
     const text = getComputedStyle(document.body).getPropertyValue('--prototype-muted').trim() || 'rgba(235,242,244,.58)'; const way = selectedWay(); ctx.font = '11px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace'; ctx.fillStyle = text; ctx.lineWidth = 1;
@@ -139,14 +146,18 @@
     const phaseMode = state.graphMode === 'phase' || state.graphMode === 'xo'; const yTicks = phaseMode ? [180,90,0,-90,-180] : [12,0,-12,-24,-36,-48,-60];
     yTicks.forEach(value => { const y = phaseMode ? plot.top + (180 - value) / 360 * plot.height : plot.top + (18 - value) / 78 * plot.height; ctx.strokeStyle = value === 0 ? 'rgba(255,255,255,.16)' : 'rgba(255,255,255,.08)'; ctx.beginPath(); ctx.moveTo(plot.left, y); ctx.lineTo(plot.left + plot.width, y); ctx.stroke(); ctx.textAlign = 'right'; ctx.fillText(`${value}${phaseMode ? '°' : ''}`, plot.left - 7, y + 4); });
     if (state.graphMode === 'magnitude') {
-      drawCurve(ctx, way, plot, 'magnitude', way.mute ? .35 : 1, 2.2);
-      if (state.compare !== 'none') { const compare = state.ways.find(item => String(item.id) === state.compare); if (compare) drawCurve(ctx, compare, plot, 'magnitude', .45, 1.6); }
+      if (state.allCrossovers) state.ways.forEach(item => drawCurve(ctx, item, plot, 'magnitude', item.id === way.id ? 1 : .62, item.id === way.id ? 2.5 : 1.7, crossoverAt));
+      else {
+        drawCurve(ctx, way, plot, 'magnitude', way.mute ? .35 : 1, 2.2);
+        if (state.compare !== 'none') { const compare = state.ways.find(item => String(item.id) === state.compare); if (compare) drawCurve(ctx, compare, plot, 'magnitude', .45, 1.6); }
+      }
       if (state.analyzer) { ctx.save(); ctx.strokeStyle = 'rgba(245,248,249,.50)'; ctx.lineWidth = 1; ctx.beginPath(); for (let i = 0; i <= 260; i++) { const t = i / 260; const freq = 20 * (1000 ** t); const x = plot.left + t * plot.width; const y = plot.top + (18 - analyzerAt(freq, way)) / 78 * plot.height; if (!i) ctx.moveTo(x, y); else ctx.lineTo(x, y); } ctx.stroke(); ctx.restore(); }
     } else {
-      drawCurve(ctx, way, plot, 'phase', 1, 2.2);
-      if (state.graphMode === 'xo') { const compare = state.compare !== 'none' ? state.ways.find(item => String(item.id) === state.compare) : state.ways[Math.max(0, way.id - 1)]; if (compare && compare.id !== way.id) drawCurve(ctx, compare, plot, 'phase', .62, 1.8); const edge = way.hpf.enabled ? way.hpf.freq : way.lpf.freq; const x = frequencyToX(edge, plot.width, plot.left); ctx.save(); ctx.setLineDash([5,4]); ctx.strokeStyle = 'rgba(255,255,255,.46)'; ctx.beginPath(); ctx.moveTo(x, plot.top); ctx.lineTo(x, plot.top + plot.height); ctx.stroke(); ctx.fillStyle = text; ctx.textAlign = 'center'; ctx.fillText(`${Math.round(edge)} Hz`, x, plot.top + 12); ctx.restore(); }
+      if (state.allCrossovers) state.ways.forEach(item => drawCurve(ctx, item, plot, 'phase', item.id === way.id ? 1 : .62, item.id === way.id ? 2.5 : 1.7));
+      else drawCurve(ctx, way, plot, 'phase', 1, 2.2);
+      if (state.graphMode === 'xo' && !state.allCrossovers) { const compare = state.compare !== 'none' ? state.ways.find(item => String(item.id) === state.compare) : state.ways[Math.max(0, way.id - 1)]; if (compare && compare.id !== way.id) drawCurve(ctx, compare, plot, 'phase', .62, 1.8); const edge = way.hpf.enabled ? way.hpf.freq : way.lpf.freq; const x = frequencyToX(edge, plot.width, plot.left); ctx.save(); ctx.setLineDash([5,4]); ctx.strokeStyle = 'rgba(255,255,255,.46)'; ctx.beginPath(); ctx.moveTo(x, plot.top); ctx.lineTo(x, plot.top + plot.height); ctx.stroke(); ctx.fillStyle = text; ctx.textAlign = 'center'; ctx.fillText(`${Math.round(edge)} Hz`, x, plot.top + 12); ctx.restore(); }
     }
-    const modeText = state.graphMode === 'magnitude' ? 'Magnitude · mock transfer + analyzer' : state.graphMode === 'phase' ? 'Phase · theoretical mock trace' : 'XO Align · mock electrical phase comparison';
+    const modeText = state.allCrossovers ? `${state.graphMode === 'magnitude' ? 'Magnitude' : 'Phase'} · all ${state.ways.length} crossover paths` : state.graphMode === 'magnitude' ? 'Magnitude · selected transfer + analyzer' : state.graphMode === 'phase' ? 'Phase · theoretical mock trace' : 'XO Align · mock electrical phase comparison';
     $('#graphReadout').innerHTML = `<span><i style="background:${way.color}"></i><strong>${way.name}</strong> ${modeText}</span><span>HPF ${way.hpf.enabled ? formatFreq(way.hpf.freq) : 'bypassed'} · LPF ${way.lpf.enabled ? formatFreq(way.lpf.freq) : 'bypassed'}</span>`;
   }
 
@@ -155,6 +166,7 @@
   function bindStaticControls() {
     $('#scenarioSelect').addEventListener('change', event => { state.scenario = event.target.value; renderAll(); });
     $('#compareWay').addEventListener('change', event => { state.compare = event.target.value; drawGraph(); });
+    $('#allCrossoversToggle').addEventListener('change', event => { state.allCrossovers = event.target.checked; renderCompare(); drawGraph(); });
     $('#analyzerToggle').addEventListener('change', event => { state.analyzer = event.target.checked; drawGraph(); });
     $$('#graphModes button').forEach(button => button.addEventListener('click', () => { state.graphMode = button.dataset.mode; $$('#graphModes button').forEach(item => { const active = item === button; item.classList.toggle('active', active); item.setAttribute('aria-pressed', String(active)); }); drawGraph(); }));
     const bindNumber = (id, property, min, max, decimals, rangeId) => { const input = $(id); const range = rangeId ? $(rangeId) : null; const update = value => { const way = selectedWay(); way[property] = round(clamp(value, min, max), decimals); input.value = way[property]; if (range) range.value = way[property]; markModified(); renderOutput(); renderWays(); renderActiveSummary(); drawGraph(); }; input.addEventListener('change', () => update(input.value)); range?.addEventListener('input', () => update(range.value)); };
