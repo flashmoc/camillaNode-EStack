@@ -11,6 +11,12 @@
   const shellHeadroom = document.querySelector('[data-shell-headroom]');
   const shellClip = document.querySelector('[data-shell-clip]');
   const shellLimiters = document.querySelector('[data-shell-limiters]');
+  const hardwareTransport = new URLSearchParams(location.search).get('transport') === 'camillanode';
+  const banner = document.querySelector('.prototype-banner');
+  if (hardwareTransport && banner) {
+    banner.querySelector('strong').textContent = 'CAMILLANODE WORKSPACE';
+    banner.querySelector('span').textContent = 'Measurement Batch API enabled';
+  }
   const shellMasterPanel = document.querySelector('.shell-master');
   const referenceStatus = { master: -12, headroom: 9.8, condition: 'normal' };
   const clone = value => JSON.parse(JSON.stringify(value));
@@ -52,6 +58,7 @@
   const routes = Object.fromEntries(links.map(link => {
     const route = link.dataset.page === 'output-processing' ? new URL('../per-way/?mode=integrated', document.baseURI) : new URL(link.href);
     route.searchParams.set('v', shellRevision);
+    if (hardwareTransport) route.searchParams.set('transport', 'camillanode');
     return [link.dataset.page, route.href];
   }));
   const choose = name => {

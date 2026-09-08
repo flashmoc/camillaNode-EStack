@@ -4,70 +4,204 @@
 
   const $ = id => document.getElementById(id);
   const adapter = window.EStackPrototypeDSP;
-  const fields = ['measurementInput', 'measurementWay', 'sweepStart', 'sweepEnd', 'sweepDuration', 'sweepAverages'];
-  let running = false;
-  let hydrated = false;
+  const transport = new URLSearchParams(location.search).get('transport');
+  const apiMode = transport === 'camillanode';
+  const wayLabels = { SUB: 'SUB', KICK: 'KICK', MID_L: 'MID L', MID_R: 'MID R', HIGH_L: 'HIGH L', HIGH_R: 'HIGH R' };
+  const clone = value => JSON.parse(JSON.stringify(value));
+  const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+  let state = null;
+  let baseline = null;
+  let busy = false;
+  let localModel = null;
 
-  function recipe() {
-    return { input: $('measurementInput').value, way: $('measurementWay').value, start: Number($('sweepStart').value), end: Number($('sweepEnd').value), duration: Number($('sweepDuration').value), averages: Number($('sweepAverages').value) };
+  const sample = {
+    schema: 'estack.measurement-batch', version: 1, name: 'KICK ↔ MID alignment',
+    description: 'Safe local preview of the CamillaNode campaign contract.',
+    defaults: { muteUnlisted: true, settleMs: 500, measurementInput: 4, disabledFilters: [] },
+    steps: [
+      { id: 'M01', name: 'KICK solo baseline', instruction: 'Run the REW sweep, then advance the campaign.', position: 'Mic on-axis · 2.00 m', activeWays: ['KICK'], ways: { KICK: { gainOffsetDb: -15 } }, crossovers: {}, rew: { measurementName: 'M01_KICK_SOLO', startHz: 30, endHz: 800, levelDbfs: -20, timingReference: true } },
+      { id: 'M02', name: 'KICK + MID L crossover', instruction: 'Compare the crossover region before changing delay.', position: 'Mic on-axis · 2.00 m', activeWays: ['KICK', 'MID_L'], ways: { MID_L: { delayOffsetMs: .5, phase: { degrees: -45, reference: 'hpf' } } }, crossovers: { KICK: { lpf: { freqHz: 285, family: 'LinkwitzRiley', order: 4 } }, MID_L: { hpf: { freqHz: 285, family: 'LinkwitzRiley', order: 4 } } }, rew: { measurementName: 'M02_KICK_MID_285', startHz: 80, endHz: 1400, levelDbfs: -20, timingReference: true } }
+    ]
+  };
+
+  const label = way => wayLabels[way] || String(way || '').replace(/_/g, ' ');
+  const summary = step => `${(step.activeWays || []).map(label).join(' + ')} · ${step.rew?.measurementName || step.name}`;
+  const describe = (step, index, total) => ({ ...clone(step), index, number: index + 1, total, activeWayLabels: (step.activeWays || []).map(label), summary: summary(step) });
+
+  function localSnapshot() {
+    const model = localModel || { batch: null, active: false, currentIndex: null, completed: [] };
+    const batch = model.batch;
+    const sequence = batch ? batch.steps.map((step, index) => describe(step, index, batch.steps.length)) : [];
+    const active = !!model.active && !!batch;
+    const current = active ? sequence[model.currentIndex] : null;
+    const completed = model.completed || [];
+    return {
+      ok: true, phase: active ? 'active' : batch ? 'ready' : 'empty', active,
+      batch: batch ? { schema: batch.schema, version: batch.version || 1, name: batch.name, description: batch.description, total: sequence.length, defaults: clone(batch.defaults || {}) } : null,
+      sequence, current, next: active ? sequence[model.currentIndex + 1] || null : null,
+      progress: { currentIndex: active ? model.currentIndex : null, currentNumber: active ? model.currentIndex + 1 : null, total: sequence.length, completedCount: completed.length, completed },
+      message: !batch ? 'NO BATCH · import a Measurement Batch JSON file' : active ? `READY · ${current.summary}` : `READY · ${batch.name} · ${sequence.length} measurements`
+    };
   }
 
-  function applyRecipe(next = {}) {
-    const value = { input: 'IN L', way: 'SUB', start: 20, end: 20000, duration: 8, averages: 4, ...next };
-    $('measurementInput').value = value.input;
-    $('measurementWay').value = value.way;
-    $('sweepStart').value = value.start;
-    $('sweepEnd').value = value.end;
-    $('sweepDuration').value = value.duration;
-    $('sweepAverages').value = value.averages;
+  function persistLocal(reason) {
+    adapter.apply(config => { config.measurementBatch = clone(localModel); }, reason);
+    state = localSnapshot();
+    return state;
   }
 
-  function renderResult(result) {
-    const hasResult = !!result;
-    $('resultBadge').textContent = hasResult ? 'LOCAL RESULT' : 'NO CAPTURE';
-    $('resultBadge').className = `ui-badge ${hasResult ? 'is-success' : 'is-muted'}`;
-    $('resultLatency').textContent = hasResult ? `${result.latency.toFixed(2)} ms` : '—';
-    $('resultPeak').textContent = hasResult ? `${result.peak.toFixed(1)} dBFS` : '—';
-    $('resultPoints').textContent = hasResult ? String(result.points) : '—';
-    $('resultSummary').textContent = hasResult ? `${result.input} → ${result.way} · ${result.start} Hz to ${result.end} Hz · ${result.averages} averages.` : 'Run the local mock to preview a measurement record.';
+  function localBaseline() {
+    const defaults = state?.batch?.defaults || {};
+    return { ok: true, baseline: { captured: !!state?.active, id: state?.active ? 'LOCAL-CAPTURED' : 'LOCAL-PREVIEW', measurementInput: defaults.measurementInput ?? null, capturedAt: state?.active ? new Date().toISOString() : null, inputFilters: [], wayFilters: {}, warnings: [] } };
   }
 
-  function renderRunState() {
-    $('measurementState').textContent = running ? 'SIMULATING' : 'READY';
-    $('measurementState').className = `ui-status ${running ? 'is-warning' : 'is-pending'}`;
-    $('runMeasurement').disabled = running;
-    $('measurementNote').textContent = running ? 'Building a local measurement record…' : 'No signal is sent to hardware.';
+  async function request(path, options = {}) {
+    const response = await fetch(`/api/measurement-batch/${path}`, { cache: 'no-store', headers: { 'content-type': 'application/json', ...(options.headers || {}) }, ...options });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.ok === false) throw new Error(data.error || `Measurement Batch request failed (${response.status})`);
+    return data;
   }
 
-  function persist() {
-    const next = recipe();
-    adapter.apply(config => { config.measurement = { ...(config.measurement || {}), recipe: next }; }, 'measurement recipe updated');
+  const localActions = {
+    status: async () => localSnapshot(),
+    baseline: async () => localBaseline(),
+    import: async batch => { localModel = { batch: clone(batch), active: false, currentIndex: null, completed: [] }; return persistLocal('measurement batch imported locally'); },
+    clear: async () => { localModel = { batch: null, active: false, currentIndex: null, completed: [] }; return persistLocal('measurement batch cleared locally'); },
+    next: async () => {
+      if (!localModel?.batch) throw new Error('Import a campaign before starting');
+      if (!localModel.active) { localModel.active = true; localModel.currentIndex = 0; localModel.completed = []; return persistLocal('local batch baseline captured'); }
+      const last = localModel.batch.steps.length - 1;
+      localModel.completed = [...new Set([...(localModel.completed || []), localModel.currentIndex])];
+      if (localModel.currentIndex >= last) { localModel.active = false; localModel.currentIndex = null; const result = persistLocal('local batch restored'); result.phase = 'complete'; result.restored = true; result.message = `COMPLETE · ${localModel.batch.name} · normal processing restored`; return result; }
+      localModel.currentIndex += 1; return persistLocal('local measurement advanced');
+    },
+    previous: async () => { if (!localModel?.active) throw new Error('No active campaign'); localModel.currentIndex = Math.max(0, localModel.currentIndex - 1); localModel.completed = (localModel.completed || []).filter(index => index < localModel.currentIndex); return persistLocal('local measurement moved back'); },
+    retry: async () => { if (!localModel?.active) throw new Error('No active campaign'); return persistLocal('local measurement reapplied'); },
+    goto: async index => { if (!localModel?.active) throw new Error('No active campaign'); if (!Number.isInteger(index) || index < 0 || index >= localModel.batch.steps.length) throw new Error('Invalid measurement index'); localModel.currentIndex = index; localModel.completed = (localModel.completed || []).filter(value => value < index); return persistLocal('local measurement selected'); },
+    abort: async () => { if (!localModel?.active) return localSnapshot(); localModel.active = false; localModel.currentIndex = null; localModel.completed = []; const result = persistLocal('local batch restored'); result.restored = true; result.aborted = true; result.message = `RESTORED · ${localModel.batch.name} · normal processing restored`; return result; }
+  };
+
+  const apiActions = {
+    status: () => request('status'), baseline: () => request('baseline'),
+    import: batch => request('import', { method: 'POST', body: JSON.stringify({ batch }) }),
+    clear: () => request('clear', { method: 'POST', body: '{}' }),
+    next: () => request('next', { method: 'POST', body: '{}' }),
+    previous: () => request('previous', { method: 'POST', body: '{}' }),
+    retry: () => request('retry', { method: 'POST', body: '{}' }),
+    goto: index => request('goto', { method: 'POST', body: JSON.stringify({ index }) }),
+    abort: () => request('abort', { method: 'POST', body: '{}' })
+  };
+  const actions = apiMode ? apiActions : localActions;
+
+  function currentStep() { return state?.current || state?.sequence?.[0] || null; }
+  function setStatus(message, kind = 'pending') { $('measurementNote').textContent = message; $('measurementState').className = `ui-badge is-${kind}`; }
+
+  function renderHeader() {
+    const batch = state?.batch;
+    $('transportState').textContent = apiMode ? 'CAMILLANODE API' : 'LOCAL MODEL';
+    $('transportState').className = `ui-status ${apiMode ? 'is-warning' : 'is-pending'}`;
+    $('measurementState').textContent = state?.phase === 'active' ? 'CAPTURED' : state?.phase === 'complete' ? 'RESTORED' : batch ? 'READY' : 'NO BATCH';
+    $('measurementState').className = `ui-badge ${state?.active ? 'is-success' : batch ? 'is-pending' : 'is-muted'}`;
+    $('batchName').textContent = batch?.name || 'No campaign loaded';
+    $('batchDescription').textContent = batch?.description || 'Import a versioned E-Stack campaign or use the local sample.';
+    $('exportBatch').disabled = !batch || busy;
+    $('clearBatch').disabled = !batch || !!state?.active || busy;
+    $('importBatch').disabled = !!state?.active || busy;
+    $('loadSample').disabled = !!state?.active || busy;
+    const progress = state?.progress || { total: 0, completedCount: 0 };
+    const total = progress.total || 0;
+    const completed = state?.active ? progress.currentNumber || 1 : progress.completedCount || 0;
+    $('progressLabel').textContent = `${completed} / ${total}`;
+    $('progressText').textContent = state?.message || 'Waiting for a campaign';
+    $('progressBar').style.width = `${total ? Math.min(100, completed / total * 100) : 0}%`;
   }
 
-  fields.forEach(id => $(id).addEventListener('change', persist));
-  $('runMeasurement').addEventListener('click', () => {
-    if (running) return;
-    const next = recipe();
-    if (!(next.start < next.end)) { $('measurementNote').textContent = 'Sweep end must be higher than sweep start.'; return; }
-    running = true;
-    renderRunState();
-    window.setTimeout(() => {
-      const result = { ...next, latency: 2.15 + next.averages * .08, peak: -18.4 + next.duration * .11, points: 256 * next.averages };
-      adapter.apply(config => { config.measurement = { recipe: next, result }; }, 'mock measurement completed');
-      running = false;
-      renderRunState();
-      renderResult(result);
-    }, 650);
-  });
-  $('clearMeasurement').addEventListener('click', () => {
-    adapter.apply(config => { config.measurement = { recipe: recipe(), result: null }; }, 'measurement result cleared');
-    renderResult(null);
-  });
-  adapter.subscribe(config => {
-    const measurement = config.measurement || {};
-    if (!hydrated || measurement.recipe) applyRecipe(measurement.recipe);
-    if (!running) renderResult(measurement.result || null);
-    hydrated = true;
-  });
-  renderRunState();
+  function renderSequence() {
+    const sequence = state?.sequence || [];
+    $('sequenceCount').textContent = `${sequence.length} measurement${sequence.length === 1 ? '' : 's'}`;
+    $('sequence').innerHTML = sequence.length ? sequence.map(step => `<button class="sequence-item ${state?.current?.index === step.index ? 'is-current' : ''} ${state?.progress?.completed?.includes(step.index) ? 'is-complete' : ''}" data-index="${step.index}" type="button" ${busy || !state?.active ? 'disabled' : ''}><strong>${escape(step.id)} · ${escape(step.name)}</strong><span>${escape(step.activeWayLabels.join(' + '))}</span></button>`).join('') : '<p class="empty-state">No measurements loaded.</p>';
+    document.querySelectorAll('[data-index]').forEach(button => button.addEventListener('click', () => run('goto', Number(button.dataset.index), `Preparing measurement ${Number(button.dataset.index) + 1}…`)));
+  }
+
+  function deltaRows(step) {
+    const values = [];
+    Object.entries(step?.ways || {}).forEach(([way, value]) => {
+      const parts = [];
+      if (value.delayMs != null) parts.push(`delay ${Number(value.delayMs).toFixed(2)} ms`);
+      if (value.delayOffsetMs != null) parts.push(`delay Δ ${Number(value.delayOffsetMs).toFixed(2)} ms`);
+      if (value.gainOffsetDb != null) parts.push(`gain Δ ${Number(value.gainOffsetDb).toFixed(1)} dB`);
+      if (value.polarity) parts.push(value.polarity);
+      if (value.phase != null) { const phase = typeof value.phase === 'object' ? value.phase.degrees : value.phase; parts.push(`phase ${phase}°`); }
+      values.push(`<div><span>${escape(label(way))}</span><strong>${escape(parts.join(' · ') || 'baseline')}</strong></div>`);
+    });
+    Object.entries(step?.crossovers || {}).forEach(([way, value]) => ['hpf', 'lpf'].forEach(side => { const xo = value[side]; if (xo) values.push(`<div><span>${escape(label(way))} ${side.toUpperCase()}</span><strong>${escape(`${xo.freqHz || 'baseline'} Hz · ${xo.family || 'baseline'} ${xo.order ? `· ${xo.order}` : ''}`)}</strong></div>`); }));
+    return values.length ? values.join('') : '<p class="empty-state">No processing delta.</p>';
+  }
+
+  function renderCurrent() {
+    const step = currentStep();
+    $('currentCounter').textContent = step ? `${step.number} / ${step.total}` : '—';
+    $('currentName').textContent = step?.name || 'No active measurement';
+    $('currentInstruction').textContent = step?.instruction || 'Start a campaign to capture the live DSP baseline and prepare the first measurement.';
+    $('currentPosition').textContent = step?.position || ''; $('currentPosition').hidden = !step?.position;
+    $('activeWays').innerHTML = step ? step.activeWayLabels.map(way => `<span>${escape(way)}</span>`).join('') : '<p class="empty-state">—</p>';
+    $('dspDelta').innerHTML = deltaRows(step);
+    const rew = step?.rew || {};
+    $('rewMeta').innerHTML = step ? `<div><span>NAME</span><strong>${escape(rew.measurementName || '—')}</strong></div><div><span>SWEEP</span><strong>${rew.startHz && rew.endHz ? `${rew.startHz}–${rew.endHz} Hz` : 'Current'}</strong></div><div><span>LEVEL</span><strong>${rew.levelDbfs != null ? `${Number(rew.levelDbfs).toFixed(1)} dBFS` : 'Current'}</strong></div><div><span>TIMING REF</span><strong>${rew.timingReference == null ? 'Current' : rew.timingReference ? 'ON' : 'OFF'}</strong></div>` : '<p class="empty-state">—</p>';
+    $('rewNotes').textContent = rew.notes || ''; $('rewNotes').hidden = !rew.notes;
+    $('copyRewName').disabled = busy || !rew.measurementName;
+  }
+
+  function renderActions() {
+    const active = !!state?.active;
+    $('previous').disabled = busy || !active || !(state.progress?.currentIndex > 0);
+    $('retry').disabled = busy || !active;
+    $('next').disabled = busy || !state?.batch;
+    $('next').textContent = active ? (state.next ? 'NEXT MEASUREMENT' : 'FINISH & RESTORE') : 'START BATCH';
+    $('abort').disabled = busy || !active;
+  }
+
+  function renderBaseline() {
+    const item = baseline?.baseline;
+    $('baselineCopy').textContent = item ? `${item.captured ? 'Captured baseline is locked for this campaign.' : 'Live processing preview; it will be captured at start.'}` : 'Baseline unavailable.';
+    $('baselineData').innerHTML = item ? `<span>STATE</span><strong>${item.captured ? 'CAPTURED' : 'LIVE PREVIEW'}</strong><span>FINGERPRINT</span><strong>${escape(item.id || '—')}</strong><span>MEASUREMENT SOURCE</span><strong>${item.measurementInput == null ? 'BASELINE ROUTING' : `IN${item.measurementInput}`}</strong>` : '<span>STATE</span><strong>UNAVAILABLE</strong><span>FINGERPRINT</span><strong>—</strong><span>MEASUREMENT SOURCE</span><strong>—</strong>';
+  }
+
+  function render() { renderHeader(); renderSequence(); renderCurrent(); renderActions(); renderBaseline(); }
+
+  async function refresh({ silent = false } = {}) {
+    try { state = await actions.status(); baseline = await actions.baseline(); if (!silent) setStatus(state.message || 'Ready', state.active ? 'success' : 'pending'); }
+    catch (error) { setStatus(error.message, 'critical'); if (!state) state = { phase: 'error', sequence: [], progress: {} }; }
+    render();
+  }
+
+  async function run(name, value, note) {
+    if (busy) return;
+    busy = true; setStatus(note, 'warning'); render();
+    try { state = await actions[name](value); baseline = await actions.baseline(); setStatus(state.message || 'Done', state.phase === 'error' ? 'critical' : state.active ? 'success' : 'pending'); }
+    catch (error) { setStatus(error.message, 'critical'); }
+    finally { busy = false; render(); }
+  }
+
+  async function importFile(file) {
+    try { const batch = JSON.parse(await file.text()); await run('import', batch, `Importing ${file.name}…`); }
+    catch (error) { setStatus(`Import failed: ${error.message}`, 'critical'); }
+    $('batchFile').value = '';
+  }
+
+  $('importBatch').addEventListener('click', () => $('batchFile').click());
+  $('batchFile').addEventListener('change', event => { const file = event.target.files?.[0]; if (file) importFile(file); });
+  $('loadSample').addEventListener('click', () => run('import', sample, 'Loading sample campaign…'));
+  $('clearBatch').addEventListener('click', () => { if (confirm('Clear the current Measurement Batch?')) run('clear', null, 'Clearing campaign…'); });
+  $('previous').addEventListener('click', () => run('previous', null, 'Preparing previous measurement…'));
+  $('retry').addEventListener('click', () => run('retry', null, 'Reapplying measurement state…'));
+  $('next').addEventListener('click', () => run('next', null, state?.active ? 'Preparing next measurement…' : 'Capturing DSP baseline…'));
+  $('abort').addEventListener('click', () => { if (confirm('Abort and restore the captured DSP processing?')) run('abort', null, 'Restoring normal processing…'); });
+  $('refreshBaseline').addEventListener('click', () => refresh());
+  $('exportBatch').addEventListener('click', () => { const batch = state?.batch; if (!batch) return; const blob = new Blob([JSON.stringify({ ...batch, steps: state.sequence.map(({ index, number, total, activeWayLabels, summary: ignored, ...step }) => step) }, null, 2)], { type: 'application/json' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${batch.name.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'measurement-batch'}.json`; link.click(); URL.revokeObjectURL(link.href); });
+  $('copyRewName').addEventListener('click', async () => { const name = currentStep()?.rew?.measurementName; if (!name) return; try { await navigator.clipboard.writeText(name); setStatus('REW name copied.', 'success'); } catch (_) { setStatus(`REW name: ${name}`, 'pending'); } });
+
+  adapter.subscribe(config => { if (!apiMode && config.measurementBatch && !localModel) localModel = clone(config.measurementBatch); });
+  if (!apiMode) localModel = { batch: null, active: false, currentIndex: null, completed: [] };
+  refresh();
 })();
