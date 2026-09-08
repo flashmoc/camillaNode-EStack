@@ -5,6 +5,7 @@ const WebSocket = require('ws');
 
 const baseURL = process.env.ESTACK_E2E_BASE_URL || 'http://127.0.0.1:8080';
 const target = new URL(baseURL);
+const LEVEL_LOCK_STORAGE_KEY = 'estack.control.level.locked';
 
 function clone(value) { return JSON.parse(JSON.stringify(value)); }
 
@@ -75,11 +76,13 @@ function assertOnlySubGainChanged(before, after, targetGain) {
     expect(after.filters.sub_gain.parameters.gain).toBeCloseTo(targetGain, 6);
 }
 
-async function setSubGainThroughProduct(frame, targetGain) {
-    const control = frame.locator('input[data-number="0"]');
-    await expect(control).toBeVisible();
-    await control.fill(targetGain.toFixed(1));
-    await control.press('Tab');
+async function setSubGainThroughFader(frame, targetGain) {
+    const core = frame.locator('[data-fader-core="0"]');
+    await expect(core).toBeVisible();
+    const position = await frame.evaluate(value => window.EStackControlFaderPresentation.positionPercent(value, -60, 6), targetGain);
+    const box = await core.boundingBox();
+    if (!box) throw new Error('SUB fader is not measurable.');
+    await core.click({ position: { x: box.width / 2, y: box.height * position / 100 } });
 }
 
 test.describe('Control live CamillaNode demo', () => {
@@ -88,13 +91,16 @@ test.describe('Control live CamillaNode demo', () => {
         const original = await dspCommand('GetConfigJson');
         const originalGain = Number(original?.filters?.sub_gain?.parameters?.gain);
         expect(Number.isFinite(originalGain)).toBeTruthy();
-        const testGain = Math.max(-60, Math.min(6, Number((originalGain - 0.2).toFixed(1))));
+        const testGain = originalGain <= -59.5 ? Number((originalGain + 0.5).toFixed(1)) : Number((originalGain - 0.5).toFixed(1));
         expect(testGain).not.toBe(originalGain);
 
         await page.goto('/estack-dsp/?transport=camillanode#control');
+        const previousLock = await page.evaluate(key => window.localStorage.getItem(key), LEVEL_LOCK_STORAGE_KEY);
+        await page.evaluate(key => window.localStorage.removeItem(key), LEVEL_LOCK_STORAGE_KEY);
+        await page.reload();
         await expect(page.locator('.prototype-banner')).toContainText('CAMILLANODE MODE');
         await expect(page.locator('.shell-context')).toContainText('DSP API READY');
-        const frame = await controlFrame(page);
+        let frame = await controlFrame(page);
         await expect(frame.locator('.control-page')).toBeVisible();
         await expect.poll(() => frame.evaluate(() => ({
             mode: window.EStackDSPBridge?.mode,
@@ -108,15 +114,44 @@ test.describe('Control live CamillaNode demo', () => {
         await expect(frame.locator('article.mixer-strip').filter({ hasText: 'OUT 7' })).toHaveCount(0);
         await expect(frame.locator('article.mixer-strip').filter({ hasText: 'OUT 8' })).toHaveCount(0);
         await expect.poll(() => frame.locator('[data-input-meter]').count()).toBeGreaterThan(0);
+        const liveWays = frame.locator('article.mixer-strip:not(.master-strip)');
+        await expect(liveWays.locator('.legacy-fader-handle')).toHaveCount(6);
+        await expect(liveWays.locator('.legacy-gain-scale')).toHaveCount(6);
+        for (let index = 0; index < 6; index += 1) {
+            await expect(liveWays.nth(index).locator('.legacy-fader-handle')).toBeVisible();
+            await expect(liveWays.nth(index).locator('.legacy-gain-scale')).toBeVisible();
+        }
+        const levelLock = frame.locator('[data-level-lock]');
+        await expect(levelLock).toBeVisible();
 
         let restoredByProduct = false;
         try {
-            await setSubGainThroughProduct(frame, testGain);
+            await levelLock.click();
+            await expect(frame.locator('[data-level-lock]')).toHaveAttribute('aria-pressed', 'true');
+            await expect(frame.locator('input[data-number="0"]')).toBeDisabled();
+            await expect(frame.locator('[data-fader-core="0"]')).toHaveAttribute('aria-disabled', 'true');
+            await expect(frame.locator('[data-nudge="0"]')).toHaveCount(4);
+            await expect(frame.locator('[data-nudge="0"]').first()).toBeDisabled();
+            await expect(frame.locator('article.master-strip input[data-number="master"]')).not.toBeDisabled();
+            await expect(frame.locator('[data-fader-core="master"]')).toHaveAttribute('aria-disabled', 'false');
+            await expect(frame.locator('[data-mute="0"]')).not.toBeDisabled();
+            await frame.locator('[data-fader-core="0"]').dispatchEvent('pointerdown', { pointerId: 1, button: 0, clientY: 8 });
+            await frame.locator('[data-fader-core="0"]').dispatchEvent('pointerup', { pointerId: 1, button: 0, clientY: 8 });
+            await expect.poll(async () => Number((await dspCommand('GetConfigJson')).filters.sub_gain.parameters.gain)).toBeCloseTo(originalGain, 6);
+
+            await page.reload();
+            frame = await controlFrame(page);
+            await expect(frame.locator('[data-level-lock]')).toHaveAttribute('aria-pressed', 'true');
+            await expect(frame.locator('input[data-number="0"]')).toBeDisabled();
+            await frame.locator('[data-level-lock]').click();
+            await expect(frame.locator('[data-level-lock]')).toHaveAttribute('aria-pressed', 'false');
+
+            await setSubGainThroughFader(frame, testGain);
             await expect.poll(async () => Number((await dspCommand('GetConfigJson')).filters.sub_gain.parameters.gain)).toBeCloseTo(testGain, 6);
             const changed = await dspCommand('GetConfigJson');
             assertOnlySubGainChanged(original, changed, testGain);
 
-            await setSubGainThroughProduct(frame, originalGain);
+            await setSubGainThroughFader(frame, originalGain);
             await expect.poll(async () => Number((await dspCommand('GetConfigJson')).filters.sub_gain.parameters.gain)).toBeCloseTo(originalGain, 6);
             const restored = await dspCommand('GetConfigJson');
             expect(restored).toEqual(original);
@@ -130,7 +165,7 @@ test.describe('Control live CamillaNode demo', () => {
             if (JSON.stringify(live) !== JSON.stringify(original)) {
                 if (!restoredByProduct) {
                     try {
-                        await setSubGainThroughProduct(frame, originalGain);
+                        await setSubGainThroughFader(frame, originalGain);
                         await expect.poll(async () => Number((await dspCommand('GetConfigJson')).filters.sub_gain.parameters.gain)).toBeCloseTo(originalGain, 6);
                     } catch (_) {
                         await dspCommand({ SetConfigJson: JSON.stringify(original) });
@@ -140,6 +175,10 @@ test.describe('Control live CamillaNode demo', () => {
                 }
             }
             expect(await dspCommand('GetConfigJson')).toEqual(original);
+            await page.evaluate(({ key, value }) => {
+                if (value === null) window.localStorage.removeItem(key);
+                else window.localStorage.setItem(key, value);
+            }, { key: LEVEL_LOCK_STORAGE_KEY, value: previousLock });
         }
     });
 });

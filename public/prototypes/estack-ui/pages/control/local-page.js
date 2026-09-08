@@ -6,31 +6,9 @@
   const $ = selector => document.querySelector(selector);
   const clamp = (value, min, max) => Math.min(max, Math.max(min, Number(value) || 0));
   const meter = value => `${clamp((value + 60) / 60 * 100, 2, 100)}%`;
-  // The output fader is deliberately not linear in pixels. A console fader
-  // gives useful travel around unity (0 dB), while retaining the full
-  // -60…+6 dB range. The dBFS meter remains linear because it is a meter,
-  // not a gain control.
-  const outputFaderStops = [{ value: 6, position: 4 }, { value: 0, position: 18 }, { value: -12, position: 42 }, { value: -30, position: 68 }, { value: -60, position: 100 }];
-  const outputFaderPosition = value => {
-    const current = clamp(value, -60, 6);
-    for (let index = 0; index < outputFaderStops.length - 1; index += 1) {
-      const top = outputFaderStops[index]; const bottom = outputFaderStops[index + 1];
-      if (current <= top.value && current >= bottom.value) return top.position + (top.value - current) / (top.value - bottom.value) * (bottom.position - top.position);
-    }
-    return current > 0 ? outputFaderStops[0].position : outputFaderStops.at(-1).position;
-  };
-  const outputFaderValueAtPosition = position => {
-    const current = clamp(position, 0, 100);
-    for (let index = 0; index < outputFaderStops.length - 1; index += 1) {
-      const top = outputFaderStops[index]; const bottom = outputFaderStops[index + 1];
-      if (current >= top.position && current <= bottom.position) return top.value - (current - top.position) / (bottom.position - top.position) * (top.value - bottom.value);
-    }
-    return current < outputFaderStops[0].position ? 6 : -60;
-  };
-  const faderPositionPercent = (value, min, max) => min === -60 && max === 6 ? outputFaderPosition(value) : 100 - (clamp(value, min, max) - min) / (max - min) * 100;
-  const faderPosition = (value, min, max) => `${faderPositionPercent(value, min, max)}%`;
-  const faderPositionClass = (value, min, max) => `fader-position-${Math.round(clamp(faderPositionPercent(value, min, max), 0, 100))}`;
-  const faderValueAtPosition = (position, min, max) => min === -60 && max === 6 ? outputFaderValueAtPosition(position) : max - clamp(position, 0, 100) / 100 * (max - min);
+  const faderPresentation = window.EStackControlFaderPresentation;
+  if (!faderPresentation) throw new Error('E-Stack fader presentation is unavailable');
+  const { positionClass: faderPositionClass, valueAtPosition: faderValueAtPosition } = faderPresentation;
   const meterScale = [-60, -48, -36, -24, -12, 0];
   const limiterThresholds = [-1.5, -3, -4.5, -4.5, -6, -6];
   const numberOr = (value, fallback) => Number.isFinite(value) ? value : fallback;

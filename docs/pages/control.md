@@ -19,6 +19,7 @@ It does not load fixture/mock operational data in that mode.
 | File | Responsibility |
 | --- | --- |
 | `public/prototypes/estack-ui/pages/control/live-page.js` | Presentation, user events and rendering only |
+| `public/prototypes/estack-ui/pages/control/fader-presentation.js` | Shared visual fader geometry for local and live Control pages |
 | `public/prototypes/estack-ui/shared/domain/pipeline.js` | CamillaDSP 4.x/legacy Filter-step normalization and post-mixer chain discovery |
 | `public/prototypes/estack-ui/shared/domain/control-model.js` | Pure Control graph discovery and structural invariants |
 | `public/prototypes/estack-ui/shared/domain/control-service.js` | Reads, telemetry, transactions, links and headroom semantics |
@@ -57,6 +58,20 @@ It does not load fixture/mock operational data in that mode.
   peak hold, calibrated voltage model and `−90 dBFS` no-signal threshold.
   Silence yields `WAITING` / `PLAY SIGNAL`; automatic Input Trim is unavailable.
 - MID/HIGH links apply to Gain changes only. Mute remains per selected way.
+
+## Faders and Level Lock
+
+- Output way faders cover `−60…+6 dB` with console-style non-linear travel:
+  `+6 dB → 4%`, `0 dB → 18%`, `−12 dB → 42%`, `−30 dB → 68%`, and
+  `−60 dB → 100%`. The displayed dBFS meter remains independent from this
+  control geometry.
+- MASTER covers `−50…0 dB` with linear travel and commits in `0.5 dB` steps.
+- Level Lock is presentation-only state, stored in browser localStorage as
+  `estack.control.level.locked`. It prevents gain edits to the six output ways
+  through faders, number inputs and nudges, while keeping MASTER, mute, links,
+  meters, Input Trim and Normalize available.
+- Level Lock is never DSP state or preset state: it is not included in
+  `ControlService` snapshots and cannot alter a saved DSP configuration.
 
 ## Pending Raspberry acceptance
 
