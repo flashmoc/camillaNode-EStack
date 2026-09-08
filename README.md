@@ -77,9 +77,11 @@ bash setup.sh
 
 See [docs/raspberry.md](docs/raspberry.md) before a first hardware deployment.
 
-## Architecture
+## Documentation and architecture
 
-See [docs/architecture.md](docs/architecture.md). The main rule for future work is that each DSP function has one owner: DSP mutation/model code is kept separate from visual components, and patch-style duplicate pages are not added.
+Start with [docs/README.md](docs/README.md). The canonical future architecture
+is [E-Stack DSP](docs/estack-dsp-architecture.md); the legacy frontend
+architecture remains available as behavioral reference during migration.
 
 ## License
 

@@ -1,4 +1,9 @@
-# E-Stack architecture
+# Legacy CamillaNode frontend architecture
+
+> **Legacy/reference document.** The canonical architecture for new work is
+> [E-Stack DSP product architecture](estack-dsp-architecture.md). This document
+> describes the still-present legacy frontend under `public/html/`, `public/src/`
+> and `public/css/`, retained as behavioral reference while pages migrate.
 
 ## Design rules
 
@@ -8,7 +13,7 @@
 4. **Safety paths are server-owned.** A browser closing must not be able to strand a test signal or bypass the normal configuration restore path.
 5. **UI can be replaced without changing DSP semantics.** The model/mutation layer and server safety layer should survive future visual redesigns.
 
-## Runtime topology
+## Shared runtime topology
 
 ```text
 Browser

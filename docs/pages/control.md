@@ -1,0 +1,72 @@
+# Control
+
+## Status
+
+**Software parity accepted at `d1c803e`; real Raspberry acceptance pending
+hardware availability.**
+
+Control is the first product page with product-owned live DSP semantics. Its
+live mode is entered through:
+
+```text
+/estack-dsp/?transport=camillanode#control
+```
+
+It does not load fixture/mock operational data in that mode.
+
+## Product files
+
+| File | Responsibility |
+| --- | --- |
+| `public/prototypes/estack-ui/pages/control/live-page.js` | Presentation, user events and rendering only |
+| `public/prototypes/estack-ui/shared/domain/pipeline.js` | CamillaDSP 4.x/legacy Filter-step normalization and post-mixer chain discovery |
+| `public/prototypes/estack-ui/shared/domain/control-model.js` | Pure Control graph discovery and structural invariants |
+| `public/prototypes/estack-ui/shared/domain/control-service.js` | Reads, telemetry, transactions, links and headroom semantics |
+| `public/prototypes/estack-ui/shared/estack-dsp-bridge.js` | Only browser transport for `/ws/dsp`, `/ws/spectrum` and same-origin APIs |
+
+## Reads
+
+- `GetVolume` for Master;
+- `GetCaptureSignalPeak` for capture/input meters;
+- one shared `GetPlaybackSignalPeak` loop for output meters;
+- `GetConfigJson` before/after configuration transactions;
+- `/ws/spectrum` for spectrum data.
+
+## Writes
+
+- `SetVolume` for Master only;
+- guarded narrow Gain/mute changes on actual post-mixer per-way Gain filters;
+- guarded Input Trim transaction using `ESTACK_INPUT_PREAMP` and its dedicated
+  pre-mixer stage;
+- guarded Normalize transaction applying one common way-gain shift.
+
+## Safety invariants
+
+- Active ways come from explicit first-mixer destinations. E-Stack uses outputs
+  `0…5`; unused playback outputs `6/7` are not presented as ways.
+- Per-way gain discovery only traverses direct **post-mixer** Filter steps, so
+  pre-mixer Input Trim cannot be selected as a way Gain.
+- Final hard-limit discovery scans all post-mixer steps, including the final
+  Limiter-only steps after protection processors.
+- Device, mixer, pipeline, processor, crossover, PEQ, delay, limiter and
+  unrelated filter state must remain identical for a narrow Gain/mute write.
+- Input Trim/Normalize check Measurement Batch and Signal Generator locks,
+  attenuate Master to `−60 dB` during graph changes, read back, verify exact
+  scope and restore Master even on failure.
+- Headroom uses live Compressor thresholds and Limiter `clip_limit`, a 4-second
+  peak hold, calibrated voltage model and `−90 dBFS` no-signal threshold.
+  Silence yields `WAITING` / `PLAY SIGNAL`; automatic Input Trim is unavailable.
+- MID/HIGH links apply to Gain changes only. Mute remains per selected way.
+
+## Pending Raspberry acceptance
+
+When hardware is available, run the staged Control protocol:
+
+1. Read-only transport/topology/meter/spectrum validation.
+2. Reversible Master, SUB gain, MID linked gain and independent MID mute checks.
+3. Small reversible Input Trim transaction; inspect Normalize preview first.
+4. Final complete live-config comparison against the pre-test snapshot.
+
+Do not run Signal Generator or Measurement Batch during that acceptance. Stop
+at the first readback/invariant failure and restore only through the recorded
+snapshot/explicit guarded transaction.

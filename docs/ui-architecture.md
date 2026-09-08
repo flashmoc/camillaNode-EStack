@@ -1,4 +1,9 @@
-# E-Stack UI architecture
+# Legacy CamillaNode UI architecture
+
+> **Legacy/reference document.** This ownership map applies to the existing
+> CamillaNode UI files in `public/html/`, `public/src/` and `public/css/`.
+> Product pages belong under `/estack-dsp/`; start with
+> [E-Stack DSP product architecture](estack-dsp-architecture.md).
 
 ## Goal
 
