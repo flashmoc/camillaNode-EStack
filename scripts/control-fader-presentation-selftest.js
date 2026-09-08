@@ -8,6 +8,7 @@ const vm = require('vm');
 const root = path.resolve(__dirname, '..');
 const helperPath = path.join(root, 'public/prototypes/estack-ui/pages/control/fader-presentation.js');
 const livePath = path.join(root, 'public/prototypes/estack-ui/pages/control/live-page.js');
+const localPath = path.join(root, 'public/prototypes/estack-ui/pages/control/local-page.js');
 const context = { window: {} };
 vm.runInNewContext(fs.readFileSync(helperPath, 'utf8'), context, { filename: helperPath });
 const fader = context.window.EStackControlFaderPresentation;
@@ -24,11 +25,15 @@ assert.strictEqual(fader.roundToStep(-12.24, -50, 0, .5), -12, 'MASTER commits m
 assert.strictEqual(fader.roundToStep(-12.26, -50, 0, .5), -12.5, 'MASTER commits must quantize to 0.5 dB');
 
 const live = fs.readFileSync(livePath, 'utf8');
+const local = fs.readFileSync(localPath, 'utf8');
 assert.match(live, /legacy-fader-handle/, 'live Control is missing the visible fader handle');
 assert.match(live, /legacy-gain-scale/, 'live Control is missing the gain scale');
 assert.match(live, /data-level-lock/, 'live Control is missing Level Lock');
 assert.match(live, /estack\.control\.level\.locked/, 'Level Lock persistence key changed unexpectedly');
 assert.match(live, /if \(isWayLocked\(key\)\) return;/, 'way-gain mutations are not guarded by Level Lock');
 assert.match(live, /key === 'master' \? service\.setMaster\(value\) : service\.setWayGain/, 'MASTER no longer uses its dedicated mutation path');
+assert.match(live, /const keyboardStep = Number\(fader\.step\) \|\| \.1;/, 'live keyboard increments no longer derive from the fader step');
+assert.match(local, /const keyboardStep = Number\(fader\.step\) \|\| \.1;/, 'local keyboard increments no longer derive from the fader step');
+assert.match(local, /const faderStep = master \? '\.5' : '\.1';/, 'local MASTER fader is not configured for 0.5 dB steps');
 
 console.log('OK:   Control fader presentation anchors, MASTER stepping and Level Lock surface');

@@ -137,7 +137,8 @@
     core.addEventListener('pointercancel', event => { if (event.pointerId === pointerId) { try { core.releasePointerCapture?.(pointerId); } catch (_) {} pointerId = null; faderDragging = false; } });
     core.addEventListener('keydown', event => {
       if (isWayLocked(key)) return;
-      const increments = { ArrowUp: .1, ArrowRight: .1, ArrowDown: -.1, ArrowLeft: -.1, PageUp: 1, PageDown: -1 };
+      const keyboardStep = Number(fader.step) || .1;
+      const increments = { ArrowUp: keyboardStep, ArrowRight: keyboardStep, ArrowDown: -keyboardStep, ArrowLeft: -keyboardStep, PageUp: 1, PageDown: -1 };
       if (!(event.key in increments)) return;
       event.preventDefault(); keyboardPreview = true;
       previewGain(core, key, Number(fader.value) + increments[event.key]);
