@@ -5,20 +5,6 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>CamillaNode</title>
-    <script>
-        // In the Codespaces/demo runtime, make the product UI the default
-        // landing page while preserving the legacy root on real hardware.
-        (async () => {
-            try {
-                const response = await fetch('/api/runtime', { cache: 'no-store' });
-                if (!response.ok) return;
-                const runtime = await response.json();
-                if (runtime?.mode === 'demo') {
-                    window.location.replace('/estack-dsp/?transport=camillanode#control');
-                }
-            } catch (_) {}
-        })();
-    </script>
     <script src="/src/main.js" defer></script>
     <script src="/src/estackConfigManagerFix.js" defer></script>
     <script src="/src/estackFramePolish.js" defer></script>
