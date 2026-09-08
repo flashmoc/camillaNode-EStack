@@ -32,6 +32,10 @@
     const link = Object.entries(M.LINK_DEFINITIONS).find(([, item]) => item.channels.includes(numeric));
     return link && state.links[link[0]] ? link[1].channels.filter(item => activeChannels().includes(item)) : [numeric];
   }
+  function linkedChannelsForConfig(channel, config) {
+    const numeric = Number(channel); const link = Object.entries(M.LINK_DEFINITIONS).find(([, item]) => item.channels.includes(numeric));
+    return link && state.links[link[0]] ? link[1].channels.filter(item => M.activeOutputs(config).includes(item)) : [numeric];
+  }
   function wayEntries(config = state.config, channels = activeChannels()) {
     if (!config) throw new Error('CamillaDSP configuration is unavailable');
     return channels.map(channel => {
@@ -62,11 +66,12 @@
     return activeChannels().map(channel => {
       const peak = heldPeak(channel); const hard = M.hardLimitForChannel(state.config, channel); const protection = M.protectionForChannel(state.config, channel); const gain = M.gainEntryForChannel(state.config, channel);
       const muted = !!gain?.filter?.parameters?.mute;
-      const hardMargin = Number.isFinite(peak) && hard ? hard.clip - peak : null;
-      const protectionMargin = Number.isFinite(peak) ? (protection?.threshold ?? hard?.clip ?? null) - peak : null;
+      const hasSignal = Number.isFinite(peak) && peak > NO_SIGNAL_DBFS;
+      const hardMargin = hasSignal && hard ? hard.clip - peak : null;
+      const protectionMargin = hasSignal ? (protection?.threshold ?? hard?.clip ?? null) - peak : null;
       const limitVrms = M.CALIBRATED_LIMIT_VRMS[channel];
       const estimateVrms = Number.isFinite(hardMargin) && Number.isFinite(limitVrms) ? Math.min(limitVrms, limitVrms * Math.pow(10, -Math.max(0, hardMargin) / 20)) : null;
-      return { channel, name: M.way(channel).name, peak, muted, hardThreshold: hard?.clip ?? null, protectionThreshold: protection?.threshold ?? hard?.clip ?? null, hardMargin, protectionMargin, limitVrms, estimateVrms };
+      return { channel, name: M.way(channel).name, peak, hasSignal, muted, hardThreshold: hard?.clip ?? null, protectionThreshold: protection?.threshold ?? hard?.clip ?? null, hardMargin, protectionMargin, limitVrms, estimateVrms };
     });
   }
   function systemHeadroom() {
@@ -94,12 +99,12 @@
     return snapshot();
   }
   function stopTelemetry() { if (telemetryTimer) clearInterval(telemetryTimer); telemetryTimer = null; }
-  async function setMaster(value) { const next = clamp(value, -50, 0); await command({ SetVolume: next }); state.master = next; emit(); return next; }
+  async function setMaster(value) { const next = Math.round(clamp(value, -50, 0) / .5) * .5; await command({ SetVolume: next }); state.master = next; state.heldPeaks.clear(); emit(); return next; }
   function setLink(key, value) { if (!M.LINK_DEFINITIONS[key]) throw new Error('Unknown linked pair'); state.links[key] = !!value; saveLink(key, value); emit(); }
 
-  async function mutateWay(channel, change) {
+  async function mutateWay(channel, change, targetChannels = null) {
     const before = await command('GetConfigJson');
-    const targets = linkedChannels(channel).map(item => ({ channel: item, ...M.gainEntryForChannel(before, item) }));
+    const targets = (targetChannels || linkedChannelsForConfig(channel, before)).map(item => ({ channel: item, ...M.gainEntryForChannel(before, item) }));
     if (targets.some(item => !item.name || item.filter?.type !== 'Gain')) throw new Error('Expected per-way Gain filter is unavailable');
     const next = clone(before);
     for (const target of targets) {
@@ -120,7 +125,7 @@
     const target = clamp(value, -60, 6);
     return mutateWay(channel, parameters => { parameters.gain = target; });
   }
-  function setWayMute(channel, muted) { return mutateWay(channel, parameters => { parameters.mute = !!muted; }); }
+  function setWayMute(channel, muted) { return mutateWay(channel, parameters => { parameters.mute = !!muted; }, [Number(channel)]); }
   async function measurementBatchActive() { try { return !!(await window.EStackDSPBridge.api('/api/measurement-batch/status')).active; } catch (_) { return false; } }
   function signalGeneratorActive(config = state.config) { return config?.devices?.capture?.type === 'SignalGenerator'; }
   function clampTrim(value) { return Math.max(INPUT_TRIM_MIN_DB, Math.min(INPUT_TRIM_MAX_DB, Math.round(Number(value) / INPUT_TRIM_STEP_DB) * INPUT_TRIM_STEP_DB)); }

@@ -1,6 +1,8 @@
 (() => {
   'use strict';
 
+  const P = window.EStackPipeline;
+  if (!P) throw new Error('E-Stack pipeline domain must load before Control model');
   const WAY_DEFINITIONS = Object.freeze([
     { channel: 0, id: 'sub', name: 'SUB', color: '#55d8e7' },
     { channel: 1, id: 'kick', name: 'KICK', color: '#f2a532' },
@@ -25,25 +27,20 @@
   };
   const fingerprint = value => JSON.stringify(stable(value));
   const protectedStructure = config => fingerprint({ devices: config?.devices || {}, pipeline: config?.pipeline || [], mixers: config?.mixers || {}, processors: config?.processors || {} });
-  const activeOutputs = config => WAY_DEFINITIONS.map(item => item.channel).filter(channel => channel < Number(config?.devices?.playback?.channels || 0));
+  const activeOutputs = config => P.activeOutputChannels(config);
   const way = channel => WAY_DEFINITIONS.find(item => item.channel === Number(channel)) || { channel: Number(channel), name: `OUT ${Number(channel) + 1}`, color: '#55d8e7' };
   const finite = value => Number.isFinite(Number(value)) ? Number(value) : null;
 
   function gainEntryForChannel(config, channel) {
-    const step = (config?.pipeline || []).find(item => item?.type === 'Filter' && Number(item?.channel) === Number(channel));
-    for (const name of step?.names || []) {
+    for (const name of P.directPostMixerFilterNames(config, channel)) {
       const filter = config?.filters?.[name];
       if (filter?.type === 'Gain') return { name, filter };
     }
     return null;
   }
 
-  function channelFilterNames(config, channel) {
-    return ((config?.pipeline || []).find(item => item?.type === 'Filter' && Number(item?.channel) === Number(channel))?.names || []).map(String);
-  }
-
   function hardLimitForChannel(config, channel) {
-    return channelFilterNames(config, channel)
+    return P.directPostMixerFilterNames(config, channel)
       .map(name => ({ name, clip: finite(config?.filters?.[name]?.parameters?.clip_limit), filter: config?.filters?.[name] }))
       .filter(item => item.filter?.type === 'Limiter' && item.clip !== null)
       .sort((a, b) => a.clip - b.clip)[0] || null;

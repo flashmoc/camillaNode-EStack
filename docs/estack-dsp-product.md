@@ -54,6 +54,9 @@ as a collection of page-specific CamillaDSP patches:
 
 - `shared/estack-dsp-bridge.js` owns the only browser transport. It serializes
   `/ws/dsp` commands and owns the independent `/ws/spectrum` connection.
+- `shared/domain/pipeline.js` normalizes both CamillaDSP pipeline schemas
+  (`channel: N` and `channels: [N]`) and exposes the first mixer context,
+  explicit active destinations, plus direct ordered post-mixer Filter chains.
 - `shared/domain/control-model.js` contains pure E-Stack configuration
   discovery and structural invariants.
 - `shared/domain/control-service.js` owns Control reads, meter polling and all

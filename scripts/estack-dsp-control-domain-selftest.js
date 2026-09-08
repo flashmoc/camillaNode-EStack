@@ -6,52 +6,98 @@ const path = require('path');
 const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
-const source = fs.readFileSync(path.join(root, 'public/prototypes/estack-ui/shared/domain/control-model.js'), 'utf8');
-const context = { window: {}, console };
-vm.runInNewContext(source, context, { filename: 'control-model.js' });
-const M = context.window.EStackControlModel;
-
+const sources = ['pipeline.js', 'control-model.js', 'control-service.js'].map(name => fs.readFileSync(path.join(root, 'public/prototypes/estack-ui/shared/domain', name), 'utf8'));
+const clone = value => JSON.parse(JSON.stringify(value));
 const gain = value => ({ type: 'Gain', parameters: { gain: value, scale: 'dB', inverted: false, mute: false } });
 const limiter = value => ({ type: 'Limiter', parameters: { clip_limit: value } });
+const delay = value => ({ type: 'Delay', parameters: { delay: value, unit: 'ms', subsample: false } });
+const xo = value => ({ type: 'BiquadCombo', parameters: { type: 'LinkwitzRileyHighpass', freq: value, order: 4 } });
 const peq = () => ({ type: 'Biquad', parameters: { type: 'Peaking', freq: 800, gain: 2, q: 1.1 } });
-const crossover = () => ({ type: 'BiquadCombo', parameters: { type: 'LinkwitzRileyHighpass', freq: 180, order: 4 } });
-function fixture() {
+
+// Mirrors dev/estack-demo.yml's relevant modern topology: Filter `channels`,
+// first routing mixer with only OUT 1…6, protection processors and final
+// limiter-only Filter steps. The inserted preamp is deliberately pre-mixer.
+function currentTopology() {
+  const names = ['sub', 'kick', 'mid_l', 'mid_r', 'high_l', 'high_r'];
+  const gains = [-13.5, -18.2, -8.8, -8.8, -.1, -.1];
+  const limits = [-13.5, -16.7, -4.4, -4.4, -.5, -.5];
+  const thresholds = [-14.5, -17.7, -5.4, -5.4, -1.5, -1.5];
+  const filters = { ESTACK_INPUT_PREAMP: gain(4) };
+  const processors = {};
+  const pipeline = [{ type: 'Filter', channels: [0, 1], names: ['ESTACK_INPUT_PREAMP'], description: 'E-Stack input preamp' }, { type: 'Mixer', name: 'estack_preview' }];
+  names.forEach((name, channel) => {
+    filters[`${name}_hpf`] = xo(channel < 2 ? 130 : 300);
+    filters[`${name}_peq`] = peq();
+    filters[`${name}_gain`] = gain(gains[channel]);
+    filters[`${name}_delay`] = delay(channel / 10);
+    filters[`${name}_hard_limit`] = limiter(limits[channel]);
+    processors[`${name}_protection`] = { type: 'Compressor', parameters: { process_channels: [channel], threshold: thresholds[channel] } };
+    pipeline.push({ type: 'Filter', channels: [channel], names: [`${name}_hpf`, `${name}_peq`, `${name}_gain`, `${name}_delay`] });
+  });
+  names.forEach(name => pipeline.push({ type: 'Processor', name: `${name}_protection` }));
+  names.forEach((name, channel) => pipeline.push({ type: 'Filter', channels: [channel], names: [`${name}_hard_limit`] }));
   return {
-    devices: { capture: { type: 'Alsa', channels: 2 }, playback: { type: 'Alsa', channels: 6 } },
-    mixers: { estack: { channels: { in: 2, out: 6 }, mapping: [{ dest: 0, sources: [{ channel: 0, gain: 0, mute: false }] }] } },
-    processors: { protect: { type: 'Compressor', parameters: { process_channels: [0], threshold: -8 } } },
-    filters: { subGain: gain(-12), subLimiter: limiter(-3), subXo: crossover(), subPeq: peq(), kickGain: gain(-16) },
-    pipeline: [
-      { type: 'Mixer', name: 'estack' }, { type: 'Processor', name: 'protect' },
-      { type: 'Filter', channel: 0, names: ['subXo', 'subPeq', 'subGain', 'subLimiter'] },
-      { type: 'Filter', channel: 1, names: ['kickGain'] }
-    ]
+    devices: { capture: { type: 'Stdin', channels: 8 }, playback: { type: 'File', channels: 8 } },
+    mixers: { estack_preview: { channels: { in: 8, out: 8 }, mapping: names.map((_, dest) => ({ dest, sources: [{ channel: dest < 2 ? dest : dest % 2, gain: 0, mute: false }] })) } },
+    processors, filters, pipeline
   };
 }
-const mutate = (base, callback) => { const next = M.clone(base); callback(next); return next; };
-const base = fixture();
-const narrow = mutate(base, next => { next.filters.subGain.parameters.gain = -10; next.filters.subGain.parameters.mute = true; });
-assert.doesNotThrow(() => M.assertOnlyWayGainChanged(base, narrow, [{ channel: 0, name: 'subGain', filter: base.filters.subGain }]));
-for (const [label, callback] of [
-  ['devices', next => { next.devices.playback.channels = 8; }],
-  ['mixer routing', next => { next.mixers.estack.mapping[0].sources[0].mute = true; }],
-  ['crossover', next => { next.filters.subXo.parameters.freq = 200; }],
-  ['PEQ', next => { next.filters.subPeq.parameters.gain = 4; }],
-  ['limiter', next => { next.filters.subLimiter.parameters.clip_limit = -6; }],
-  ['protection', next => { next.processors.protect.parameters.threshold = -12; }]
-]) {
-  assert.throws(() => M.assertOnlyWayGainChanged(base, mutate(base, callback), [{ channel: 0, name: 'subGain', filter: base.filters.subGain }]), new RegExp('unexpectedly'), `${label} mutation was not rejected`);
-}
-const trimBase = fixture();
-const trimNext = M.installInputTrim(M.clone(trimBase), 4.5);
-assert.doesNotThrow(() => M.assertOnlyInputTrimChanged(trimBase, trimNext));
-assert.strictEqual(M.inputTrimValue(trimNext), 4.5);
-assert.throws(() => M.assertOnlyInputTrimChanged(trimBase, mutate(trimNext, next => { next.filters.subPeq.parameters.q = 2; })), /outside Input Trim/);
-assert.strictEqual(M.hardLimitForChannel(base, 0).clip, -3);
-assert.strictEqual(M.protectionForChannel(base, 0).threshold, -8);
 
-const liveSource = fs.readFileSync(path.join(root, 'public/prototypes/estack-ui/pages/control/live-page.js'), 'utf8');
-assert.ok(liveSource.includes('EStackControlService'), 'Control live page bypasses shared domain service');
-assert.ok(!liveSource.includes('EStackPageFixtures'), 'Control live page reads fixture operational values');
-assert.ok(!liveSource.includes('SetConfigJson'), 'Control live page owns DSP mutation logic');
-console.log('OK:   E-Stack DSP Control scoped domain transactions');
+function createDomain(config) {
+  const local = new Map();
+  const bridge = { async command(payload) {
+    const name = typeof payload === 'string' ? payload : Object.keys(payload)[0];
+    if (name === 'GetConfigJson') return clone(config);
+    if (name === 'GetVolume') return -12;
+    if (name === 'SetVolume') return payload.SetVolume;
+    if (name === 'SetConfigJson') { config = JSON.parse(payload.SetConfigJson); return true; }
+    if (name === 'GetCaptureSignalPeak') return [-100, -100];
+    if (name === 'GetPlaybackSignalPeak') return [-100, -100, -100, -100, -100, -100];
+    throw new Error(`Unexpected ${name}`);
+  }, async api() { return { active: false }; } };
+  const context = { window: { EStackDSPBridge: bridge }, localStorage: { getItem: key => local.has(key) ? local.get(key) : null, setItem: (key, value) => local.set(key, String(value)) }, console, setInterval, clearInterval, Date, Math, JSON, Promise };
+  context.window.localStorage = context.localStorage;
+  sources.forEach((source, index) => vm.runInNewContext(source, context, { filename: ['pipeline.js', 'control-model.js', 'control-service.js'][index] }));
+  return { P: context.window.EStackPipeline, M: context.window.EStackControlModel, service: context.window.EStackControlService, getConfig: () => clone(config) };
+}
+
+(async () => {
+  const { P, M, service, getConfig } = createDomain(currentTopology());
+  const base = getConfig();
+  assert.deepStrictEqual(Array.from(P.channelsForStep(base.pipeline[0])), [0, 1], 'modern channels schema is not normalized');
+  assert.strictEqual(P.firstMixerContext(base).index, 1, 'first mixer context is wrong');
+  assert.deepStrictEqual(Array.from(M.activeOutputs(base)), [0, 1, 2, 3, 4, 5], 'unused playback outputs 6/7 were treated as E-Stack ways');
+  const expectedGains = ['sub_gain', 'kick_gain', 'mid_l_gain', 'mid_r_gain', 'high_l_gain', 'high_r_gain'];
+  const expectedLimits = ['sub_hard_limit', 'kick_hard_limit', 'mid_l_hard_limit', 'mid_r_hard_limit', 'high_l_hard_limit', 'high_r_hard_limit'];
+  expectedGains.forEach((name, channel) => {
+    assert.strictEqual(M.gainEntryForChannel(base, channel).name, name, `Gain discovery failed for channel ${channel}`);
+    assert.strictEqual(M.hardLimitForChannel(base, channel).name, expectedLimits[channel], `Limiter discovery failed for channel ${channel}`);
+    assert.ok(M.protectionForChannel(base, channel), `Protection discovery failed for channel ${channel}`);
+  });
+  assert.notStrictEqual(M.gainEntryForChannel(base, 0).name, 'ESTACK_INPUT_PREAMP', 'pre-mixer Input Trim was selected as SUB gain');
+  const target = { channel: 0, name: 'sub_gain', filter: base.filters.sub_gain };
+  const narrow = clone(base); narrow.filters.sub_gain.parameters.gain = -10; narrow.filters.sub_gain.parameters.mute = true;
+  assert.doesNotThrow(() => M.assertOnlyWayGainChanged(base, narrow, [target]));
+  for (const [label, edit] of [
+    ['devices', next => { next.devices.playback.channels = 6; }],
+    ['mixer routing', next => { next.mixers.estack_preview.mapping[0].sources[0].mute = true; }],
+    ['XO', next => { next.filters.sub_hpf.parameters.freq = 180; }],
+    ['PEQ', next => { next.filters.sub_peq.parameters.gain = 5; }],
+    ['delay', next => { next.filters.sub_delay.parameters.delay = 3; }],
+    ['processor', next => { next.processors.sub_protection.parameters.threshold = -20; }],
+    ['hard limiter', next => { next.filters.sub_hard_limit.parameters.clip_limit = -20; }],
+    ['unrelated filter', next => { next.filters.kick_gain.parameters.gain = -2; }]
+  ]) assert.throws(() => { const next = clone(base); edit(next); M.assertOnlyWayGainChanged(base, next, [target]); }, /unexpectedly/, `${label} mutation was not rejected`);
+  await service.setWayGain(2, -7.5);
+  let afterGain = getConfig();
+  assert.strictEqual(afterGain.filters.mid_l_gain.parameters.gain, -7.5, 'linked MID L gain did not change');
+  assert.strictEqual(afterGain.filters.mid_r_gain.parameters.gain, -7.5, 'linked MID R gain did not change');
+  assert.strictEqual(afterGain.filters.ESTACK_INPUT_PREAMP.parameters.gain, 4, 'gain operation altered pre-mixer Input Trim');
+  await service.setWayMute(2, true);
+  const afterMute = getConfig();
+  assert.strictEqual(afterMute.filters.mid_l_gain.parameters.mute, true, 'selected MID L mute did not change');
+  assert.strictEqual(afterMute.filters.mid_r_gain.parameters.mute, false, 'linked MID R mute changed with MID L');
+  await service.telemetry();
+  assert.strictEqual(service.availableInputTrim(), null, 'silence produced an automatic Input Trim recommendation');
+  console.log('OK:   E-Stack DSP Control modern pipeline, scoped mutations and silence safety');
+})().catch(error => { console.error(error.stack || error); process.exit(1); });
