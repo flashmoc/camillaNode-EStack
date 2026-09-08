@@ -1,0 +1,109 @@
+(() => {
+  'use strict';
+
+  const service = window.EStackControlService;
+  const model = window.EStackControlModel;
+  if (!service || !model) throw new Error('E-Stack Control domain is unavailable');
+  const $ = selector => document.querySelector(selector);
+  const clamp = (value, min, max) => Math.min(max, Math.max(min, Number(value) || min));
+  const meter = value => `${clamp((Number(value) + 60) / 60 * 100, 0, 100)}%`;
+  const meterScale = [-60, -48, -36, -24, -12, 0];
+  const spectrumFrequencies = [25,30,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000,5000,6300,8000,10000,12500,16000,20000];
+  let latest = null;
+  let busy = false;
+  let spectrumBusy = false;
+  let spectrumLevels = spectrumFrequencies.map(() => -80);
+  let spectrumTimer = null;
+  const inputActivity = new Map();
+  const INPUT_SHOW_THRESHOLD_DB = -70;
+  const INPUT_HOLD_THRESHOLD_DB = -76;
+  const INPUT_HIDE_DELAY_MS = 2500;
+
+  const formatDb = (value, suffix = 'dB') => Number.isFinite(Number(value)) ? `${Number(value).toFixed(1).replace('-', '−')} ${suffix}` : '—';
+  const wayHeadroom = channel => latest?.headroom?.find(item => item.channel === channel) || null;
+  const wayPeak = channel => Number(latest?.outputPeaks?.[channel]);
+  const message = (text, state = 'info') => { const root = $('.control-page'); if (root) { root.dataset.message = state; root.title = text; } };
+  const setBusy = value => { busy = value; document.querySelectorAll('button,input').forEach(el => { if (el.id === 'analyzerToggle') return; el.disabled = value; }); };
+  const sendShellStatus = () => {
+    const item = latest?.system;
+    if (!item || !Number.isFinite(item.hardMargin)) return;
+    const condition = item.hardMargin <= 0.1 ? 'hard' : item.protectionMargin <= 0 ? 'compress' : 'normal';
+    window.parent?.postMessage({ type: 'estack-control-status', master: Number(latest.master), headroom: Math.max(0, item.hardMargin), condition }, location.origin);
+  };
+
+  function inputMeters() {
+    const count = Math.max(2, Number(latest?.config?.devices?.capture?.channels || 2));
+    const now = performance.now();
+    const active = Array.from({ length: count }, (_, index) => {
+      const level = Number(latest?.inputPeaks?.[index]); const previous = inputActivity.get(index) || { lastSignalAt: -Infinity, visible: false };
+      if (level > INPUT_SHOW_THRESHOLD_DB || (previous.visible && level > INPUT_HOLD_THRESHOLD_DB)) previous.lastSignalAt = now;
+      previous.visible = level > INPUT_SHOW_THRESHOLD_DB || (previous.visible && now - previous.lastSignalAt <= INPUT_HIDE_DELAY_MS);
+      inputActivity.set(index, previous); return previous.visible ? index : null;
+    }).filter(Number.isInteger);
+    $('#inputMeters').innerHTML = active.length ? active.map(index => `<article class="input-meter" data-input-meter="${index}"><header><strong>${index === 0 ? 'IN L' : index === 1 ? 'IN R' : `IN ${index + 1}`}</strong><span>CAPTURE ${index + 1}</span></header><output data-input-readout="${index}">—</output><div class="horizontal-meter"><i data-input-fill="${index}"></i><b data-input-peak="${index}"></b><span>−60</span><span>0</span></div></article>`).join('') : '<div class="input-meter-empty">No active input</div>';
+  }
+  function paintInputMeters() {
+    document.querySelectorAll('[data-input-meter]').forEach(card => {
+      const index = Number(card.dataset.inputMeter); const level = Number(latest?.inputPeaks?.[index]);
+      const display = Number.isFinite(level) ? level : -60;
+      card.querySelector('[data-input-readout]').textContent = Number.isFinite(level) ? formatDb(level, 'dBFS') : '—';
+      card.querySelector('[data-input-fill]').style.width = meter(display);
+      card.querySelector('[data-input-peak]').style.left = meter(display);
+    });
+  }
+  function protectionState(item) {
+    if (!item || !Number.isFinite(item.hardMargin)) return 'idle';
+    if (item.hardMargin <= .1) return 'hard';
+    if (item.protectionMargin <= 0) return 'compress';
+    return 'safe';
+  }
+  function strip(item, master = false) {
+    const key = master ? 'master' : String(item.channel); const gain = master ? latest.master : item.gain; const peak = master ? Math.max(-60, ...latest.ways.filter(way => !way.muted).map(way => Number(latest.outputPeaks?.[way.channel]) || -60)) : wayPeak(item.channel);
+    const level = Number.isFinite(peak) ? peak : -60; const muted = master ? false : item.muted; const headroom = master ? null : wayHeadroom(item.channel); const protection = protectionState(headroom);
+    return `<article class="mixer-strip${master ? ' master-strip' : ''}${muted ? ' is-muted' : ''} way-${master ? 'master' : item.id}" ${master ? '' : `data-protection="${protection}"`} style="--way:${master ? 'var(--color-accent)' : item.color}">
+      <header><div><strong>${master ? 'MASTER' : item.name}</strong><span>${master ? 'DSP VOLUME · 0 dB LIMIT' : `OUT ${item.channel + 1} · POST LIMIT`}</span></div><output data-meter-readout="${key}">${master ? formatDb(gain) : muted ? '−∞' : formatDb(level, 'dBFS')}</output></header>
+      <div class="legacy-meter-console"><div class="legacy-dbfs-scale">${meterScale.map(mark => `<span style="top:${100 - (mark + 60) / 60 * 100}%">${mark}</span>`).join('')}</div><div class="legacy-meter-core"><div class="legacy-meter-track"><i class="legacy-meter-fill" data-meter-fill="${key}" style="height:${meter(muted ? -60 : level)}"></i><b class="legacy-meter-peak" data-meter-peak="${key}" style="bottom:${meter(muted ? -60 : level)}"></b></div><div class="legacy-gain-rail"></div><input class="mixer-fader legacy-fader-input" data-fader="${key}" type="range" min="${master ? -50 : -60}" max="${master ? 0 : 6}" step=".1" value="${gain}" ${!master && latest.locked ? 'disabled' : ''}></div></div>
+      <div class="strip-value"><input class="ui-number" data-number="${key}" type="number" min="${master ? -50 : -60}" max="${master ? 0 : 6}" step=".1" value="${Number(gain).toFixed(1)}" ${!master && latest.locked ? 'disabled' : ''}><span>dB</span></div>
+      <div class="nudge-row"><button data-nudge="${key}" data-delta="-1" type="button">−1</button><button data-nudge="${key}" data-delta="-.2" type="button">−0.2</button><button data-nudge="${key}" data-delta=".2" type="button">+0.2</button><button data-nudge="${key}" data-delta="1" type="button">+1</button></div>
+      ${master ? '<div class="strip-protection master-protection"><strong>LIMITERS ARMED</strong></div>' : `<div class="strip-protection" data-state="${protection}"><strong>${headroom?.hardMargin <= .1 ? 'HARD LIMIT' : headroom?.protectionMargin <= 0 ? 'COMPRESSION' : Number.isFinite(headroom?.hardMargin) ? `SAFE +${Math.max(0, headroom.hardMargin).toFixed(1)} dB` : 'WAITING'}</strong></div>`}
+      <button class="mute-button" data-mute="${key}" type="button" aria-pressed="${muted}">${muted ? 'MUTED' : 'MUTE'}</button>
+    </article>`;
+  }
+  function pairs(key, left, right) { const label = model.LINK_DEFINITIONS[key].label; return `<section class="channel-pair channel-pair-${key}">${strip(left)}${strip(right)}<button class="pair-link" data-link-toggle="${key}" type="button" aria-pressed="${latest.links[key]}">${label} · ${latest.links[key] ? 'LINKED' : 'FREE'}</button></section>`; }
+  function mixer() {
+    const ways = latest.ways; const by = channel => ways.find(item => item.channel === channel);
+    $('#controlMixer').innerHTML = `<div class="console-bank">${strip(null, true)}${[0,1].map(channel => strip(by(channel))).join('')}${pairs('mid', by(2), by(3))}${pairs('high', by(4), by(5))}</div>`;
+    document.querySelectorAll('[data-fader]').forEach(input => { input.addEventListener('change', event => applyGain(event.target.dataset.fader, event.target.value)); });
+    document.querySelectorAll('[data-number]').forEach(input => input.addEventListener('change', event => applyGain(event.target.dataset.number, event.target.value)));
+    document.querySelectorAll('[data-nudge]').forEach(button => button.addEventListener('click', () => { const key = button.dataset.nudge; const value = key === 'master' ? latest.master : latest.ways.find(item => item.channel === Number(key))?.gain; applyGain(key, Number(value) + Number(button.dataset.delta)); }));
+    document.querySelectorAll('[data-link-toggle]').forEach(button => button.addEventListener('click', () => service.setLink(button.dataset.linkToggle, !latest.links[button.dataset.linkToggle])));
+    document.querySelectorAll('[data-mute]').forEach(button => button.addEventListener('click', () => { if (button.dataset.mute !== 'master') run(() => service.setWayMute(Number(button.dataset.mute), !latest.ways.find(item => item.channel === Number(button.dataset.mute))?.muted)); }));
+  }
+  function renderTrim() {
+    const trim = Number(latest.trim || 0); const available = service.availableInputTrim();
+    $('#inputTrimRange').value = String(trim); $('#inputTrimValue').textContent = `${trim > 0 ? '+' : ''}${trim.toFixed(1)} dB`; $('#inputTrimAvailable').textContent = Number.isFinite(available) && available >= .5 ? `+${available.toFixed(1)} dB` : 'HOLD'; $('#inputTrimUse').disabled = !Number.isFinite(available) || available < .5;
+  }
+  function renderSummary() {
+    const system = latest.system; const state = protectionState(system); const margin = Number.isFinite(system?.hardMargin) ? Math.max(0, system.hardMargin) : null; const load = margin === null ? 0 : Math.round(clamp((12 - margin) / 12 * 100, 0, 100));
+    $('#protectionSummary').dataset.state = state;
+    $('#protectionSummary').innerHTML = `<div><span>SYSTEM</span><strong>${state === 'hard' ? 'HARD LIMIT' : state === 'compress' ? 'COMPRESSION' : system ? 'NORMAL' : 'WAITING'}</strong></div><div><span>HEADROOM</span><strong>${margin === null ? '—' : `${margin.toFixed(1)} dB`}</strong></div><div class="protection-load"><span>LIMIT LOAD</span><i><b style="width:${load}%"></b></i><strong>${load}%</strong></div><div><span>ACTIVE WAY</span><strong>${system?.name || 'PLAY SIGNAL'}</strong></div><button class="normalize-ways" data-normalize type="button"><i class="normalize-icon" aria-hidden="true">⇡</i><span>MAX 0 dB</span></button>`;
+    $('[data-normalize]').addEventListener('click', normalize);
+  }
+  function render() { if (!latest?.config) return; inputMeters(); paintInputMeters(); mixer(); renderTrim(); renderSummary(); sendShellStatus(); drawSpectrum(); }
+  async function run(action) { if (busy) return; try { setBusy(true); await action(); } catch (error) { console.error(error); message(error.message || String(error), 'error'); } finally { setBusy(false); } }
+  function applyGain(key, value) { run(() => key === 'master' ? service.setMaster(value) : service.setWayGain(Number(key), value)); }
+  function normalize() { const gains = latest.ways.map(way => `${way.name}: ${way.gain.toFixed(1)} dB`).join('\n'); if (window.confirm(`Normalize E-Stack ways?\n\nEvery output is shifted by the same amount; MASTER and all processing stay untouched.\n\n${gains}`)) run(() => service.normalizeWays()); }
+  function bindTrim() { $('#inputTrimDown').addEventListener('click', () => run(() => service.setInputTrim(Number(latest.trim) - .5))); $('#inputTrimUp').addEventListener('click', () => run(() => service.setInputTrim(Number(latest.trim) + .5))); $('#inputTrimRange').addEventListener('change', event => run(() => service.setInputTrim(event.target.value))); $('#inputTrimUse').addEventListener('click', () => { const add = service.availableInputTrim(); if (Number.isFinite(add)) run(() => service.setInputTrim(Number(latest.trim) + add)); }); }
+  function drawSpectrum() {
+    const canvas = $('#inputScope'); if (!$('#analyzerToggle').checked) { canvas.hidden = true; return; } canvas.hidden = false;
+    const ctx = canvas.getContext('2d'); const width = canvas.width; const height = canvas.height; ctx.clearRect(0, 0, width, height); const top = 18, bottom = 5, gap = Math.max(2, Math.min(4, width / 360)), bar = Math.max(4, (width - gap * (spectrumFrequencies.length - 1) - 4) / spectrumFrequencies.length), part = 4, partGap = 2, count = Math.floor((height - top - bottom) / (part + partGap));
+    spectrumFrequencies.forEach((frequency, index) => { const x = 2 + index * (bar + gap); const active = Math.max(0, Math.min(count, Math.round((clamp(spectrumLevels[index], -80, 0) + 80) / 80 * count))); if (bar >= 13 || index % 2 === 0) { ctx.fillStyle = 'rgba(235,244,246,.40)'; ctx.fillText(frequency >= 1000 ? `${frequency / 1000}k` : frequency, x + bar / 2, 7); } for (let p = 0; p < count; p += 1) { const y = height - bottom - part - p * (part + partGap); ctx.fillStyle = p < active ? `hsl(${214 - 164 * p / count},${58 + 24 * p / count}%,${55 + 5 * p / count}%)` : 'rgba(8,18,26,.82)'; ctx.fillRect(x, y, bar, part); } });
+  }
+  async function updateSpectrum() { if (spectrumBusy || !$('#analyzerToggle').checked) return; spectrumBusy = true; try { const raw = await window.EStackDSPBridge.spectrumCommand('GetPlaybackSignalPeak'); if (Array.isArray(raw)) spectrumLevels = spectrumFrequencies.map((_, index) => Math.max(Number(raw[index * 2] ?? -80), Number(raw[index * 2 + 1] ?? -80))); drawSpectrum(); } catch (_) { /* Live spectrum remains empty while its service is unavailable. */ } finally { spectrumBusy = false; } }
+  async function init() {
+    $('#analyzerToggle').addEventListener('change', drawSpectrum); bindTrim(); service.subscribe(next => { latest = next; render(); });
+    try { await service.startTelemetry(); spectrumTimer = setInterval(updateSpectrum, 80); updateSpectrum(); } catch (error) { document.body.innerHTML = `<main class="control-page"><section class="ui-panel"><h1>CamillaDSP unavailable</h1><p>${error.message}</p><p>Check the CamillaNode proxy and then use Connections to retry.</p></section></main>`; }
+  }
+  window.addEventListener('beforeunload', () => { service.stopTelemetry(); if (spectrumTimer) clearInterval(spectrumTimer); });
+  init();
+})();

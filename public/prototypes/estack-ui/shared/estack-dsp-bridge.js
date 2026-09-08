@@ -4,10 +4,14 @@
   const hardware = new URLSearchParams(location.search).get('transport') === 'camillanode';
   const listeners = new Set();
   let socket = null;
+  let spectrumSocket = null;
   let phase = 'offline';
+  let commandQueue = Promise.resolve();
+  let spectrumQueue = Promise.resolve();
 
   const emit = detail => listeners.forEach(listener => listener({ mode: hardware ? 'camillanode' : 'local', phase, ...detail }));
   const socketUrl = () => `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws/dsp`;
+  const spectrumSocketUrl = () => `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/ws/spectrum`;
 
   function requireHardware() {
     if (!hardware) throw new Error('Open this workspace with ?transport=camillanode to use the CamillaNode API.');
@@ -31,8 +35,7 @@
     });
   }
 
-  async function command(payload, timeoutMs = 5000) {
-    const ws = await connect();
+  async function sendCommand(ws, payload, timeoutMs = 5000) {
     const name = typeof payload === 'string' ? payload : Object.keys(payload || {})[0];
     if (!name) throw new Error('Invalid CamillaDSP command.');
     return new Promise((resolve, reject) => {
@@ -55,6 +58,37 @@
     });
   }
 
+  function command(payload, timeoutMs = 5000) {
+    const run = async () => sendCommand(await connect(), payload, timeoutMs);
+    const queued = commandQueue.then(run, run);
+    commandQueue = queued.catch(() => {});
+    return queued;
+  }
+
+  function connectSpectrum(timeoutMs = 3500) {
+    requireHardware();
+    if (spectrumSocket?.readyState === WebSocket.OPEN) return Promise.resolve(spectrumSocket);
+    if (spectrumSocket?.readyState === WebSocket.CONNECTING) return new Promise((resolve, reject) => {
+      spectrumSocket.addEventListener('open', () => resolve(spectrumSocket), { once: true });
+      spectrumSocket.addEventListener('error', () => reject(new Error('Spectrum proxy connection failed.')), { once: true });
+    });
+    return new Promise((resolve, reject) => {
+      const next = new WebSocket(spectrumSocketUrl());
+      const timer = window.setTimeout(() => { try { next.close(); } catch (_) {} reject(new Error('Spectrum proxy connection timed out.')); }, timeoutMs);
+      const fail = () => { window.clearTimeout(timer); reject(new Error('Spectrum proxy is unavailable.')); };
+      next.addEventListener('open', () => { window.clearTimeout(timer); spectrumSocket = next; resolve(next); }, { once: true });
+      next.addEventListener('error', fail, { once: true });
+      next.addEventListener('close', () => { if (spectrumSocket === next) spectrumSocket = null; });
+    });
+  }
+
+  function spectrumCommand(payload, timeoutMs = 5000) {
+    const run = async () => sendCommand(await connectSpectrum(), payload, timeoutMs);
+    const queued = spectrumQueue.then(run, run);
+    spectrumQueue = queued.catch(() => {});
+    return queued;
+  }
+
   async function api(path, options = {}) {
     requireHardware();
     const response = await fetch(path, { cache: 'no-store', ...options });
@@ -63,13 +97,13 @@
     return data;
   }
 
-  function disconnect() { if (socket) socket.close(); socket = null; phase = 'offline'; emit({ endpoint: socketUrl() }); }
+  function disconnect() { if (socket) socket.close(); if (spectrumSocket) spectrumSocket.close(); socket = null; spectrumSocket = null; phase = 'offline'; emit({ endpoint: socketUrl() }); }
 
   window.EStackDSPBridge = Object.freeze({
     mode: hardware ? 'camillanode' : 'local',
     get endpoint() { return hardware ? socketUrl() : null; },
     get connected() { return phase === 'connected'; },
-    connect, disconnect, command, api,
+    connect, disconnect, command, connectSpectrum, spectrumCommand,
     subscribe(listener) { listeners.add(listener); listener({ mode: hardware ? 'camillanode' : 'local', phase, endpoint: hardware ? socketUrl() : null }); return () => listeners.delete(listener); }
   });
 })();
