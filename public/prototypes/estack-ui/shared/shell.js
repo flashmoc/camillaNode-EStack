@@ -13,10 +13,15 @@
   const shellLimiters = document.querySelector('[data-shell-limiters]');
   const hardwareTransport = new URLSearchParams(location.search).get('transport') === 'camillanode';
   const banner = document.querySelector('.prototype-banner');
-  if (hardwareTransport && banner) {
-    banner.querySelector('strong').textContent = 'CAMILLANODE WORKSPACE';
-    banner.querySelector('span').textContent = 'Measurement Batch API enabled';
+  const shellBrand = document.querySelector('.shell-brand strong');
+  const shellOnline = document.querySelector('.shell-context .ui-status');
+  document.title = 'E-Stack DSP';
+  if (shellBrand) shellBrand.textContent = 'E-Stack DSP';
+  if (banner) {
+    banner.querySelector('strong').textContent = hardwareTransport ? 'E-STACK DSP · CAMILLANODE MODE' : 'E-STACK DSP · PRODUCT PREVIEW';
+    banner.querySelector('span').textContent = hardwareTransport ? 'Same-origin CamillaNode API enabled' : 'Local model · DSP transport disabled';
   }
+  if (hardwareTransport && shellOnline) shellOnline.textContent = 'DSP API READY';
   const shellMasterPanel = document.querySelector('.shell-master');
   const referenceStatus = { master: -12, headroom: 9.8, condition: 'normal' };
   const clone = value => JSON.parse(JSON.stringify(value));
@@ -54,9 +59,10 @@
     option.textContent = link.textContent;
     mobileSelect.appendChild(option);
   });
-  const shellRevision = 'shell-v29';
+  const shellRevision = 'product-v1';
+  const productMount = location.pathname.startsWith('/estack-dsp/');
   const routes = Object.fromEntries(links.map(link => {
-    const route = link.dataset.page === 'output-processing' ? new URL('../per-way/?mode=integrated', document.baseURI) : new URL(link.href);
+    const route = link.dataset.page === 'output-processing' ? new URL(productMount ? './per-way/?mode=integrated' : '../per-way/?mode=integrated', document.baseURI) : new URL(link.href);
     route.searchParams.set('v', shellRevision);
     if (hardwareTransport) route.searchParams.set('transport', 'camillanode');
     return [link.dataset.page, route.href];

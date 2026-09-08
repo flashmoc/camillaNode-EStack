@@ -56,10 +56,7 @@
   }
 
   async function request(path, options = {}) {
-    const response = await fetch(`/api/measurement-batch/${path}`, { cache: 'no-store', headers: { 'content-type': 'application/json', ...(options.headers || {}) }, ...options });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok || data.ok === false) throw new Error(data.error || `Measurement Batch request failed (${response.status})`);
-    return data;
+    return window.EStackDSPBridge.api(`/api/measurement-batch/${path}`, { headers: { 'content-type': 'application/json', ...(options.headers || {}) }, ...options });
   }
 
   const localActions = {

@@ -43,6 +43,16 @@ const app = express();
 app.disable('x-powered-by');
 app.use(express.static(PUBLIC_DIR));
 
+// E-Stack DSP is the product surface built on the established CamillaNode
+// runtime. It deliberately shares this origin, HTTP port and the /ws/dsp
+// proxy with the legacy E-Stack UI so no browser ever reaches DSP port 1234
+// directly.
+const ESTACK_DSP_DIR = path.join(PUBLIC_DIR, 'prototypes', 'estack-ui');
+const ESTACK_DSP_PER_WAY_DIR = path.join(PUBLIC_DIR, 'prototypes', 'per-way');
+app.get('/estack-dsp', (_req, res) => res.redirect(308, '/estack-dsp/'));
+app.use('/estack-dsp/per-way', express.static(ESTACK_DSP_PER_WAY_DIR));
+app.use('/estack-dsp', express.static(ESTACK_DSP_DIR));
+
 function sendPage(file) {
     return (_req, res) => res.sendFile(path.join(PUBLIC_DIR, 'html', file));
 }
