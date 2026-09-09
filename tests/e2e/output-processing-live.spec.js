@@ -53,12 +53,23 @@ test.describe('Output Processing live CamillaNode demo', () => {
       await page.waitForTimeout(200); expect(await dspCommand('GetConfigJson')).toEqual(lockedView);
 
       await frame.locator('#systemEdit').click(); await frame.locator('[data-way-channel="2"]').click(); await expect(frame.locator('[data-xo-freq="hpf"]')).toBeEnabled();
+      await frame.locator('button[data-graph-mode="phase"]').click();
+      await expect(frame.locator('#responseGraph')).toHaveAttribute('data-graph-mode', 'phase');
+      const originalMidGain = original.filters.mid_l_gain.parameters.gain;
+      const gainControl = frame.locator('input[data-range="gain"]');
+      await gainControl.fill(String(originalMidGain - 0.1)); await gainControl.dispatchEvent('change');
+      await expect.poll(() => frame.locator('#responseGraph').getAttribute('data-graph-mode')).toBe('phase');
+      await expect.poll(async () => (await dspCommand('GetConfigJson')).filters.mid_l_gain.parameters.gain).toBeCloseTo(originalMidGain - 0.1, 5);
+      await gainControl.fill(String(originalMidGain)); await gainControl.dispatchEvent('change');
+      await expect.poll(async () => (await dspCommand('GetConfigJson')).filters.mid_l_gain.parameters.gain).toBeCloseTo(originalMidGain, 5); await expect(frame.locator('#editState')).toHaveText('EDITING');
+      await expect(frame.locator('#responseGraph')).toHaveAttribute('data-graph-mode', 'phase');
+
       const midLStageOriginal = stage(original, 2, entry => entry.names.includes('mid_l_gain')); const midRStageOriginal = stage(original, 3, entry => entry.names.includes('mid_r_gain'));
       await frame.locator('[data-xo-freq="hpf"]').fill(String(originalMid + 1)); await frame.locator('[data-xo-freq="hpf"]').press('Tab');
       await expect.poll(async () => (await dspCommand('GetConfigJson')).filters.mid_hpf_300_lr24.parameters.freq).toBe(originalMid + 1);
       const crossoverChanged = await dspCommand('GetConfigJson'); const midLStageChanged = stage(crossoverChanged, 2, entry => entry.names.includes('mid_l_gain')); const midRStageChanged = stage(crossoverChanged, 3, entry => entry.names.includes('mid_r_gain'));
       expect(midLStageChanged.names).toEqual(midLStageOriginal.names); expect(midRStageChanged.names).toEqual(midRStageOriginal.names); expect(midLStageChanged.names).toContain('mid_hpf_300_lr24'); expect(midRStageChanged.names).toContain('mid_hpf_300_lr24');
-      await frame.locator('[data-xo-freq="hpf"]').fill(String(originalMid)); await frame.locator('[data-xo-freq="hpf"]').press('Tab'); await expect.poll(async () => (await dspCommand('GetConfigJson')).filters.mid_hpf_300_lr24.parameters.freq).toBe(originalMid);
+      await frame.locator('[data-xo-freq="hpf"]').fill(String(originalMid)); await frame.locator('[data-xo-freq="hpf"]').press('Tab'); await expect.poll(async () => (await dspCommand('GetConfigJson')).filters.mid_hpf_300_lr24.parameters.freq).toBe(originalMid); await expect(frame.locator('#editState')).toHaveText('EDITING');
       console.log(`Output E2E shared MID HPF: ${originalMid} Hz -> ${originalMid + 1} Hz -> ${originalMid} Hz`);
 
       const temporarySlot = Array.from({ length: 10 }, (_, slot) => slot).find(slot => !original.filters[`USER_CH2_PEQ_${String(slot + 1).padStart(2, '0')}`]); const temporaryName = `USER_CH2_PEQ_${String(temporarySlot + 1).padStart(2, '0')}`;
