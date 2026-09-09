@@ -1,7 +1,7 @@
 # Output Processing
 
-Status: **CORE LIVE MIGRATION ACCEPTED IN SIMULATION — ADVANCED GRAPH/ANALYZER
-PENDING — RASPBERRY HARDWARE ACCEPTANCE PENDING**.
+Status: **OUTPUT PROCESSING SOFTWARE PARITY ACCEPTED IN SIMULATION —
+RASPBERRY HARDWARE ACCEPTANCE PENDING**.
 
 ## Ownership and topology
 
@@ -104,12 +104,28 @@ page. When System Edit is unlocked, the exact existing limiter can change only
 `parameters.clip_limit`, range `-60…0 dBFS`, step `0.1`; type, soft clipping,
 description and placement are preserved.
 
-The Stage 3A graph is a live-config theoretical magnitude plot from 20 Hz to
-20 kHz on a logarithmic axis. It includes selected/other output crossover
-filters, active user PEQ and output Gain. It excludes input EQ, input delay,
-input trim, all-pass magnitude, compressor dynamics and nonlinear limiter
-behavior. Phase/XO-alignment modes and live analyzer overlay are deferred to
-Stage 3B and are not simulated.
+The dense calibration workspace follows the per-way operator layout: six
+compact output selectors, response graph, Output/Align/Protection rack, and
+simultaneously accessible PEQ/Crossover controls. It does not load the mock
+per-way prototype at runtime.
+
+The response graph is read-only and works while System Edit is locked. Its
+**Magnitude** mode remains a live-config theoretical plot on a logarithmic
+20 Hz…20 kHz axis: crossover, active user PEQ and output Gain are included;
+input processing, dynamics and limiter non-linearity are excluded. **Phase**
+uses the actual output filter stage and sample rate: BiquadCombo crossover,
+USER PEQ, Delay, Gain inversion and `ESTACK_PHASE_CHx` AllpassFO all
+contribute to the wrapped phase trace. **XO Align** provides SUB/KICK,
+KICK/MID L, KICK/MID R, MID L/HIGH L and MID R/HIGH R pairs; its region and
+marker come from the current lower LPF and upper HPF (geometric mean when both
+exist). Compare and All XOs are graph overlays only.
+
+The analyzer is a live `/ws/spectrum` read through `EStackDSPBridge`, using
+the historical thirty fixed analyzer bands and straight segments between actual
+samples. It never fabricates FFT points. RAW, FAST and SLOW smoothing, optional
+Infinite averaging/reset, and FULL/SUB/LOW/MID/HIGH graph views are
+presentation-only. A failed spectrum transport reports unavailable without
+affecting theoretical graph modes or DSP configuration.
 
 ## Transaction protection
 

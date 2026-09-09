@@ -41,6 +41,12 @@ test.describe('Output Processing live CamillaNode demo', () => {
       await expect(page.locator('.prototype-banner')).toContainText('CAMILLANODE MODE');
       await expect.poll(() => frame.evaluate(() => ({ mode: window.EStackDSPBridge?.mode, page: document.documentElement.dataset.prototypePage, mock: !!window.EStackPrototypeFixtures || !!window.EStackPrototypeDSP }))).toEqual({ mode: 'camillanode', page: 'output-processing', mock: false });
       await expect(frame.locator('.way-card')).toHaveCount(6); await expect(frame.locator('[data-way-channel="6"],[data-way-channel="7"]')).toHaveCount(0);
+      await expect(frame.locator('button[data-graph-mode="magnitude"]')).toBeVisible(); await expect(frame.locator('#responseGraph')).toHaveAttribute('data-graph-mode', 'magnitude');
+      const graphOnlyConfig = await dspCommand('GetConfigJson');
+      await frame.locator('button[data-graph-mode="phase"]').click(); await expect(frame.locator('#responseGraph')).toHaveAttribute('data-graph-mode', 'phase');
+      await frame.locator('button[data-graph-mode="xo"]').click(); await frame.locator('#xoPair').selectOption('sub-kick'); await expect(frame.locator('#xoReadout')).toContainText('SUB / KICK');
+      await frame.locator('button[data-graph-mode="magnitude"]').click(); await frame.locator('#analyzerEnabled').check(); await expect.poll(() => frame.locator('#analyzerStatus').textContent()).toMatch(/LIVE|UNAVAILABLE/);
+      expect(await dspCommand('GetConfigJson')).toEqual(graphOnlyConfig);
       await expect(frame.locator('#systemEdit')).toContainText('LOCKED'); await expect(frame.locator('[data-xo-freq="hpf"]')).toBeDisabled();
       const originalMid = original.filters.mid_hpf_300_lr24.parameters.freq; const lockedView = await dspCommand('GetConfigJson');
       await frame.locator('[data-xo-freq="hpf"]').evaluate((element, value) => { element.value = String(value); element.dispatchEvent(new Event('change', { bubbles: true })); }, originalMid + 1);
