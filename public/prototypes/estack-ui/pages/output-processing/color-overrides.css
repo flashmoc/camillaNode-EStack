@@ -54,10 +54,34 @@
 }
 
 .way-card::after {
-  height: 3px;
-  bottom: 7px;
-  opacity: .9;
-  box-shadow: 0 0 8px color-mix(in srgb, var(--way-color) 40%, transparent);
+  display: none;
+}
+
+.way-meter {
+  width: 100%;
+  height: 5px;
+  align-self: end;
+  appearance: none;
+  border: 0;
+  background: transparent;
+}
+
+.way-meter::-webkit-progress-bar {
+  border: 1px solid color-mix(in srgb, var(--way-color) 35%, transparent);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--way-color) 8%, var(--es-bg-deep));
+}
+
+.way-meter::-webkit-progress-value {
+  border-radius: 1px;
+  background: var(--way-color);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--way-color) 45%, transparent);
+}
+
+.way-meter::-moz-progress-bar {
+  border-radius: 1px;
+  background: var(--way-color);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--way-color) 45%, transparent);
 }
 
 @media (max-width: 820px) {
