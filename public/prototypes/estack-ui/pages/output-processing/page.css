@@ -56,6 +56,8 @@ select { padding:4px 8px; touch-action:manipulation; }
 .segmented button.is-active { border-color:#5fadb8; background:#24464d; color:#bff7fc; }
 .toggle-label { display:flex; align-items:center; gap:6px; color:var(--muted); font-size:11px; }
 .graph-secondary { display:flex; align-items:center; flex-wrap:wrap; gap:12px; width:100%; padding-top:8px; border-top:1px solid var(--line); font:10px var(--data); color:var(--muted); }
+#xoControls { display:grid; grid-template-columns:max-content minmax(0,1fr); }
+#xoReadout { white-space:nowrap; }
 .graph-secondary label { display:flex; align-items:center; gap:6px; }
 .graph-context { display:flex; justify-content:space-between; gap:12px; min-height:23px; padding:8px 16px 0; font:10px var(--data); color:var(--muted); padding-top:5px; }
 .graph-legend { display:flex; gap:18px; }
@@ -200,6 +202,8 @@ input[type=range]::-moz-range-thumb { width:14px; height:14px; border:2px solid 
   .toggle-label { min-height:44px; }
   input[type=checkbox] { width:18px; height:18px; }
   .graph-secondary { gap:6px; padding-top:6px; }
+  #xoControls { grid-template-columns:minmax(0,1fr); }
+  #xoReadout { min-height:14px; }
   .graph-secondary select { min-height:44px; font-size:16px; max-width:100%; }
   .graph-secondary button { min-height:44px; }
   .graph-secondary .analyzer-views { display:grid; grid-template-columns:repeat(3,1fr); }

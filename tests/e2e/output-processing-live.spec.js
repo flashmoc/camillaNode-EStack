@@ -33,6 +33,35 @@ function protectedView(config, allowedFilter, selectedStage) {
   const next = clone(config); delete next.filters[allowedFilter]; if (selectedStage) { const copy = next.pipeline[next.pipeline.indexOf(selectedStage)]; copy.names = copy.names.filter(name => name !== allowedFilter); } return next;
 }
 
+for (const width of [390, 768, 1920]) {
+  test(`graph modes keep the plot and alignment in place at ${width}px`, async ({ page, request }) => {
+    await requireDemoRuntime(request);
+    await page.setViewportSize({ width, height: 1080 });
+    await page.goto('/estack-dsp/?transport=camillanode#output-processing');
+    const frame = await outputFrame(page);
+    await expect(frame.locator('.way-card')).toHaveCount(6);
+    const positions = () => frame.evaluate(() => ['.graph-wrap', '.output-section'].map(selector => {
+      const rect = document.querySelector(selector).getBoundingClientRect();
+      return { top: rect.top + scrollY, height: rect.height };
+    }));
+    await frame.locator('[data-graph-mode="phase"]').click();
+    const baseline = await positions();
+    for (const mode of ['xo', 'magnitude', 'phase', 'xo']) {
+      await frame.locator(`[data-graph-mode="${mode}"]`).click();
+      await expect(frame.locator('#responseGraph')).toHaveAttribute('data-graph-mode', mode);
+      await expect.poll(positions).toEqual(baseline);
+      if (mode === 'xo') {
+        await expect(frame.locator('#xoPair')).toBeEnabled();
+        const pairs = await frame.locator('#xoPair option').evaluateAll(options => options.map(option => option.value));
+        for (const pair of pairs) {
+          await frame.locator('#xoPair').selectOption(pair);
+          await expect.poll(positions).toEqual(baseline);
+        }
+      } else await expect(frame.locator('#xoPair')).toBeDisabled();
+    }
+  });
+}
+
 test.describe('Output Processing live CamillaNode demo', () => {
   test('round trips a shared MID crossover and a temporary MID L PEQ through the product', async ({ page, request }) => {
     await requireDemoRuntime(request); const original = await dspCommand('GetConfigJson');
@@ -57,7 +86,7 @@ test.describe('Output Processing live CamillaNode demo', () => {
       await expect(frame.locator('#responseGraph')).toHaveAttribute('data-graph-mode', 'phase');
       const originalMidGain = original.filters.mid_l_gain.parameters.gain;
       const gainControl = frame.locator('input[data-range="gain"]');
-      await gainControl.fill(String(originalMidGain - 0.1)); await gainControl.dispatchEvent('change');
+      await gainControl.fill((originalMidGain - 0.1).toFixed(1)); await gainControl.dispatchEvent('change');
       await expect.poll(() => frame.locator('#responseGraph').getAttribute('data-graph-mode')).toBe('phase');
       await expect.poll(async () => (await dspCommand('GetConfigJson')).filters.mid_l_gain.parameters.gain).toBeCloseTo(originalMidGain - 0.1, 5);
       await gainControl.fill(String(originalMidGain)); await gainControl.dispatchEvent('change');

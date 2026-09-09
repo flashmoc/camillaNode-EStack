@@ -248,7 +248,9 @@
     $$('[data-analyzer-mode],[data-analyzer-view]').forEach(b => { const on = b.dataset.analyzerMode === analyzerMode || b.dataset.analyzerView === analyzerView; b.classList.toggle('is-active',on); b.setAttribute('aria-pressed',String(on)); });
     [...$('#compareWay').options].forEach(o => { o.hidden = o.value === String(selectedChannel); });
     value($('#compareWay'),compareChannel ?? ''); value($('#xoPair'),xoPairId);
-    $('#xoControls').hidden = graphMode !== 'xo'; $('#analyzerControls').hidden = !analyzerEnabled;
+    $('#xoPair').disabled = graphMode !== 'xo';
+    if (graphMode !== 'xo') text('#xoReadout', 'Available in XO Align');
+    $('#analyzerControls').hidden = !analyzerEnabled;
     $('#analyzerEnabled').checked = analyzerEnabled; $('#allXos').checked = allXos; $('#analyzerInfinite').checked = analyzerInfinite;
     const pair = graph.XO_PAIRS.find(p => p.id === xoPairId);
     const channels = graphMode === 'xo' ? [pair.lower,pair.upper] : [selectedChannel, ...(compareChannel === null ? [] : [compareChannel])];
