@@ -18,6 +18,7 @@
   let dragging = null;
   let pendingImport = null;
   let selectedPresetId = null;
+  let selectedBand = 'GLOBAL_EQ_01';
 
   const db = value => `${Number(value).toFixed(1).replace('-', '−')}`;
   const hz = value => Number(value) >= 1000 ? `${(Number(value) / 1000).toFixed(Number(value) >= 10000 ? 0 : 1).replace('.0', '')} kHz` : `${Math.round(value)} Hz`;
@@ -31,7 +32,7 @@
     disabled = new Set(model.GLOBAL_EQ_SLOT_NAMES.filter(slot => { try { return window.localStorage.getItem(disabledKey(slot)) === 'true'; } catch (_) { return false; } }));
   }
   function persistDisabled(slot, value) { try { window.localStorage.setItem(disabledKey(slot), String(!!value)); } catch (_) { /* browser preference only */ } }
-  function setBusy(value) { busy = value; document.querySelectorAll('#eqBands button,#eqBands input,#eqBands select,#eqReset,#delayRange,#delayNumber,.delay-nudge button,#delayReset,#importDialog button,#presetDialog button,#presetDialog input').forEach(control => { control.disabled = value; }); }
+  function setBusy(value) { busy = value; document.querySelectorAll('#eqBands button,#eqInspector button,#eqInspector input,#eqInspector select,#eqReset,#delayRange,#delayNumber,.delay-nudge button,#delayReset,#importDialog button,#presetDialog button,#presetDialog input').forEach(control => { control.disabled = value; }); }
   function setStatus(text, state = '') { const el = $('#inputState'); el.textContent = text; el.className = `ui-status ${state ? `is-${state}` : ''}`; }
   function liveBands() { return latest?.slots || model.GLOBAL_EQ_SLOT_NAMES.map(model.defaultBand); }
   function activeBands() { return liveBands().filter(band => !disabled.has(band.slot) && !model.isNeutral(band)); }
@@ -73,19 +74,24 @@
   }
   function renderBands() {
     const bands = liveBands(); const root = $('#eqBands');
+    if (!bands.some(band => band.slot === selectedBand)) selectedBand = bands[0]?.slot || 'GLOBAL_EQ_01';
     root.innerHTML = bands.map((band, index) => {
-      const off = disabled.has(band.slot); const neutral = model.isNeutral(band);
-      return `<article class="eq-band ${off ? 'is-bypassed' : ''}" data-band="${band.slot}"><header><strong>${String(index + 1).padStart(2, '0')}</strong><button class="band-toggle" type="button" data-toggle-slot="${band.slot}" aria-pressed="${!off}">${off ? 'OFF' : neutral ? '0 dB' : 'ON'}</button><select class="ui-select band-type" data-type-slot="${band.slot}" aria-label="${band.slot} filter type"><option ${band.type === 'Peaking' ? 'selected' : ''}>Peaking</option><option ${band.type === 'Lowshelf' ? 'selected' : ''}>Lowshelf</option><option ${band.type === 'Highshelf' ? 'selected' : ''}>Highshelf</option></select></header><div class="eq-band__params">${knob(band.slot, 'frequency', band.frequency)}${knob(band.slot, 'gain', band.gain)}${knob(band.slot, 'q', band.q)}</div></article>`;
+      const off = disabled.has(band.slot); const active = !off && !model.isNeutral(band);
+      return `<button class="eq-band ${off ? 'is-bypassed' : ''}" type="button" data-band="${band.slot}" aria-current="${band.slot === selectedBand}"><strong>${String(index + 1).padStart(2, '0')}</strong><span>${hz(band.frequency)}</span><small>${off ? 'BYPASSED' : active ? `${db(band.gain)} dB · ACTIVE` : 'NEUTRAL'}</small><i class="eq-band__dot ${active ? 'is-active' : ''}"></i></button>`;
     }).join('');
-    root.querySelectorAll('[data-toggle-slot]').forEach(button => button.addEventListener('click', async () => {
-      const slot = button.dataset.toggleSlot; const next = !disabled.has(slot); if (next) disabled.add(slot); else disabled.delete(slot); persistDisabled(slot, next); await commitBand(slot, {});
-    }));
-    root.querySelectorAll('[data-type-slot]').forEach(select => select.addEventListener('change', () => commitBand(select.dataset.typeSlot, { type: select.value })));
-    root.querySelectorAll('[data-input-slot]').forEach(input => input.addEventListener('change', () => {
+    root.querySelectorAll('[data-band]').forEach(button => button.addEventListener('click', () => { selectedBand = button.dataset.band; renderBands(); draw(); }));
+    const band = bands[model.slotIndex(selectedBand)]; if (!band) return;
+    const off = disabled.has(band.slot); const inspector = $('#eqInspector');
+    inspector.innerHTML = `<div class="eq-inspector__top"><div class="eq-inspector__identity"><b class="eq-inspector__number">${String(model.slotIndex(band.slot) + 1).padStart(2, '0')}</b><div><strong>${band.slot.replace('GLOBAL_EQ_', 'Band ')}</strong><span>${off ? 'BYPASSED · retained in DSP state' : model.isNeutral(band) ? 'NEUTRAL · ready to shape' : 'ACTIVE · in input EQ pipeline'}</span></div></div><button class="band-toggle" type="button" data-toggle-slot="${band.slot}" aria-pressed="${!off}">${off ? 'ENABLE' : 'ENABLED'}</button></div><label class="eq-inspector__type"><span>FILTER TOPOLOGY</span><select class="ui-select band-type" data-type-slot="${band.slot}" aria-label="${band.slot} filter type"><option ${band.type === 'Peaking' ? 'selected' : ''}>Peaking</option><option ${band.type === 'Lowshelf' ? 'selected' : ''}>Lowshelf</option><option ${band.type === 'Highshelf' ? 'selected' : ''}>Highshelf</option></select></label><div class="eq-band__params">${knob(band.slot, 'frequency', band.frequency)}${knob(band.slot, 'gain', band.gain)}${knob(band.slot, 'q', band.q)}</div>`;
+    inspector.querySelector('[data-toggle-slot]').addEventListener('click', async () => {
+      const slot = band.slot; const next = !disabled.has(slot); if (next) disabled.add(slot); else disabled.delete(slot); persistDisabled(slot, next); await commitBand(slot, {});
+    });
+    inspector.querySelector('[data-type-slot]').addEventListener('change', event => commitBand(band.slot, { type: event.target.value }));
+    inspector.querySelectorAll('[data-input-slot]').forEach(input => input.addEventListener('change', () => {
       const [min, max] = valueLimits(input.dataset.field); const value = clamp(input.value, min, max); input.value = value; commitBand(input.dataset.inputSlot, { [input.dataset.field]: value });
     }));
-    root.querySelectorAll('[data-knob]').forEach(bindKnob);
-    root.querySelectorAll('[data-knob]').forEach(button => applyKnob(button, liveBands()[model.slotIndex(button.dataset.knob)][button.dataset.field]));
+    inspector.querySelectorAll('[data-knob]').forEach(bindKnob);
+    inspector.querySelectorAll('[data-knob]').forEach(button => applyKnob(button, liveBands()[model.slotIndex(button.dataset.knob)][button.dataset.field]));
   }
   function bindKnob(button) {
     const slot = button.dataset.knob; const field = button.dataset.field;
@@ -121,6 +127,7 @@
     [20,30,50,80,100,200,500,1000,2000,5000,10000,20000].forEach(frequency => { const x = xFor(frequency); ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, h - bottom); ctx.stroke(); ctx.fillStyle = 'rgba(223,241,244,.55)'; ctx.fillText(frequency >= 1000 ? `${frequency / 1000}k` : frequency, x - 8, h - 8); });
     if (spectrum.some(value => value > -100)) { ctx.beginPath(); spectrumFrequencies.forEach((frequency, index) => { const x = xFor(frequency); const y = yFor(spectrum[index]); index ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.strokeStyle = 'rgba(230,240,241,.68)'; ctx.lineWidth = 1.25; ctx.stroke(); }
     const bands = liveBands(); ctx.beginPath(); for (let px = 0; px <= plotW; px += 1) { const frequency = 20 * Math.pow(1000, px / plotW); const y = yFor(model.totalResponse(bands, frequency, latest?.sampleRate || 48000, disabledSlots())); px ? ctx.lineTo(left + px, y) : ctx.moveTo(left + px, y); } ctx.strokeStyle = '#59d5e3'; ctx.lineWidth = 2.4; ctx.stroke();
+    const selected = bands[model.slotIndex(selectedBand)]; if (selected) { const x = xFor(selected.frequency); const y = yFor(model.totalResponse(bands, selected.frequency, latest?.sampleRate || 48000, disabledSlots())); ctx.strokeStyle = 'rgba(89,213,227,.33)'; ctx.setLineDash([3,4]); ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, h - bottom); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = disabled.has(selected.slot) ? '#718387' : '#59d5e3'; ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill(); }
   }
   function render() {
     if (!latest) return; $('#eqActiveCount').textContent = `${activeBands().length} ACTIVE`; renderBands(); renderDelay(); draw();
