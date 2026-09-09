@@ -86,3 +86,116 @@ test.describe('Output Processing live CamillaNode demo', () => {
     }
   });
 });
+
+test('keeps the calibration surface stable across live parameter readbacks', async ({ page, request }) => {
+  test.setTimeout(90_000);
+  await requireDemoRuntime(request);
+  const original = await dspCommand('GetConfigJson');
+  const errors = []; page.on('pageerror', error => errors.push(error.message));
+  await page.setViewportSize({width:1440,height:900});
+  await page.goto('/estack-dsp/?transport=camillanode#output-processing');
+  const frame = await outputFrame(page);
+  const ready = () => expect(frame.locator('#editState')).toHaveText('EDITING');
+  const change = async (selector, next) => {
+    const control = frame.locator(selector); await control.fill(String(next));
+    await control.dispatchEvent('change'); await ready();
+  };
+  try {
+    await expect(frame.locator('.way-card')).toHaveCount(6);
+    for (let channel=0;channel<6;channel++) {
+      await frame.locator(`[data-way-channel="${channel}"]`).click();
+      await expect(frame.locator(`[data-way-channel="${channel}"]`)).toHaveAttribute('aria-pressed','true');
+      await expect(frame.locator('#outputMeta')).toContainText(`OUT ${channel+1}`);
+    }
+    await frame.locator('button[data-graph-mode="xo"]').click();
+    for(const pair of ['sub-kick','kick-mid-l','kick-mid-r','mid-high-l','mid-high-r']) {
+      await frame.locator('#xoPair').selectOption(pair);
+      await expect(frame.locator('#xoReadout')).toContainText('Δ');
+    }
+    await frame.locator('[data-way-channel="2"]').click();
+    await frame.locator('#compareWay').selectOption('3');
+    await frame.locator('#allXos').uncheck();
+    await frame.locator('button[data-graph-mode="magnitude"]').click();
+    await frame.locator('#analyzerEnabled').check();
+    for(const mode of ['raw','slow','fast']) await frame.locator(`[data-analyzer-mode="${mode}"]`).click();
+    for(const view of ['sub','low','mid','high','full']) await frame.locator(`[data-analyzer-view="${view}"]`).click();
+    await frame.locator('#analyzerInfinite').check(); await frame.locator('#analyzerReset').click();
+    await expect.poll(()=>frame.locator('#analyzerStatus').textContent()).toMatch(/LIVE|UNAVAILABLE/);
+    expect(await dspCommand('GetConfigJson')).toEqual(original);
+    await frame.locator('button[data-graph-mode="phase"]').click();
+    await frame.locator('#systemEdit').click(); await ready();
+    await frame.locator('[data-value="gain"]').focus();
+    await frame.evaluate(() => {
+      window.reviewNodes = ['[data-value="gain"]','[data-value="delay"]','[data-value="phase"]','[data-value="limiter"]','#responseGraph','#compareWay','[data-way-channel="2"]'].map(s=>[s,document.querySelector(s)]);
+      window.reviewModes = [];
+      window.reviewObserver = new MutationObserver(records=>records.forEach(r=>window.reviewModes.push(r.oldValue, r.target.dataset.graphMode)));
+      window.reviewObserver.observe(document.querySelector('#responseGraph'),{attributes:true,attributeFilter:['data-graph-mode'],attributeOldValue:true});
+      window.reviewScroll = scrollY;
+    });
+    const gain = original.filters.mid_l_gain.parameters.gain;
+    await change('[data-value="gain"]',gain-.2);
+    expect((await dspCommand('GetConfigJson')).filters.mid_l_gain.parameters.gain).toBeCloseTo(gain-.2,5);
+    expect(await frame.evaluate(()=>document.activeElement===window.reviewNodes[0][1])).toBe(true);
+    expect(await frame.evaluate(()=>scrollY)).toBe(await frame.evaluate(()=>window.reviewScroll));
+    await change('[data-value="gain"]',gain);
+    // Repeated actions catch handlers closed over obsolete snapshot values.
+    const delayBefore = Number(await frame.locator('[data-value="delay"]').inputValue());
+    for(let i=0;i<2;i++){await frame.locator('[data-delta="0.01"]').click();await ready();}
+    await expect(frame.locator('[data-value="delay"]')).toHaveValue((delayBefore+.02).toFixed(2));
+    await change('[data-value="delay"]',delayBefore);
+    await change('[data-value="phase"]',-8);
+    await expect(frame.locator('[data-value="phase"]')).toHaveValue('-8.0');
+    expect((await dspCommand('GetConfigJson')).filters.ESTACK_PHASE_CH2.parameters.type).toBe('AllpassFO');
+    await change('[data-value="phase"]',-12);
+    await frame.locator('[data-polarity="true"]').click();await ready();
+    await expect(frame.locator('[data-polarity="true"]')).toHaveAttribute('aria-pressed','true');
+    await frame.locator('[data-polarity="false"]').click();await ready();
+    await expect(frame.locator('[data-polarity="false"]')).toHaveAttribute('aria-pressed','true');
+    for(let i=0;i<2;i++){await frame.locator('[data-mute]').click();await ready();await expect(frame.locator('[data-mute]')).toHaveAttribute('aria-pressed',String(i===0));}
+    const limiterBefore = Number(await frame.locator('[data-value="limiter"]').inputValue());
+    await change('[data-value="limiter"]',limiterBefore-.1);await change('[data-value="limiter"]',limiterBefore);
+    await expect(frame.locator('[data-value="limiter"]')).toHaveValue(limiterBefore.toFixed(1));
+    const slot=Array.from({length:10},(_,s)=>s).find(s=>!original.filters[`USER_CH2_PEQ_${String(s+1).padStart(2,'0')}`]);
+    const name=`USER_CH2_PEQ_${String(slot+1).padStart(2,'0')}`;
+    await frame.locator('#addPeq').click();await ready();
+    await frame.evaluate(slot=>{window.reviewPeq=document.querySelector(`[data-peq-slot="${slot}"]`);},slot);
+    await change(`[data-peq-field="freq"][data-slot="${slot}"]`,700);
+    await change(`[data-peq-field="gain"][data-slot="${slot}"]`,1.5);
+    await change(`[data-peq-field="q"][data-slot="${slot}"]`,1.2);
+    await frame.locator(`[data-peq-type="${slot}"]`).selectOption('Lowshelf');await ready();
+    expect((await dspCommand('GetConfigJson')).filters[name].parameters).toMatchObject({freq:700,gain:1.5,q:1.2,type:'Lowshelf'});
+    await frame.locator(`[data-peq-toggle="${slot}"]`).click();await ready();
+    await expect(frame.locator(`[data-peq-toggle="${slot}"]`)).toHaveText('OFF');
+    expect((await dspCommand('GetConfigJson')).pipeline.filter(s=>s.type==='Filter'&&(s.channels||[]).includes(2)).flatMap(s=>s.names)).not.toContain(name);
+    await frame.locator(`[data-peq-toggle="${slot}"]`).click();await ready();
+    expect(await frame.evaluate(slot=>window.reviewPeq===document.querySelector(`[data-peq-slot="${slot}"]`),slot)).toBe(true);
+    await frame.locator(`[data-peq-reset="${slot}"]`).click();await ready();
+    await frame.locator(`[data-peq-delete="${slot}"]`).click();await ready();
+    await expect(frame.locator(`[data-peq-slot="${slot}"]`)).toHaveCount(0);
+    await frame.locator('[data-xo-range="hpf"]').fill('420');await frame.locator('[data-xo-range="hpf"]').dispatchEvent('change');await ready();
+    await frame.locator('[data-xo-family="hpf"]').selectOption('Butterworth');await ready();
+    await frame.locator('[data-xo-slope="hpf"]').selectOption('12');await ready();
+    const xo=(await dspCommand('GetConfigJson')).filters.mid_hpf_300_lr24.parameters;
+    expect(xo.type).toBe('ButterworthHighpass');expect(xo.order).toBe(2);
+    expect(await frame.evaluate(()=>window.reviewNodes.every(([s,node])=>node===document.querySelector(s)))).toBe(true);
+    expect(await frame.evaluate(()=>window.reviewModes.every(mode=>mode==='phase'))).toBe(true);
+    await expect(frame.locator('[data-way-channel="2"]')).toHaveAttribute('aria-pressed','true');
+    await expect(frame.locator('#compareWay')).toHaveValue('3');
+    await expect(frame.locator('#analyzerEnabled')).toBeChecked();await expect(frame.locator('#analyzerInfinite')).toBeChecked();
+    await frame.locator('#systemEdit').click();await expect(frame.locator('#editState')).toHaveText('LOCKED');
+    const lockedConfig=await dspCommand('GetConfigJson');
+    for(const selector of ['[data-value="phase"]','[data-value="limiter"]','[data-xo-freq="hpf"]']) {
+      await expect(frame.locator(selector)).toBeDisabled();
+      await frame.locator(selector).evaluate(el=>{el.value='-2';el.dispatchEvent(new Event('change',{bubbles:true}));});
+    }
+    expect(await dspCommand('GetConfigJson')).toEqual(lockedConfig);
+    await frame.locator('button[data-graph-mode="magnitude"]').click();
+    await expect(frame.locator('#responseGraph')).toHaveAttribute('data-graph-mode','magnitude');
+    await page.reload();const fresh=await outputFrame(page);await expect(fresh.locator('#systemEdit')).toContainText('LOCKED');
+    expect(errors).toEqual([]);
+  } finally {
+    const current=await dspCommand('GetConfigJson');
+    if(JSON.stringify(current)!==JSON.stringify(original))await dspCommand({SetConfigJson:JSON.stringify(original)});
+    expect(await dspCommand('GetConfigJson')).toEqual(original);
+  }
+});

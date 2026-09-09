@@ -139,3 +139,48 @@ remain in place.
 The standalone `/prototypes/per-way/` editor remains mock-only design
 reference. Live Output Processing does not load its fixtures, scenario state,
 fake analyzer or apply/revert model.
+
+## Frontend rendering and calibration workspace
+
+The Output frontend uses a six-way color strip, a wide response plot, and a
+horizontal Gain / Delay / Phase alignment row. Gain and phase have sliders plus
+exact fields; delay has an exact field and four millisecond nudges. PEQ uses
+stable horizontal rows with frequency/gain/Q entry. HPF and LPF have logarithmic
+frequency sliders plus exact frequency, family and slope controls. Shared edges
+identify both owners. The protection rail reports the existing hard limiter and
+read-only compressor parameters; it does not infer live headroom or claim a
+normal protection state from configuration alone.
+
+`live-page.js` mounts alignment, limiter and crossover controls once. Delegated
+event handlers resolve the current selected channel and current snapshot at
+interaction time. Readbacks synchronize values and button states without
+replacing controls. PEQ reconciliation inserts/removes only affected stable slot
+rows. In-progress input drafts are separate from service snapshots, and numeric
+inputs remain focused during commits. Unchanged change/blur events do not start
+redundant writes. System Edit remains session-only and starts locked; all write
+events, including synthetic events, pass through the same frontend lock gate.
+
+Selected way, graph mode, comparison, XO pair, spectrum settings and editing
+context stay in the mounted frontend independently of DSP refreshes. Response
+paths are cached by configuration identity, graph range, geometry, channel and
+PEQ disabled state. Spectrum samples redraw the overlay without recomputing the
+unchanged theoretical response. Phase mode does not redraw on spectrum ticks.
+ResizeObserver invalidates geometry through the path cache key. Response
+mathematics, topology, service transactions and transport remain unchanged.
+
+At desktop widths all six ways remain in one row, with PEQ beside crossover.
+Below 1200 CSS pixels alignment reflows and PEQ/crossover become full-width
+sections; below 850 the way selector scrolls horizontally within its own bounds.
+Below 600 PEQ fields recompose into labeled rows and crossover edges stack.
+The page was screenshot-reviewed in four refinement passes, with final checks at
+1920×1080, 1440×900, 1280×800, 1024×768 and 390×844, each at Chromium browser zoom
+80%, 100%, 125% and 150%. Review artifacts are local development files under
+`artifacts/ui-review/`, not runtime assets.
+
+The Output E2E retains the shared-crossover and PEQ safety round trip, and adds
+coverage for persistent DOM identity, numerical focus and scroll, Phase mode
+stability, all six ways, XO pairs, comparison/spectrum state, repeated delay and
+mute operations, phase/limiter/PEQ/crossover controls, locked-event rejection and
+lock reset on reload. Each write test restores and compares the complete demo
+configuration. This is software validation only; hardware acceptance remains
+pending.
