@@ -1,48 +1,23 @@
 (() => {
   'use strict';
-  const M = window.EStackOutputProcessingModel;
-  if (!M) throw new Error('Output graph analysis requires the Output Processing model.');
-  const XO_PAIRS = Object.freeze([
-    { id: 'sub-kick', lower: 0, upper: 1, label: 'SUB / KICK' },
-    { id: 'kick-mid-l', lower: 1, upper: 2, label: 'KICK / MID L' },
-    { id: 'kick-mid-r', lower: 1, upper: 3, label: 'KICK / MID R' },
-    { id: 'mid-high-l', lower: 2, upper: 4, label: 'MID L / HIGH L' },
-    { id: 'mid-high-r', lower: 3, upper: 5, label: 'MID R / HIGH R' }
-  ]);
-  const SPECTRUM_FREQUENCIES = Object.freeze([25,30,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000,5000,6300,8000,10000,12500,16000,20000]);
-  const SPECTRUM_VIEWS = Object.freeze({ full: [20, 20000], sub: [20, 120], low: [60, 400], mid: [200, 3000], high: [1000, 20000] });
-  const C = (r = 1, i = 0) => ({ r, i });
-  const mul = (a, b) => C(a.r * b.r - a.i * b.i, a.r * b.i + a.i * b.r);
-  const div = (a, b) => { const d = b.r * b.r + b.i * b.i || 1e-30; return C((a.r * b.r + a.i * b.i) / d, (a.i * b.r - a.r * b.i) / d); };
-  const polar = (angle, magnitude = 1) => C(magnitude * Math.cos(angle), magnitude * Math.sin(angle));
-  const clamp = M.clamp;
-  const wrapPhase = degrees => { let value = ((degrees + 180) % 360 + 360) % 360 - 180; return Math.abs(value + 180) < 1e-9 ? 180 : value; };
-  const db = value => 20 * Math.log10(Math.max(1e-14, Math.hypot(value.r, value.i)));
-  const phase = value => Math.atan2(value.i, value.r) * 180 / Math.PI;
-  function rbj(filter, frequency, sampleRate) {
-    const p = filter?.parameters || {}; const fs = clamp(sampleRate || 48000, 8000, 384000); const freq = clamp(p.freq || 1000, 1, fs / 2 - 1); const w0 = 2 * Math.PI * freq / fs; const c = Math.cos(w0); const s = Math.sin(w0); const A = Math.pow(10, Number(p.gain || 0) / 40); const alpha = s / (2 * Math.max(.0001, Number(p.q || .7))); const beta = 2 * Math.sqrt(A) * alpha; let b0,b1,b2,a0,a1,a2;
-    if (p.type === 'Lowshelf') { b0=A*((A+1)-(A-1)*c+beta); b1=2*A*((A-1)-(A+1)*c); b2=A*((A+1)-(A-1)*c-beta); a0=(A+1)+(A-1)*c+beta; a1=-2*((A-1)+(A+1)*c); a2=(A+1)+(A-1)*c-beta; }
-    else if (p.type === 'Highshelf') { b0=A*((A+1)+(A-1)*c+beta); b1=-2*A*((A-1)+(A+1)*c); b2=A*((A+1)+(A-1)*c-beta); a0=(A+1)-(A-1)*c+beta; a1=2*((A-1)-(A+1)*c); a2=(A+1)-(A-1)*c-beta; }
-    else { b0=1+alpha*A; b1=-2*c; b2=1-alpha*A; a0=1+alpha/A; a1=-2*c; a2=1-alpha/A; }
-    const w = 2 * Math.PI * clamp(frequency, 1, fs / 2 - 1) / fs; const z1 = polar(-w), z2 = polar(-2*w);
-    return div(C(b0/a0 + b1/a0*z1.r + b2/a0*z2.r, b1/a0*z1.i + b2/a0*z2.i), C(1 + a1/a0*z1.r + a2/a0*z2.r, a1/a0*z1.i + a2/a0*z2.i));
-  }
-  function combo(filter, frequency) {
-    const p = filter?.parameters || {}; const fc = Math.max(1, Number(p.freq || 1000)); const order = Math.max(1, Number(p.order || 1)); const high = /Highpass$/i.test(String(p.type || '')); const lr = /^LinkwitzRiley/i.test(String(p.type || '')); const ratio = Math.max(1e-8, frequency / fc); const magnitude = lr ? (high ? Math.pow(ratio, order) / (1 + Math.pow(ratio, order)) : 1 / (1 + Math.pow(ratio, order))) : (high ? Math.pow(ratio, order) / Math.sqrt(1 + Math.pow(ratio, 2 * order)) : 1 / Math.sqrt(1 + Math.pow(ratio, 2 * order)));
-    const angle = (high ? 1 : -1) * order * Math.atan(ratio) * 180 / Math.PI;
-    return polar(angle * Math.PI / 180, magnitude);
-  }
-  function allpass(filter, frequency, sampleRate) {
-    const metadata = M.phaseMetadata(filter); const degrees = metadata?.degrees || 0; const ref = metadata?.referenceHz || 1000; const fs = clamp(sampleRate || 48000, 8000, 384000); const denom = Math.tan(Math.PI * ref / fs) || 1e-12; const ratio = Math.tan(Math.PI * frequency / fs) / denom;
-    const direction = degrees <= 0 ? 1 : -1; return polar(direction * -2 * Math.atan(ratio), 1);
-  }
-  function filterResponse(filter, frequency, sampleRate) {
-    if (!filter) return C(); if (filter.type === 'BiquadCombo') return combo(filter, frequency); if (filter.type === 'Biquad') return filter.parameters?.type === 'AllpassFO' ? allpass(filter, frequency, sampleRate) : rbj(filter, frequency, sampleRate); if (filter.type === 'Delay') return polar(-2 * Math.PI * frequency * Number(filter.parameters?.delay || 0) / 1000); if (filter.type === 'Gain') return polar(filter.parameters?.inverted ? Math.PI : 0, Math.pow(10, Number(filter.parameters?.gain || 0) / 20)); return C();
-  }
-  function channelResponse(config, channel, frequency) {
-    const data = M.discover(config).find(item => item.channel === Number(channel)); if (!data) return C(); const fs = config.devices?.samplerate || 48000;
-    return data.stageNames.reduce((total, name) => mul(total, filterResponse(config.filters?.[name], frequency, fs)), C());
-  }
-  function pairFrequency(config, pair) { const ways = M.discover(config); const lower = ways.find(item => item.channel === pair.lower); const upper = ways.find(item => item.channel === pair.upper); const a = Number(lower?.crossover?.lpf?.filter?.parameters?.freq); const b = Number(upper?.crossover?.hpf?.filter?.parameters?.freq); return a > 0 && b > 0 ? Math.sqrt(a * b) : (a || b || 1000); }
-  window.EStackOutputGraphAnalysis = Object.freeze({ XO_PAIRS, SPECTRUM_FREQUENCIES, SPECTRUM_VIEWS, wrapPhase, db, phase, filterResponse, channelResponse, pairFrequency });
+  const M=window.EStackOutputProcessingModel,TWO_PI=2*Math.PI;
+  if(!M) throw new Error('Output graph analysis requires the Output Processing model.');
+  const XO_PAIRS=Object.freeze([{id:'sub-kick',lower:0,upper:1,label:'SUB / KICK'},{id:'kick-mid-l',lower:1,upper:2,label:'KICK / MID L'},{id:'kick-mid-r',lower:1,upper:3,label:'KICK / MID R'},{id:'mid-high-l',lower:2,upper:4,label:'MID L / HIGH L'},{id:'mid-high-r',lower:3,upper:5,label:'MID R / HIGH R'}]);
+  const SPECTRUM_FREQUENCIES=Object.freeze([25,30,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000,5000,6300,8000,10000,12500,16000,20000]);
+  const SPECTRUM_VIEWS=Object.freeze({full:[20,20000],sub:[20,120],low:[60,400],mid:[200,3000],high:[1000,20000]});
+  const C=(re,im)=>({re:re||0,im:im||0}),mul=(a,b)=>C(a.re*b.re-a.im*b.im,a.re*b.im+a.im*b.re),div=(a,b)=>{const d=b.re*b.re+b.im*b.im||1e-30;return C((a.re*b.re+a.im*b.im)/d,(a.im*b.re-a.re*b.im)/d)},polar=(a,r=1)=>C(r*Math.cos(a),r*Math.sin(a));
+  const wrapPhase=v=>{let n=((v+180)%360+360)%360-180;return Math.abs(n+180)<1e-9?180:n},phase=v=>Math.atan2(v.im,v.re)*180/Math.PI,db=v=>20*Math.log10(Math.max(1e-14,Math.hypot(v.re,v.im)));
+  function normalizeCoeffs(a0,a1,a2,b0,b1,b2){const s=Math.abs(a0)>1e-20?a0:1;return {a1:a1/s,a2:a2/s,b0:b0/s,b1:b1/s,b2:b2/s};}
+  function responseFromCoeffs(co,freq,fs){const w=TWO_PI*freq/fs,z1=polar(-w),z2=polar(-2*w);return div(C(co.b0+co.b1*z1.re+co.b2*z2.re,co.b1*z1.im+co.b2*z2.im),C(1+co.a1*z1.re+co.a2*z2.re,co.a1*z1.im+co.a2*z2.im));}
+  function secondOrderPassCoeffs(kind,fc,q,fs){const omega=TWO_PI*fc/fs,sn=Math.sin(omega),cs=Math.cos(omega),alpha=sn/(2*Math.max(1e-6,q));return kind==='highpass'?normalizeCoeffs(1+alpha,-2*cs,1-alpha,(1+cs)/2,-(1+cs),(1+cs)/2):normalizeCoeffs(1+alpha,-2*cs,1-alpha,(1-cs)/2,1-cs,(1-cs)/2);}
+  function firstOrderPassCoeffs(kind,fc,fs){const k=Math.tan(TWO_PI*fc/fs/2),a=1+k;return kind==='highpass'?{a1:-(1-k)/a,a2:0,b0:1/a,b1:-1/a,b2:0}:{a1:-(1-k)/a,a2:0,b0:k/a,b1:k/a,b2:0};}
+  function butterworthQ(order){const n=Math.max(1,Math.round(Number(order)||1)),q=[];for(let i=0;i<Math.floor(n/2);i++)q.push(1/(2*Math.sin(Math.PI/n*(i+.5))));if(n%2)q.push(-1);return q;}
+  function linkwitzRileyQ(order){const n=Math.max(2,Math.round(Number(order)||4));let q=butterworthQ(n/2);if(n%4!==0){q=q.slice(0,-1);return q.concat(q,[.5]);}return q.concat(q);}
+  function comboResponse(p,freq,fs){const type=String(p?.type||'').toLowerCase();if(!type.includes('highpass')&&!type.includes('lowpass'))return C(1,0);const kind=type.includes('highpass')?'highpass':'lowpass',q=(type.startsWith('linkwitzriley')?linkwitzRileyQ:butterworthQ)(Math.max(1,Math.round(Number(p.order)||4)));return q.reduce((total,value)=>mul(total,value<0?responseFromCoeffs(firstOrderPassCoeffs(kind,Number(p.freq||1000),fs),freq,fs):responseFromCoeffs(secondOrderPassCoeffs(kind,Number(p.freq||1000),value,fs),freq,fs)),C(1,0));}
+  function rbj(p,freq,fs){const type=String(p.type||'Peaking'),f=Math.max(1,Math.min(fs/2-1,Number(p.freq||1000))),w=TWO_PI*f/fs,s=Math.sin(w),c=Math.cos(w),q=Math.max(.01,Number(p.q||1)),A=Math.pow(10,Number(p.gain||0)/40),alpha=s/(2*q);let b0,b1,b2,a0,a1,a2;if(type==='Peaking'){b0=1+alpha*A;b1=-2*c;b2=1-alpha*A;a0=1+alpha/A;a1=-2*c;a2=1-alpha/A;}else{const beta=s*Math.sqrt(A)/q;if(type==='Lowshelf'){a0=(A+1)+(A-1)*c+beta;a1=-2*((A-1)+(A+1)*c);a2=(A+1)+(A-1)*c-beta;b0=A*((A+1)-(A-1)*c+beta);b1=2*A*((A-1)-(A+1)*c);b2=A*((A+1)-(A-1)*c-beta);}else{a0=(A+1)-(A-1)*c+beta;a1=2*((A-1)-(A+1)*c);a2=(A+1)-(A-1)*c-beta;b0=A*((A+1)+(A-1)*c+beta);b1=-2*A*((A-1)+(A+1)*c);b2=A*((A+1)+(A-1)*c-beta);}}return responseFromCoeffs(normalizeCoeffs(a0,a1,a2,b0,b1,b2),freq,fs);}
+  function delaySeconds(p,fs){const v=Number(p?.delay||0),u=String(p?.unit||'ms').toLowerCase();if(u.includes('sample'))return v/fs;if(u==='us'||u.includes('micro'))return v/1e6;if(u==='s'||u==='sec'||u.includes('second'))return v;return v/1000;}
+  function filterResponse(filter,freq,fs){if(!filter)return C(1,0);const p=filter.parameters||{};if(filter.type==='Gain')return polar(p.inverted?Math.PI:0,Math.pow(10,Number(p.gain||0)/20));if(filter.type==='Delay')return polar(-TWO_PI*freq*delaySeconds(p,fs));if(filter.type==='BiquadCombo')return comboResponse(p,freq,fs);if(filter.type==='Biquad'){if(p.type==='AllpassFO'){const design=Math.max(1,Math.min(fs/2-1,Number(p.freq||1000))),ratio=Math.tan(Math.PI*freq/fs)/Math.max(1e-12,Math.tan(Math.PI*design/fs));return polar(-2*Math.atan(ratio));}return rbj(p,freq,fs);}return C(1,0);}
+  function channelResponse(config,channel,freq){const data=M.discover(config).find(item=>item.channel===Number(channel));if(!data)return C(1,0);const fs=config.devices?.samplerate||48000;return data.stageNames.reduce((total,name)=>mul(total,filterResponse(config.filters?.[name],freq,fs)),C(1,0));}
+  function pairFrequency(config,pair){const ways=M.discover(config),a=ways.find(v=>v.channel===pair.lower),b=ways.find(v=>v.channel===pair.upper),x=Number(a?.crossover?.lpf?.filter?.parameters?.freq),y=Number(b?.crossover?.hpf?.filter?.parameters?.freq);return x>0&&y>0?Math.sqrt(x*y):(x||y||1000);}
+  window.EStackOutputGraphAnalysis=Object.freeze({XO_PAIRS,SPECTRUM_FREQUENCIES,SPECTRUM_VIEWS,normalizeCoeffs,responseFromCoeffs,secondOrderPassCoeffs,firstOrderPassCoeffs,butterworthQ,linkwitzRileyQ,comboResponse,wrapPhase,phase,db,delaySeconds,filterResponse,channelResponse,pairFrequency});
 })();

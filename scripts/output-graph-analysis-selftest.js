@@ -16,6 +16,13 @@ const delayed = G.filterResponse({ type: 'Delay', parameters: { delay: 1, unit: 
 assert.ok(Math.abs(G.wrapPhase(G.phase(delayed))) < .01, '1 ms at 1 kHz is one complete phase turn');
 const allpass = G.filterResponse({ type: 'Biquad', description: 'E-Stack phase trim SUB (-90 deg @ 1000 Hz)', parameters: { type: 'AllpassFO' } }, 1000, fsHz);
 assert.ok(Math.abs(Math.abs(G.phase(allpass)) - 90) < 2, 'AllpassFO must be approximately 90 degrees at design frequency');
+const design45 = context.window.EStackOutputProcessingModel.phaseFrequency(-45, 1000, fsHz);
+const allpass45 = G.filterResponse({ type: 'Biquad', description: 'E-Stack phase trim SUB (-45 deg @ 1000 Hz)', parameters: { type: 'AllpassFO', freq: design45 } }, 1000, fsHz);
+assert.ok(Math.abs(G.wrapPhase(G.phase(allpass45)) + 45) < 1, 'AllpassFO must use parameters.freq as design frequency');
+assert.ok(Math.abs(G.phase(G.filterResponse({ type: 'BiquadCombo', parameters: { type: 'ButterworthHighpass', freq: 1000, order: 4 } }, 1000, fsHz)) + 180) < 1, 'Butterworth phase regression');
+assert.ok(Math.abs(G.phase(G.filterResponse({ type: 'BiquadCombo', parameters: { type: 'LinkwitzRileyHighpass', freq: 1000, order: 4 } }, 1000, fsHz)) + 180) < 1, 'Linkwitz-Riley phase regression');
+const sampleDelay = G.filterResponse({ type: 'Delay', parameters: { delay: 48, unit: 'samples' } }, 1000, fsHz);
+assert.ok(Math.abs(G.phase(sampleDelay)) < 1, 'sample delay must use actual sample rate');
 for (const type of ['LinkwitzRileyHighpass', 'LinkwitzRileyLowpass', 'ButterworthHighpass', 'ButterworthLowpass']) assert.ok(Number.isFinite(G.phase(G.filterResponse({ type: 'BiquadCombo', parameters: { type, freq: 1000, order: 4 } }, 1000, fsHz))), `${type} phase must be finite`);
 assert.deepStrictEqual(Array.from(G.XO_PAIRS, pair => pair.id), ['sub-kick','kick-mid-l','kick-mid-r','mid-high-l','mid-high-r']);
 console.log('Output graph analysis self-test: OK');
