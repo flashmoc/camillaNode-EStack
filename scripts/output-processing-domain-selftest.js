@@ -57,6 +57,21 @@ function create(config) {
   assert.strictEqual(discovery.ways[2].crossover.lpf.name, discovery.ways[3].crossover.lpf.name);
   assert.ok(!discovery.ways.some(item => item.stageNames.includes('GLOBAL_EQ_01')), 'pre-mixer Input Processing leaked into an output way');
 
+  assert.deepStrictEqual(clone(model.GAIN_RANGE), { min: -60, max: 6, step: .1 });
+  const gainBaseline = get();
+  for (const [input, expected] of [[99, 6], [6.1, 6], [-99, -60], [-60, -60], [1.26, 1.3]]) {
+    const previous = get(); await service.setGain(0, input); const actual = get();
+    assert.strictEqual(actual.filters.sub_gain.parameters.gain, expected);
+    const untouched = clone(actual); untouched.filters.sub_gain.parameters.gain = previous.filters.sub_gain.parameters.gain;
+    assert.deepStrictEqual(untouched, previous, 'gain normalization changed protected DSP state');
+  }
+  const invalidGain = get(); invalidGain.filters.sub_gain.parameters.gain = 6.1;
+  assert.throws(() => model.assertGainMutation(get(), invalidGain, 0), /Output Gain/);
+  invalidGain.filters.sub_gain.parameters.gain = -60.1;
+  assert.throws(() => model.assertGainMutation(get(), invalidGain, 0), /Output Gain/);
+  await service.setGain(0, gainBaseline.filters.sub_gain.parameters.gain);
+  assert.deepStrictEqual(get(), gainBaseline);
+
   let before = get(); const midRefs = before.pipeline.filter(step => step.type === 'Filter' && [2, 3].includes(step.channels?.[0])).map(step => clone(step.names));
   await service.setCrossover(2, 'hpf', { freq: 301, family: 'LinkwitzRiley', slope: 24 }); let changed = get();
   assert.strictEqual(changed.filters.mid_hpf_300_lr24.parameters.freq, 301); assert.deepStrictEqual(changed.pipeline.filter(step => step.type === 'Filter' && [2, 3].includes(step.channels?.[0])).map(step => step.names), midRefs);

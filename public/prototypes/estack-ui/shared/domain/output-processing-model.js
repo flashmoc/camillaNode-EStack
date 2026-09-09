@@ -13,9 +13,11 @@
   ]);
   const PEQ_DEFAULT_FREQUENCIES = Object.freeze([31, 63, 125, 250, 500, 1000, 2000, 4000, 8000, 16000]);
   const PEQ_TYPES = Object.freeze(['Peaking', 'Lowshelf', 'Highshelf']);
+  const GAIN_RANGE = Object.freeze({ min: -60, max: 6, step: .1 });
   const clone = value => JSON.parse(JSON.stringify(value));
   const clamp = (value, minimum, maximum) => Math.max(minimum, Math.min(maximum, Number.isFinite(Number(value)) ? Number(value) : minimum));
   const round = (value, precision = 6) => Number(Number(value).toFixed(precision));
+  const normalizeGain = value => round(clamp(value, GAIN_RANGE.min, GAIN_RANGE.max), 1);
   const stable = value => Array.isArray(value) ? value.map(stable) : value && typeof value === 'object' ? Object.keys(value).sort().reduce((result, key) => { result[key] = stable(value[key]); return result; }, {}) : value;
   const fingerprint = value => JSON.stringify(stable(value));
   const way = channel => WAY_DEFINITIONS.find(item => item.channel === Number(channel));
@@ -120,7 +122,12 @@
     const oldRest = clone(oldFilter); const nextRest = clone(nextFilter); fields.forEach(field => { delete oldRest.parameters?.[field]; delete nextRest.parameters?.[field]; });
     if (fingerprint(oldRest) !== fingerprint(nextRest)) throw new Error(`${name}: changed outside its permitted parameters.`);
   }
-  function assertGainMutation(before, after, channel) { const gain = entryForType(before, channel, 'Gain'); assertParamOnly(before, after, gain.name, 'Gain', ['gain', 'mute', 'inverted']); }
+  function assertGainMutation(before, after, channel) {
+    const gain = entryForType(before, channel, 'Gain');
+    assertParamOnly(before, after, gain.name, 'Gain', ['gain', 'mute', 'inverted']);
+    const value = after.filters[gain.name].parameters.gain;
+    if (value !== gain.filter.parameters.gain && value !== normalizeGain(value)) throw new Error('Output Gain must be -60…+6 dB in 0.1 dB steps.');
+  }
   function assertDelayMutation(before, after, channel) { const delay = entryForType(before, channel, 'Delay'); assertParamOnly(before, after, delay.name, 'Delay', ['delay']); }
   function assertLimiterMutation(before, after, channel) { const limiter = limiterEntry(before, channel); assertParamOnly(before, after, limiter.name, 'Limiter', ['clip_limit']); }
   function assertCrossoverMutation(before, after, channel, edge) {
@@ -158,5 +165,5 @@
     const xo = Object.values(data.crossover).reduce((sum, item) => sum + crossoverMagnitude(item?.filter, frequency), 0); const peq = data.peq.reduce((sum, item) => sum + (!item || disabled.has(item.slot) ? 0 : peqMagnitude(item.filter, frequency, config.devices?.samplerate)), 0);
     return xo + peq + Number(data.gain.filter.parameters?.gain || 0);
   }
-  window.EStackOutputProcessingModel = Object.freeze({ WAY_DEFINITIONS, PEQ_DEFAULT_FREQUENCIES, PEQ_TYPES, clone, clamp, round, fingerprint, way, phaseName, peqName, peqNames, validateReferences, assertReferences, outputStage, entryForType, limiterEntry, crossovers, protectionEntry, phaseEntry, phaseMetadata, phaseReference, phaseDegrees, phaseFrequency, peqSlots, defaultPeq, normalizePeq, isNeutralPeq, isPeqActive, crossoverOwners, discover, assertGainMutation, assertDelayMutation, assertLimiterMutation, assertCrossoverMutation, assertPhaseMutation, assertPeqMutation, magnitudeResponse });
+  window.EStackOutputProcessingModel = Object.freeze({ GAIN_RANGE, normalizeGain, WAY_DEFINITIONS, PEQ_DEFAULT_FREQUENCIES, PEQ_TYPES, clone, clamp, round, fingerprint, way, phaseName, peqName, peqNames, validateReferences, assertReferences, outputStage, entryForType, limiterEntry, crossovers, protectionEntry, phaseEntry, phaseMetadata, phaseReference, phaseDegrees, phaseFrequency, peqSlots, defaultPeq, normalizePeq, isNeutralPeq, isPeqActive, crossoverOwners, discover, assertGainMutation, assertDelayMutation, assertLimiterMutation, assertCrossoverMutation, assertPhaseMutation, assertPeqMutation, magnitudeResponse });
 })();

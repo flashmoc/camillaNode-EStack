@@ -21,7 +21,7 @@
   }
   function selected(config, channel) { const data = M.discover(config).find(item => item.channel === Number(channel)); if (!data) throw new Error(`Unknown E-Stack output channel ${channel}.`); return data; }
   async function setGain(channel, value) {
-    return transact(next => { const entry = M.entryForType(next, channel, 'Gain'); entry.filter.parameters.gain = M.round(M.clamp(value, -60, 12), 1); }, (before, after) => M.assertGainMutation(before, after, channel));
+    return transact(next => { const entry = M.entryForType(next, channel, 'Gain'); entry.filter.parameters.gain = M.normalizeGain(value); }, (before, after) => M.assertGainMutation(before, after, channel));
   }
   async function setMute(channel, muted) { return transact(next => { M.entryForType(next, channel, 'Gain').filter.parameters.mute = !!muted; }, (before, after) => M.assertGainMutation(before, after, channel)); }
   async function setPolarity(channel, inverted) { return transact(next => { M.entryForType(next, channel, 'Gain').filter.parameters.inverted = !!inverted; }, (before, after) => M.assertGainMutation(before, after, channel)); }

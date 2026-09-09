@@ -5,7 +5,7 @@
   const graph = window.EStackOutputGraphAnalysis;
   if (!service || !model || !graph || window.EStackDSPBridge?.mode !== 'camillanode') throw new Error('Live Output Processing domain is unavailable.');
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
-  const clamp = model.clamp, db = v => `${Number(v).toFixed(1).replace('-', '−')} dB`;
+  const clamp = model.clamp, db = v => `${Number(v)>0?'+':''}${Number(v).toFixed(1).replace('-', '−')} dB`;
   const hz = v => Number(v) >= 1000 ? `${+(Number(v) / 1000).toFixed(2)} kHz` : `${Math.round(v)} Hz`;
   // View state belongs to this mounted page, never to a DSP snapshot.
   let latest = null, selectedChannel = 0, editing = false, busy = false;
@@ -15,6 +15,9 @@
   let analyzerView = localStorage.getItem('estack.spectrum.view') || 'full', analyzerInfinite = localStorage.getItem('estack.spectrum.infinite') === 'true';
   let realtimeSpectrum = null, infiniteSpectrum = null, spectrumPower = null, spectrumCount = 0, spectrumTimer = null, spectrumBusy = false;
   const drafts = new WeakSet();
+  const pendingControls = new Map();
+  const queueable = '[data-value],[data-range],[data-xo-freq],[data-xo-range],[data-xo-family],[data-xo-slope]';
+  let writeQueue = Promise.resolve(), pendingWrites = 0, queueEpoch = 0, activeRange = null;
   const responsePaths = new Map();
   let responseConfig = null;
   const disabledKey = (channel, slot) => `estack.peq.disabled.${channel}.${slot}`;
@@ -24,26 +27,47 @@
   const locked = () => !editing || busy;
   const status = (text, kind = '') => { $('#outputState').textContent = text; $('#outputState').className = `ui-status ${kind ? `is-${kind}` : ''}`; };
   const text = (selector, value) => { const el = $(selector); if (el && el.textContent !== String(value)) el.textContent = value; };
-  function value(el, next) { if (el && !drafts.has(el) && el.value !== String(next)) el.value = next; }
+  function value(el, next) {
+    if (el && !drafts.has(el) && pendingControls.get(el)?.channel !== selectedChannel && el.value !== String(next)) el.value = next;
+  }
+  function pairedControls(el) {
+    const id = el.dataset.range || el.dataset.value, edge = el.dataset.xoRange || el.dataset.xoFreq;
+    return id ? $$(`[data-range="${id}"],[data-value="${id}"]`) : edge ? $$(`[data-xo-range="${edge}"],[data-xo-freq="${edge}"]`) : [el];
+  }
   function numberInput(attributes, label, unit) { return `<div class="value-unit"><input type="number" ${attributes} aria-label="${label}" data-mutation><span>${unit}</span></div>`; }
   function range(id, min, max, step, label) { return `<input type="range" data-range="${id}" min="${min}" max="${max}" step="${step}" aria-label="${label}" data-mutation>`; }
   function mountEditors() {
     $('#outputControls').innerHTML = `
-      <div class="control-block"><label for="gainValue">GAIN</label>${numberInput('id="gainValue" data-value="gain" min="-60" max="12" step=".1"', 'Gain', 'dB')}${range('gain', -60, 12, .1, 'Gain adjustment')}<span class="range-endpoints"><span>−60</span><span>0 / +12 dB</span></span></div>
+      <div class="control-block"><label for="gainValue">GAIN</label>${numberInput('id="gainValue" data-value="gain" min="-60" max="6" step=".1"', 'Gain', 'dB')}${range('gain', model.GAIN_RANGE.min, model.GAIN_RANGE.max, model.GAIN_RANGE.step, 'Gain adjustment')}<span class="range-endpoints"><span>−60</span><span>0</span><span>+6 dB</span></span></div>
       <div class="control-block delay-control"><label for="delayValue">DELAY</label>${numberInput('id="delayValue" data-value="delay" min="0" max="100" step=".01"', 'Delay', 'ms')}<div class="nudge-row">${[-.1, -.01, .01, .1].map(d => `<button type="button" data-nudge="delay" data-delta="${d}" data-mutation aria-label="${d < 0 ? 'Decrease' : 'Increase'} delay by ${Math.abs(d)} milliseconds">${d > 0 ? '+' : '−'}${Math.abs(d).toFixed(2)}</button>`).join('')}</div><span class="secondary-value" data-secondary="delay"></span></div>
       <div class="control-block"><label for="phaseValue">PHASE TRIM</label>${numberInput('id="phaseValue" data-value="phase" min="-179" max="0" step=".1"', 'Phase trim', '°')}${range('phase', -179, 0, .1, 'Phase trim adjustment')}<span class="secondary-value" data-secondary="phase"></span></div>
       <div class="control-block state-control"><span class="field-label">POLARITY</span><div class="segmented two" role="group" aria-label="Polarity"><button type="button" data-polarity="false" data-mutation>Normal</button><button type="button" data-polarity="true" data-mutation>Inverted</button></div><span class="secondary-value">Signal polarity</span></div>
-      <div class="control-block state-control"><span class="field-label">OUTPUT STATE</span><button type="button" data-mute data-mutation></button><span class="secondary-value" id="muteDetail"></span></div>`;
+      <div class="control-block state-control"><span class="field-label">OUTPUT STATE</span><div class="output-state-row"><output id="muteDetail" class="output-state"></output><button type="button" data-mute data-mutation></button></div></div>`;
     $('#protectionMetrics').innerHTML = `<div class="protection-summary"><span class="field-label">PROTECTION</span><strong>Limiter present</strong><span>Compressor · read only</span></div><label class="inline-field">HARD LIMIT${numberInput('data-value="limiter" min="-60" max="0" step=".1"', 'Hard limiter threshold', 'dBFS')}</label>${['threshold', 'attack', 'release', 'ratio'].map(k => `<div><small>${k.toUpperCase()}</small><span data-protection="${k}"></span></div>`).join('')}`;
     $('#crossoverControls').innerHTML = ['hpf', 'lpf'].map(edge => `<div class="crossover-module" data-edge="${edge}"><div class="crossover-head"><strong>${edge === 'hpf' ? 'High pass' : 'Low pass'} <small>${edge.toUpperCase()}</small></strong><span data-owner="${edge}"></span></div><p data-missing="${edge}" hidden>Not present in this output</p><div class="xo-fields" data-xo-fields="${edge}"><label>FREQUENCY${numberInput(`data-xo-freq="${edge}" min="16" max="20000" step=".1"`, `${edge.toUpperCase()} frequency`, 'Hz')}</label><input type="range" data-xo-range="${edge}" min="0" max="1000" step="1" aria-label="${edge.toUpperCase()} frequency adjustment" data-mutation><div class="xo-types"><label>TYPE<select data-xo-family="${edge}" aria-label="${edge.toUpperCase()} family" data-mutation><option value="LinkwitzRiley">Linkwitz–Riley</option><option value="Butterworth">Butterworth</option></select></label><label>SLOPE<select data-xo-slope="${edge}" aria-label="${edge.toUpperCase()} slope" data-mutation>${[12,24,36,48].map(v => `<option value="${v}">${v} dB/oct</option>`).join('')}</select></label></div></div></div>`).join('');
   }
   // One delegated event layer; handlers resolve current data, never a rendered snapshot.
-  async function run(operation, after = () => {}) {
-    if (locked()) { updateValues(); return; }
-    busy = true; syncLock(); status('COMMITTING');
-    try { const result = await operation(); await after(result); status('DSP API READY', 'success'); }
-    catch (error) { status(`ERROR · ${error.message}`, 'critical'); await service.refresh().catch(() => {}); }
-    finally { busy = false; updateValues(); }
+  function run(operation, after = () => {}, options = {}) {
+    if (!editing || (busy && !options.queue)) { updateValues(); return; }
+    const token = {}, epoch = queueEpoch;
+    const controls = options.controls || [];
+    controls.forEach(el => pendingControls.set(el,{token,channel:selectedChannel,value:el.value}));
+    pendingWrites++; busy = true; syncLock();
+    const execute = async () => {
+      try {
+        if (epoch !== queueEpoch) return;
+        status('COMMITTING');
+        const result = await operation(); await after(result); status('DSP API READY', 'success');
+      } catch (error) {
+        queueEpoch++; // Cancel dependent pending edits after a failed transaction.
+        status(`ERROR · ${error.message}`, 'critical'); await service.refresh().catch(() => {});
+      } finally {
+        controls.forEach(el => { if (pendingControls.get(el)?.token === token) pendingControls.delete(el); });
+        pendingWrites--; busy = pendingWrites > 0; updateValues();
+      }
+    };
+    writeQueue = writeQueue.then(execute);
+    return writeQueue;
   }
   function syncLock() {
     $('#systemEdit').setAttribute('aria-busy', String(busy));
@@ -54,14 +78,14 @@
     $$('[data-mutation]').forEach(el => {
       // readOnly keeps the active numerical field focused through readback.
       el.disabled = !editing;
-      if (el.matches('input[type=number]')) el.readOnly = busy;
-      el.setAttribute('aria-disabled', String(locked()));
+      if (el.matches('input[type=number]')) el.readOnly = busy && !el.matches(queueable);
+      el.setAttribute('aria-disabled', String(!editing || (busy && !el.matches(`${queueable},[data-nudge]`))));
     });
     $('#addPeq').disabled = locked() || (selected()?.peq.filter(Boolean).length || 0) >= 10;
   }
   function updateSelector() {
     if (!$('#waySelector').children.length) {
-      $('#waySelector').innerHTML = latest.ways.map(w => `<button type="button" class="way-card" data-way-channel="${w.channel}" data-way-color="${w.color}"><span class="way-heading"><strong>${w.name}</strong><small>OUT ${w.channel + 1}</small></span><span class="way-gain"></span><span class="way-detail"></span></button>`).join('');
+      $('#waySelector').innerHTML = latest.ways.map(w => `<button type="button" class="way-card" data-way-channel="${w.channel}" data-way-color="${w.color}"><span class="way-heading"><strong>${w.name}</strong><small>OUT ${w.channel + 1}</small></span><span class="way-gain"></span><span class="way-detail"></span><meter class="way-gain-bar" min="${model.GAIN_RANGE.min}" max="${model.GAIN_RANGE.max}" aria-label="${w.name} gain" title="Output gain · −60…+6 dB"></meter></button>`).join('');
       $('#compareWay').innerHTML = '<option value="">None</option>' + latest.ways.map(w => `<option value="${w.channel}">${w.name}</option>`).join('');
       $('#xoPair').innerHTML = graph.XO_PAIRS.map(p => `<option value="${p.id}">${p.label}</option>`).join('');
     }
@@ -71,6 +95,8 @@
       el.querySelector('.way-gain').textContent = db(g.gain);
       el.querySelector('.way-detail').textContent = `${g.mute ? 'MUTED' : 'ON'} · ${Number(w.delay.filter.parameters.delay).toFixed(2)} ms${g.inverted ? ' · INV' : ''}`;
       el.classList.toggle('is-muted', !!g.mute);
+      el.querySelector('.way-gain-bar').value = model.normalizeGain(g.gain);
+      el.querySelector('.way-gain-bar').setAttribute('aria-valuetext',db(g.gain));
     });
   }
   function createPeqRow(slot) {
@@ -104,9 +130,10 @@
     text('[data-secondary="delay"]', `${(delay * latest.sampleRate / 1000).toFixed(1)} samples · ${(delay * .343).toFixed(3)} m`);
     text('[data-secondary="phase"]', `Reference ${hz(ref)}`);
     $$('[data-polarity]').forEach(el => { const on = (el.dataset.polarity === 'true') === !!g.inverted; el.classList.toggle('polarity-active', on); el.setAttribute('aria-pressed', String(on)); });
-    text('[data-mute]', g.mute ? 'MUTED' : 'ON · Mute');
+    text('[data-mute]', g.mute ? 'Unmute' : 'Mute');
     $('[data-mute]').classList.toggle('is-active', !!g.mute); $('[data-mute]').setAttribute('aria-pressed', String(!!g.mute));
-    text('#muteDetail', g.mute ? 'Output silenced' : 'Output enabled');
+    text('#muteDetail', g.mute ? 'MUTED' : 'ON');
+    $('#muteDetail').classList.toggle('is-muted', !!g.mute);
     text('#outputMeta', `${item.name} · OUT ${item.channel + 1}`);
     const p = item.protection?.processor?.parameters;
     text('.protection-summary strong', 'Hard limiter present');
@@ -125,32 +152,63 @@
     text('#crossoverScope', 'LIVE EDGES'); updatePeq(item);
   }
   function bindEditors() {
+    document.addEventListener('pointerdown', e => {
+      if (!e.isPrimary || !editing || !e.target.matches('input[type=range]')) return;
+      activeRange = {element:e.target,pointerId:e.pointerId,changed:false};
+      pairedControls(e.target).forEach(el => drafts.add(el));
+      // Native range interaction owns the gesture; pointer capture preserves it
+      // outside the thin track. touch-action is restricted to the range itself.
+      e.target.setPointerCapture(e.pointerId);
+    });
+    document.addEventListener('pointerup', e => {
+      if (activeRange?.pointerId !== e.pointerId) return;
+      const gesture = activeRange; activeRange = null;
+      if (!gesture.changed) { pairedControls(gesture.element).forEach(el => drafts.delete(el)); updateValues(); }
+    });
+    document.addEventListener('pointercancel', e => {
+      if (activeRange?.pointerId !== e.pointerId) return;
+      pairedControls(activeRange.element).forEach(el => drafts.delete(el));
+      activeRange = null; updateValues();
+    });
     document.addEventListener('input', e => {
-      const el = e.target; if (!el.matches('[data-mutation]') || locked()) return;
-      drafts.add(el);
-      if (el.dataset.range) value($(`[data-value="${el.dataset.range}"]`), el.value);
-      if (el.dataset.xoRange) value($(`[data-xo-freq="${el.dataset.xoRange}"]`), Math.round(16 * (20000 / 16) ** (Number(el.value) / 1000)));
+      const el = e.target; if (!el.matches('[data-mutation]') || !editing || (busy && !el.matches(queueable))) return;
+      pairedControls(el).forEach(control => drafts.add(control));
+      if (activeRange?.element === el) activeRange.changed = true;
+      if (el.dataset.range) $(`[data-value="${el.dataset.range}"]`).value = el.value;
+      if (el.dataset.xoRange) $(`[data-xo-freq="${el.dataset.xoRange}"]`).value = Math.round(16 * (20000 / 16) ** (Number(el.value) / 1000));
+      if (el.value !== '' && Number.isFinite(Number(el.value))) {
+        const pairedRange = el.dataset.value && $(`[data-range="${el.dataset.value}"]`);
+        if (pairedRange) pairedRange.value = el.dataset.value === 'gain' ? model.normalizeGain(el.value) : el.value;
+        if (el.dataset.xoFreq && Number(el.value)>0) $(`[data-xo-range="${el.dataset.xoFreq}"]`).value = Math.round(Math.log(Number(el.value)/16)/Math.log(20000/16)*1000);
+      }
     });
     document.addEventListener('change', e => {
-      const el = e.target; if (!el.matches('[data-mutation]')) return; drafts.delete(el);
-      if (locked()) { updateValues(); return; }
+      const el = e.target; if (!el.matches('[data-mutation]')) return;
+      const controls = pairedControls(el); controls.forEach(control => drafts.delete(control));
+      if (!editing || (busy && !el.matches(queueable))) { updateValues(); return; }
+      if (el.dataset.value === 'gain' && el.value !== '') el.value = model.normalizeGain(el.value);
       if (el.validity && !el.validity.valid) { el.reportValidity(); updateValues(); return; }
+      const pending = pendingControls.get(el);
+      if (pending?.channel === selectedChannel && pending.value === el.value) return;
       const channel = selectedChannel, id = el.dataset.value || el.dataset.range;
       if (id) {
         const item = selected(), next = Number(el.value);
         const current = {gain:item.gain.filter.parameters.gain, delay:item.delay.filter.parameters.delay, phase:model.phaseDegrees(latest.config,channel), limiter:item.limiter.filter.parameters.clip_limit}[id];
         // Native blur can follow an explicit change on the same field. Never
         // start a second transaction for an already acknowledged value.
-        if (next === Number(current)) return;
+        if (!pending && next === Number(current)) return;
         const method = {gain:'setGain', delay:'setDelay', phase:'setPhase', limiter:'setHardLimiter'}[id];
-        return run(() => service[method](channel, next));
+        return run(() => service[method](channel, next), undefined, {queue:true,controls});
       }
       const edge = el.dataset.xoFamily || el.dataset.xoFreq || el.dataset.xoSlope || el.dataset.xoRange;
       if (edge) {
         const patch = {family:$(`[data-xo-family="${edge}"]`).value, freq:Number($(`[data-xo-freq="${edge}"]`).value), slope:Number($(`[data-xo-slope="${edge}"]`).value)};
         const current = selected().crossover[edge]?.filter.parameters;
-        if (!current || (patch.freq === current.freq && patch.slope === current.order*6 && patch.family === (/^Butterworth/.test(current.type) ? 'Butterworth' : 'LinkwitzRiley'))) return;
-        return run(() => service.setCrossover(channel, edge, patch));
+        if (!current || (!pending && patch.freq === current.freq && patch.slope === current.order*6 && patch.family === (/^Butterworth/.test(current.type) ? 'Butterworth' : 'LinkwitzRiley'))) return;
+        // Patch only the manipulated property, so a queued edit cannot replay
+        // obsolete frequency/family/slope values over the preceding readback.
+        const field = el.dataset.xoFamily ? 'family' : el.dataset.xoSlope ? 'slope' : 'freq';
+        return run(() => service.setCrossover(channel, edge, {[field]:patch[field]}), undefined, {queue:true,controls});
       }
       if (el.dataset.peqField || el.dataset.peqType !== undefined) {
         const slot = Number(el.dataset.slot ?? el.dataset.peqType), field = el.dataset.peqField || 'type';
@@ -162,11 +220,18 @@
     document.addEventListener('click', e => {
       const el = e.target.closest('button'); if (!el) return;
       if (el.dataset.wayChannel !== undefined) {
+        if (activeRange) return;
         selectedChannel = Number(el.dataset.wayChannel); if (compareChannel === selectedChannel) compareChannel = null;
-        $$('[data-mutation]').forEach(i => drafts.delete(i)); updateValues(); return;
+        $$('[data-mutation]').forEach(i => drafts.delete(i)); updateValues();
+        const strip = $('#waySelector');
+        if (strip.scrollWidth > strip.clientWidth) strip.scrollTo({left:el.offsetLeft-strip.offsetLeft-(strip.clientWidth-el.clientWidth)/2,behavior:'smooth'});
+        return;
+      }
+      if (el.dataset.nudge && editing) {
+        const channel = selectedChannel, delta = Number(el.dataset.delta);
+        return run(() => service.setDelay(channel,clamp(Number(latest.ways.find(w=>w.channel===channel).delay.filter.parameters.delay)+delta,0,100)),undefined,{queue:true});
       }
       const item = selected(); if (!item || locked()) return; const channel = item.channel;
-      if (el.dataset.nudge) return run(() => service.setDelay(channel, clamp(Number(item.delay.filter.parameters.delay) + Number(el.dataset.delta), 0, 100)));
       if (el.hasAttribute('data-mute')) return run(() => service.setMute(channel, !item.gain.filter.parameters.mute));
       if (el.dataset.polarity !== undefined) return run(() => service.setPolarity(channel, el.dataset.polarity === 'true'));
       if (el.id === 'addPeq') return run(() => service.addPeq(channel, disabledSlots(channel)), r => {setDisabled(channel,r.createdSlot,false); updateValues(); $(`[data-peq-field="freq"][data-slot="${r.createdSlot}"]`)?.focus({preventScroll:true});});
@@ -201,13 +266,13 @@
     const [fmin,fmax] = graphRange(), left = 45, right = 22, top = 17, bottom = 26, pw = w-left-right, ph = h-top-bottom;
     const phaseMode = graphMode !== 'magnitude', minY = phaseMode ? -180 : -72, maxY = phaseMode ? 180 : 18;
     const x = f => left + Math.log(f/fmin) / Math.log(fmax/fmin) * pw, y = v => top + (maxY-v)/(maxY-minY)*ph;
-    ctx.font = '10px ui-monospace,monospace';
+    ctx.font = `${w<600?11:10}px ui-monospace,monospace`;
     const segment = (x1,y1,x2,y2) => { ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2,y2); ctx.stroke(); };
     (phaseMode ? [-180,-90,0,90,180] : [-60,-48,-36,-24,-12,0,12]).forEach(v => {
       ctx.strokeStyle = v === 0 ? '#435c63' : '#203338'; ctx.lineWidth = 1; segment(left,y(v),w-right,y(v));
       ctx.fillStyle = '#8fa5ab'; ctx.textAlign = 'right'; ctx.fillText(v, left-9,y(v)+3);
     });
-    const ticks = w < 360 ? [20,100,1000,10000,20000] : w < 600 ? [20,50,100,200,500,1000,2000,5000,10000,20000] : [20,30,50,80,100,200,500,1000,2000,5000,10000,20000];
+    const ticks = w < 300 ? [20,100,1000,20000] : w < 600 ? [20,50,100,500,1000,5000,20000] : [20,30,50,80,100,200,500,1000,2000,5000,10000,20000];
     ticks.filter(v => v >= fmin && v <= fmax).forEach(v => {
       ctx.strokeStyle = [100,1000,10000].includes(v) ? '#2d4349' : '#192d32'; segment(x(v),top,x(v),h-bottom);
       ctx.fillStyle='#8fa5ab'; ctx.textAlign='center'; ctx.fillText(v>=1000 ? `${v/1000}k` : v,x(v),h-8);

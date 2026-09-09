@@ -40,13 +40,16 @@ a mock apply/revert transaction.
 
 Gain, mute and polarity use each way’s existing `Gain` filter:
 
-- gain: `Gain.parameters.gain`, range `-60…+12 dB`, step `0.1 dB`;
+- gain: `Gain.parameters.gain`, range `-60…+6 dB`, step `0.1 dB`;
 - mute: `Gain.parameters.mute`;
 - polarity: `Gain.parameters.inverted`.
 
 The Gain identity is the same verified per-way identity as Control. Output
-Processing has its own narrow writer because its calibration range intentionally
-extends to `+12 dB`; Control keeps its narrower operator range.
+Processing retains its own narrow writer, with the same `−60…+6 dB`, `0.1 dB`
+operator range as Control. `GAIN_RANGE` and `normalizeGain()` in the Output
+model define that range; the UI, tile gain bars and service use it. Gain mutation
+readback also rejects a changed gain outside this range or step. Reading an older
+configuration never silently rewrites its gain.
 
 Per-way delay changes only the existing Delay filter’s `parameters.delay`:
 `0…100 ms`, step `0.01 ms`. Its `unit` and `subsample` properties are
@@ -184,3 +187,43 @@ mute operations, phase/limiter/PEQ/crossover controls, locked-event rejection an
 lock reset on reload. Each write test restores and compares the complete demo
 configuration. This is software validation only; hardware acceptance remains
 pending.
+
+## Touch and product polish
+
+Way tiles include a subtle semantic-color gain bar derived from the live Gain
+value on the same −60…+6 dB scale. It is a configuration gain indicator, not
+a signal-level meter. Output state (`ON` / `MUTED`) is separate from its
+`Mute` / `Unmute` action.
+
+Native range inputs retain keyboard and pointer behavior, with a 44 CSS pixel
+interaction area on phones/coarse pointers. Pointer capture retains an active
+drag; `touch-action: none` applies only to range inputs, leaving surrounding
+content available for ordinary scrolling. Movement previews the range and exact
+field locally; release commits once. Cancelled gestures restore the live value.
+
+Alignment and crossover edits can be queued while a guarded write is in flight.
+The frontend executes them serially through the unchanged service transaction
+architecture. Pending local values survive intervening readbacks; delay nudges
+resolve the latest delay when executed. A failed transaction cancels dependent
+pending edits. PEQ structural actions remain unavailable during a commit.
+Controls and canvas retain their DOM identity, and graph/view state is independent
+of the write queue.
+
+On mobile the Output header is compact, two full way tiles fit the scrolling
+selector, selected ways scroll into view, and graph modes occupy their own touch
+row. Alignment/nudges/polarity and EQ actions have comfortable touch targets.
+Each PEQ band is a card with separate frequency, gain and Q rows, 16 px numeric
+fields, and clear band/type/power/actions. HPF and LPF stack with prominent exact
+frequency and a full-width slider; family, slope and ownership stay secondary.
+The current desktop structure is retained.
+
+The focused mobile E2E sends real Chromium touch events through the product UI
+against the canonical Linux demo. It checks one write per slider release, no
+write during movement, Gain/Phase/Delay sequencing under delayed acknowledgements
+on SUB and MID L, crossover drags, touch actions, way scrolling, the +6/−60
+bounds, gain-bar mapping and exact final configuration restoration.
+
+This focused polish received two screenshot-based refinement passes, across all
+five viewport sizes above at 80/100/125/150% browser zoom, with no document or
+editor overflow. Touch QA additionally checks cancelled gestures perform no write
+and verifies normal vertical scrolling away from the slider.

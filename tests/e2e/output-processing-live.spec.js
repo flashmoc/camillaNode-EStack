@@ -199,3 +199,107 @@ test('keeps the calibration surface stable across live parameter readbacks', asy
     expect(await dspCommand('GetConfigJson')).toEqual(original);
   }
 });
+
+test.describe('Output mobile touch', () => {
+  test.use({ viewport:{width:390,height:844}, isMobile:true, hasTouch:true });
+  test('drags native controls once per release and preserves Phase through queued readbacks', async ({page,request}) => {
+    test.setTimeout(90_000);
+    await requireDemoRuntime(request); const original=await dspCommand('GetConfigJson');
+    let writes=0, holdAck=false; const acknowledgements=[];
+    // Real demo WebSocket, with an explicitly delayed acknowledgement to cover
+    // another gesture and a delay nudge while the preceding write is in flight.
+    await page.routeWebSocket('**/ws/dsp', socket => {
+      const server=socket.connectToServer();
+      socket.onMessage(message=>{if(JSON.parse(String(message)).SetConfigJson!==undefined)writes++;server.send(message);});
+      server.onMessage(message=>{if(holdAck && JSON.parse(String(message)).SetConfigJson!==undefined)acknowledgements.push(()=>socket.send(message));else socket.send(message);});
+    });
+    const errors=[];page.on('pageerror',e=>errors.push(e.message));
+    await page.goto('/estack-dsp/?transport=camillanode#output-processing');const frame=await outputFrame(page);
+    const cdp=await page.context().newCDPSession(page);
+    const touch=async(type,x,y)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:['touchEnd','touchCancel'].includes(type)?[]:[{x,y,id:1,radiusX:7,radiusY:7,force:1}]});
+    const ready=()=>expect(frame.locator('#editState')).toHaveText('EDITING');
+    const drag=async(selector,from,to)=>{
+      const control=frame.locator(selector);await control.evaluate(el=>el.scrollIntoView({block:'center'}));
+      const box=await control.boundingBox();expect(box.height).toBeGreaterThanOrEqual(44);
+      const priorWrites=writes,priorValue=await control.inputValue();
+      const beforeScroll=[await page.evaluate(()=>scrollY),await frame.evaluate(()=>scrollY)];
+      const y=box.y+box.height/2+13; // Start outside the tiny visual thumb.
+      await touch('touchStart',box.x+box.width*from,y);
+      for(let i=1;i<=6;i++)await touch('touchMove',box.x+box.width*(from+(to-from)*i/6),y);
+      expect(await control.inputValue()).not.toBe(priorValue);
+      expect(writes).toBe(priorWrites);
+      expect([await page.evaluate(()=>scrollY),await frame.evaluate(()=>scrollY)]).toEqual(beforeScroll);
+      await expect(frame.locator('#responseGraph')).toHaveAttribute('data-graph-mode','phase');
+      await touch('touchEnd');
+    };
+    try {
+      await expect(frame.locator('.way-card')).toHaveCount(6);
+      await expect(frame.locator('[data-range="gain"]')).toHaveAttribute('max','6');
+      await expect(frame.locator('[data-value="gain"]')).toHaveAttribute('max','6');
+      await expect(frame.locator('[data-range="gain"]')).toHaveAttribute('step','0.1');
+      await frame.locator('#systemEdit').tap();await ready();
+      await frame.locator('button[data-graph-mode="phase"]').tap();
+      for(const channel of [0,2]) {
+        await frame.locator(`[data-way-channel="${channel}"]`).scrollIntoViewIfNeeded();
+        await frame.locator(`[data-way-channel="${channel}"]`).tap();
+        await frame.evaluate(()=>{
+          window.touchNodes=[...document.querySelectorAll('#responseGraph,#outputControls input,#crossoverControls input')];
+          window.touchModes=[];window.touchObserver=new MutationObserver(records=>records.forEach(r=>window.touchModes.push(r.oldValue,r.target.dataset.graphMode)));
+          window.touchObserver.observe(document.querySelector('#responseGraph'),{attributes:true,attributeFilter:['data-graph-mode'],attributeOldValue:true});
+        });
+        const start=writes,delayBefore=Number(await frame.locator('[data-value="delay"]').inputValue());
+        holdAck=true;
+        await drag('[data-range="gain"]',.65,.8);
+        await expect.poll(()=>writes).toBe(start+1);
+        await drag('[data-range="phase"]',.85,.7);
+        await frame.locator('[data-delta="0.01"]').tap();
+        expect(writes).toBe(start+1); // Later edits must wait for readback.
+        holdAck=false;acknowledgements.splice(0).forEach(send=>send());await ready();
+        expect(writes).toBe(start+3);
+        await expect(frame.locator('[data-value="delay"]')).toHaveValue((delayBefore+.01).toFixed(2));
+        await expect(frame.locator(`[data-way-channel="${channel}"]`)).toHaveAttribute('aria-pressed','true');
+        expect(await frame.evaluate(()=>window.touchNodes.every(el=>el.isConnected))).toBe(true);
+        expect(await frame.evaluate(()=>window.touchModes.every(mode=>mode==='phase'))).toBe(true);
+        await frame.evaluate(()=>window.touchObserver.disconnect());
+      }
+      for(const edge of ['hpf','lpf']) {const start=writes;await drag(`[data-xo-range="${edge}"]`,.25,.55);await ready();expect(writes).toBe(start+1);}
+      for(const [value,expected] of [['99','6.0'],['-99','-60.0']]) {
+        const input=frame.locator('[data-value="gain"]');await input.fill(value);await input.press('Tab');await ready();
+        await expect(input).toHaveValue(expected);
+        expect((await dspCommand('GetConfigJson')).filters.mid_l_gain.parameters.gain).toBe(Number(expected));
+        await expect(frame.locator('[data-way-channel="2"] meter')).toHaveJSProperty('value',Number(expected));
+        await expect(frame.locator('[data-way-channel="2"] meter')).toHaveAttribute('min','-60');
+        await expect(frame.locator('[data-way-channel="2"] meter')).toHaveAttribute('max','6');
+      }
+      await frame.locator('[data-polarity="true"]').tap();await ready();await expect(frame.locator('[data-polarity="true"]')).toHaveAttribute('aria-pressed','true');
+      await frame.locator('[data-mute]').tap();await ready();await expect(frame.locator('#muteDetail')).toHaveText('MUTED');await expect(frame.locator('[data-mute]')).toHaveText('Unmute');
+      const row=frame.locator('.peq-row').first(),power=row.locator('[data-peq-toggle]');
+      const state=await power.getAttribute('aria-pressed');await power.tap();await ready();await expect(power).toHaveAttribute('aria-pressed',String(state!=='true'));
+      const frequency=row.locator('[data-peq-field="freq"]');await frequency.fill('710');await frequency.press('Tab');await ready();await expect(frequency).toHaveValue('710');
+      // Horizontal way scrolling remains native, and vertical page scrolling is
+      // available outside the range's isolated touch gesture area.
+      const strip=frame.locator('#waySelector');await strip.evaluate(el=>{el.scrollLeft=0;el.scrollIntoView({block:'center'});});
+      const box=await strip.boundingBox();await touch('touchStart',box.x+box.width*.85,box.y+30);
+      for(let i=1;i<=8;i++)await touch('touchMove',box.x+box.width*(.85-.7*i/8),box.y+30);
+      await touch('touchEnd');await expect.poll(()=>strip.evaluate(el=>el.scrollLeft)).toBeGreaterThan(20);
+      for(const mode of ['magnitude','xo','phase']){await frame.locator(`button[data-graph-mode="${mode}"]`).tap();await expect(frame.locator('#responseGraph')).toHaveAttribute('data-graph-mode',mode);}
+      const gainControl=frame.locator('[data-range="gain"]');await gainControl.evaluate(el=>el.scrollIntoView({block:'center'}));
+      const gainBox=await gainControl.boundingBox(),cancelWrites=writes,cancelValue=await gainControl.inputValue();
+      await touch('touchStart',gainBox.x+gainBox.width*.4,gainBox.y+30);await touch('touchMove',gainBox.x+gainBox.width*.6,gainBox.y+30);await touch('touchCancel');
+      await expect(gainControl).toHaveValue(cancelValue);expect(writes).toBe(cancelWrites);
+      const canvas=frame.locator('#responseGraph');await canvas.evaluate(el=>el.scrollIntoView({block:'center'}));
+      const graphBox=await canvas.boundingBox(),scrollBefore=await page.evaluate(()=>scrollY)+await frame.evaluate(()=>scrollY);
+      await touch('touchStart',graphBox.x+graphBox.width/2,graphBox.y+graphBox.height*.85);
+      for(let i=1;i<=8;i++)await touch('touchMove',graphBox.x+graphBox.width/2,graphBox.y+graphBox.height*(.85-.6*i/8));
+      await touch('touchEnd');
+      await expect.poll(async()=>await page.evaluate(()=>scrollY)+await frame.evaluate(()=>scrollY)).toBeGreaterThan(scrollBefore+5);
+      expect(await frame.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+      expect(errors).toEqual([]);
+    } finally {
+      holdAck=false;acknowledgements.splice(0).forEach(send=>send());
+      await ready();
+      if(JSON.stringify(await dspCommand('GetConfigJson'))!==JSON.stringify(original))await dspCommand({SetConfigJson:JSON.stringify(original)});
+      expect(await dspCommand('GetConfigJson')).toEqual(original);
+    }
+  });
+});
