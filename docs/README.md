@@ -19,7 +19,9 @@ DSP backend.
    acceptance state.
 6. [Input Processing](pages/input-processing.md) — live Global EQ/Input Delay
    core and its Stage 2B boundary.
-7. [Development simulation and E2E](development.md) — canonical Linux
+7. [Output Processing](pages/output-processing.md) — six-way post-mixer
+   migration and its Stage 3A boundary.
+8. [Development simulation and E2E](development.md) — canonical Linux
    Dev Container/Codespaces workflow and software-validation gate.
 
 ## Supporting documents

@@ -59,10 +59,10 @@
     option.textContent = link.textContent;
     mobileSelect.appendChild(option);
   });
-  const shellRevision = 'product-v1';
+  const shellRevision = 'product-v2';
   const productMount = location.pathname.startsWith('/estack-dsp/');
   const routes = Object.fromEntries(links.map(link => {
-    const route = link.dataset.page === 'output-processing' ? new URL(productMount ? './per-way/?mode=integrated' : '../per-way/?mode=integrated', document.baseURI) : new URL(link.href);
+    const route = new URL(link.href);
     route.searchParams.set('v', shellRevision);
     if (hardwareTransport) route.searchParams.set('transport', 'camillanode');
     return [link.dataset.page, route.href];

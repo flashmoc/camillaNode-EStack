@@ -1,0 +1,81 @@
+'use strict';
+
+const assert = require('assert');
+const fs = require('fs');
+const path = require('path');
+const vm = require('vm');
+const root = path.resolve(__dirname, '..');
+const files = ['pipeline.js', 'output-processing-model.js', 'output-processing-service.js'];
+const clone = value => JSON.parse(JSON.stringify(value));
+
+const gain = value => ({ type: 'Gain', parameters: { gain: value, scale: 'dB', inverted: false, mute: false } });
+const delay = value => ({ type: 'Delay', parameters: { delay: value, unit: 'ms', subsample: false } });
+const limiter = name => ({ type: 'Limiter', description: `${name} final limiter`, parameters: { clip_limit: -3, soft_clip: false } });
+const crossover = (type, freq, order = 4) => ({ type: 'BiquadCombo', parameters: { type, freq, order } });
+
+function demoTopology() {
+  const filters = {
+    GLOBAL_EQ_01: { type: 'Biquad', parameters: { type: 'Peaking', freq: 63, gain: 2, q: .7 } },
+    ESTACK_INPUT_DELAY: { type: 'Delay', parameters: { delay: 1, unit: 'ms', subsample: false } },
+    sub_hpf_40_bw24: crossover('ButterworthHighpass', 40), sub_lpf_130_lr24: crossover('LinkwitzRileyLowpass', 130), sub_gain: gain(-12), sub_delay: delay(.2), sub_hard_limit: limiter('sub'),
+    kick_hpf_130_lr24: crossover('LinkwitzRileyHighpass', 130), kick_lpf_300_lr24: crossover('LinkwitzRileyLowpass', 300), kick_gain: gain(-16), kick_delay: delay(.3), kick_hard_limit: limiter('kick'),
+    mid_hpf_300_lr24: crossover('LinkwitzRileyHighpass', 300), mid_lpf_2000_lr24: crossover('LinkwitzRileyLowpass', 2000), mid_l_gain: gain(-12), mid_l_delay: delay(.4), mid_l_hard_limit: limiter('mid-l'), mid_r_gain: gain(-12), mid_r_delay: delay(.4), mid_r_hard_limit: limiter('mid-r'),
+    high_hpf_2000_lr24: crossover('LinkwitzRileyHighpass', 2000), high_l_gain: gain(-10), high_l_delay: delay(.5), high_l_hard_limit: limiter('high-l'), high_r_gain: gain(-10), high_r_delay: delay(.5), high_r_hard_limit: limiter('high-r')
+  };
+  const names = (prefix, hpf, lpf, gainName, delayName) => [hpf, ...(lpf ? [lpf] : []), gainName, delayName];
+  return {
+    devices: { samplerate: 48000, capture: { type: 'Stdin', channels: 2 }, playback: { type: 'File', channels: 8 } },
+    mixers: { routing: { mapping: [0, 1, 2, 3, 4, 5].map(dest => ({ dest, sources: [{ channel: dest, gain: 0 }] })) } },
+    filters,
+    processors: {
+      sub_protection: { type: 'Compressor', parameters: { process_channels: [0], threshold: -12 } }, kick_protection: { type: 'Compressor', parameters: { process_channels: [1], threshold: -12 } }, mid_l_protection: { type: 'Compressor', parameters: { process_channels: [2], threshold: -12 } }, mid_r_protection: { type: 'Compressor', parameters: { process_channels: [3], threshold: -12 } }, high_l_protection: { type: 'Compressor', parameters: { process_channels: [4], threshold: -12 } }, high_r_protection: { type: 'Compressor', parameters: { process_channels: [5], threshold: -12 } }
+    },
+    pipeline: [
+      { type: 'Filter', channels: [0, 1], names: ['GLOBAL_EQ_01', 'ESTACK_INPUT_DELAY'] }, { type: 'Mixer', name: 'routing' },
+      { type: 'Filter', channels: [0], names: names('sub', 'sub_hpf_40_bw24', 'sub_lpf_130_lr24', 'sub_gain', 'sub_delay') }, { type: 'Processor', name: 'sub_protection' }, { type: 'Filter', channels: [0], names: ['sub_hard_limit'] },
+      { type: 'Filter', channels: [1], names: names('kick', 'kick_hpf_130_lr24', 'kick_lpf_300_lr24', 'kick_gain', 'kick_delay') }, { type: 'Processor', name: 'kick_protection' }, { type: 'Filter', channels: [1], names: ['kick_hard_limit'] },
+      { type: 'Filter', channels: [2], names: names('mid-l', 'mid_hpf_300_lr24', 'mid_lpf_2000_lr24', 'mid_l_gain', 'mid_l_delay') }, { type: 'Processor', name: 'mid_l_protection' }, { type: 'Filter', channels: [2], names: ['mid_l_hard_limit'] },
+      { type: 'Filter', channels: [3], names: names('mid-r', 'mid_hpf_300_lr24', 'mid_lpf_2000_lr24', 'mid_r_gain', 'mid_r_delay') }, { type: 'Processor', name: 'mid_r_protection' }, { type: 'Filter', channels: [3], names: ['mid_r_hard_limit'] },
+      { type: 'Filter', channels: [4], names: names('high-l', 'high_hpf_2000_lr24', null, 'high_l_gain', 'high_l_delay') }, { type: 'Processor', name: 'high_l_protection' }, { type: 'Filter', channels: [4], names: ['high_l_hard_limit'] },
+      { type: 'Filter', channels: [5], names: names('high-r', 'high_hpf_2000_lr24', null, 'high_r_gain', 'high_r_delay') }, { type: 'Processor', name: 'high_r_protection' }, { type: 'Filter', channels: [5], names: ['high_r_hard_limit'] }
+    ]
+  };
+}
+function create(config) {
+  const context = { window: {}, console, JSON, Math, Set, Object, Array, Number, String, Promise };
+  context.window.EStackDSPBridge = { mode: 'camillanode', async command(payload) { const name = typeof payload === 'string' ? payload : Object.keys(payload)[0]; if (name === 'GetConfigJson') return clone(config); if (name === 'SetConfigJson') { config = JSON.parse(payload.SetConfigJson); return true; } throw new Error(`Unexpected ${name}`); } };
+  files.forEach(file => vm.runInNewContext(fs.readFileSync(path.join(root, 'public/prototypes/estack-ui/shared/domain', file), 'utf8'), context, { filename: file }));
+  return { model: context.window.EStackOutputProcessingModel, service: context.window.EStackOutputProcessingService, get: () => clone(config) };
+}
+
+(async () => {
+  const { model, service, get } = create(demoTopology());
+  const discovery = await service.refresh();
+  assert.deepStrictEqual(Array.from(discovery.ways, item => item.name), ['SUB', 'KICK', 'MID L', 'MID R', 'HIGH L', 'HIGH R']);
+  assert.deepStrictEqual(Array.from(discovery.ways, item => item.channel), [0, 1, 2, 3, 4, 5]);
+  assert.strictEqual(discovery.ways[2].crossover.hpf.name, discovery.ways[3].crossover.hpf.name);
+  assert.strictEqual(discovery.ways[2].crossover.lpf.name, discovery.ways[3].crossover.lpf.name);
+  assert.ok(!discovery.ways.some(item => item.stageNames.includes('GLOBAL_EQ_01')), 'pre-mixer Input Processing leaked into an output way');
+
+  let before = get(); const midRefs = before.pipeline.filter(step => step.type === 'Filter' && [2, 3].includes(step.channels?.[0])).map(step => clone(step.names));
+  await service.setCrossover(2, 'hpf', { freq: 301, family: 'LinkwitzRiley', slope: 24 }); let changed = get();
+  assert.strictEqual(changed.filters.mid_hpf_300_lr24.parameters.freq, 301); assert.deepStrictEqual(changed.pipeline.filter(step => step.type === 'Filter' && [2, 3].includes(step.channels?.[0])).map(step => step.names), midRefs);
+  assert.deepStrictEqual(changed.filters.sub_delay, before.filters.sub_delay); assert.deepStrictEqual(changed.mixers, before.mixers); assert.deepStrictEqual(changed.devices, before.devices);
+
+  before = get(); await service.setDelay(0, 1.25); changed = get(); assert.strictEqual(changed.filters.sub_delay.parameters.delay, 1.25); assert.deepStrictEqual(changed.filters.kick_delay, before.filters.kick_delay); assert.deepStrictEqual(changed.filters.mid_hpf_300_lr24, before.filters.mid_hpf_300_lr24);
+  before = get(); await service.setPolarity(1, true); changed = get(); assert.strictEqual(changed.filters.kick_gain.parameters.inverted, true); assert.deepStrictEqual(changed.filters.sub_gain, before.filters.sub_gain);
+
+  await service.setPhase(0, -20); changed = get(); assert.strictEqual(changed.filters.ESTACK_PHASE_CH0.parameters.type, 'AllpassFO'); let stage = changed.pipeline.find(step => step.type === 'Filter' && step.channels?.[0] === 0 && step.names.includes('sub_gain')); assert.ok(stage.names.indexOf('ESTACK_PHASE_CH0') < stage.names.indexOf('sub_gain'));
+  await service.setPhase(0, 0); changed = get(); assert.strictEqual(changed.filters.ESTACK_PHASE_CH0, undefined); assert.ok(!changed.pipeline.some(step => step.names?.includes('ESTACK_PHASE_CH0')));
+
+  const added = await service.addPeq(2, []); assert.strictEqual(added.createdSlot, 0); await service.setPeq(2, 0, { gain: 2, freq: 1000, q: 1 }, []); changed = get(); stage = changed.pipeline.find(step => step.type === 'Filter' && step.channels?.[0] === 2 && step.names.includes('mid_l_gain')); assert.ok(stage.names.indexOf('USER_CH2_PEQ_01') < stage.names.indexOf('mid_l_gain')); assert.ok(!changed.pipeline.some(step => step.channels?.[0] === 3 && step.names?.includes('USER_CH2_PEQ_01')));
+  await service.setPeq(2, 0, {}, [0]); changed = get(); assert.ok(changed.filters.USER_CH2_PEQ_01); assert.ok(!changed.pipeline.some(step => step.names?.includes('USER_CH2_PEQ_01')));
+  await service.resetPeq(2, 0, []); changed = get(); assert.deepStrictEqual(changed.filters.USER_CH2_PEQ_01.parameters, { type: 'Peaking', freq: 31, gain: 0, q: .7 }); assert.ok(!changed.pipeline.some(step => step.names?.includes('USER_CH2_PEQ_01')));
+  await service.deletePeq(2, 0, []); changed = get(); assert.strictEqual(changed.filters.USER_CH2_PEQ_01, undefined);
+
+  before = get(); const originalLimiter = clone(before.filters.sub_hard_limit); await service.setHardLimiter(0, -4); changed = get(); assert.strictEqual(changed.filters.sub_hard_limit.parameters.clip_limit, -4); const unchangedLimiter = clone(changed.filters.sub_hard_limit); delete originalLimiter.parameters.clip_limit; delete unchangedLimiter.parameters.clip_limit; assert.deepStrictEqual(unchangedLimiter, originalLimiter);
+  const illegalWay = clone(before); illegalWay.filters.kick_delay.parameters.delay = 9; assert.throws(() => model.assertDelayMutation(before, illegalWay, 0), /unexpectedly/);
+  const illegalInput = clone(before); illegalInput.filters.GLOBAL_EQ_01.parameters.gain = 7; assert.throws(() => model.assertDelayMutation(before, illegalInput, 0), /unexpectedly/);
+  const illegalMixer = clone(before); illegalMixer.mixers.routing.mapping[0].sources[0].gain = 1; assert.throws(() => model.assertDelayMutation(before, illegalMixer, 0), /unexpectedly/);
+  console.log('OK:   Output Processing six-way topology, scoped transactions, PEQ, phase and shared crossover guards');
+})().catch(error => { console.error(error.stack || error); process.exit(1); });
