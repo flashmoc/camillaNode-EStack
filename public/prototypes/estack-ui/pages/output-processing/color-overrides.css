@@ -1,6 +1,15 @@
 /* Per-way identity accents: the historical workspace used a strong colour rail
    at the top of every way, with the selected way receiving a brighter treatment. */
+.way-selector {
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 8px;
+  padding: 9px;
+}
+
 .way-card {
+  min-height: 82px;
+  padding: 11px 13px;
+}
   border-top: 3px solid var(--way-color);
   border-left-width: 1px;
   background:
@@ -52,5 +61,10 @@
 }
 
 @media (max-width: 820px) {
+  .way-selector { grid-template-columns: repeat(3, minmax(164px, 1fr)); }
   .way-card { border-top-width: 4px; }
+}
+
+@media (max-width: 620px) {
+  .way-selector { display: flex; }
 }
