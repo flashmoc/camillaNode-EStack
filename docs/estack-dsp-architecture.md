@@ -77,3 +77,30 @@ capability belongs in the product page plus a reusable domain/service layer.
   semantics are migrated only when an explicit task covers them.
 - **Legacy frontend:** retained as behavioral reference until each capability
   has a product-owned replacement.
+
+## Persistent system overview and phone layout
+
+The product shell owns a read-only telemetry loop in `shared/system-status.js`,
+using `EStackDSPBridge` independently of the selected iframe. It reads
+`GetConfigJson`, `GetPlaybackSignalPeak`, `GetProcessingLoad` and `GetVolume`,
+then schedules the next poll one second after completion (no overlapping polls).
+Navigation does not reset these values to preview fixtures.
+
+`shared/domain/system-status.js` derives display states using the existing
+Control/pipeline discovery helpers. SYSTEM LOAD is main CamillaDSP processing
+load, not operating-system CPU utilization: green below 70%, orange from 70%,
+red from 90%. Unsupported/invalid load is unknown, never zero.
+
+HARD LIMITER reports ARMED only when every active output has an enabled hard
+limiter. It reports MISSING for incomplete coverage. For unmuted outputs with
+signal above -90 dBFS, the smallest sampled margin is shown as HEADROOM;
+NEAR LIMIT means at most 3 dB remaining, AT LIMIT means at most 0.1 dB.
+These are sampled post-processing peak comparisons, not limiter gain-reduction
+telemetry or proof of an actual limiting event. Silent/muted outputs provide no
+headroom estimate. Failed/stale telemetry clears the readings and protection
+state instead of retaining a green status. Local preview uses unknown readings.
+
+`shared/mobile.css`, loaded after each page stylesheet, owns the common phone
+spacing, 44 px touch targets, 16 px editable fields and page-specific responsive
+arrangements. The shell occupies the viewport; only the selected workspace
+scrolls, keeping the system overview and navigation visible.

@@ -12,6 +12,8 @@ module.exports = defineConfig({
     testDir: './tests/e2e',
     timeout: 45_000,
     fullyParallel: false,
+    // All live suites share one demo DSP and restore its configuration.
+    workers: 1,
     forbidOnly: !!process.env.CI,
     retries: 0,
     reporter: [['list']],

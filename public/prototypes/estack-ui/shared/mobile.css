@@ -1,0 +1,118 @@
+/* Shared phone layout, loaded after page-specific styles. */
+@media(max-width:700px) {
+  html { color-scheme:dark; -webkit-text-size-adjust:100%; }
+  body { font-size:14px; }
+  body>main { width:100%; min-width:0; margin:0; padding:12px 12px calc(20px + env(safe-area-inset-bottom)); gap:12px; }
+  main>*, section, article, fieldset { min-width:0; }
+  :root .ui-panel { border-radius:6px; box-shadow:none; }
+  :root .ui-panel__head, :root .ui-toolbar { padding:10px 12px; align-items:center; gap:8px; }
+  :root .ui-panel__head h2, .section-head h2 { font-size:12px; letter-spacing:.04em; line-height:1.4; }
+  :root .ui-panel__head p { font-size:11px; line-height:1.4; }
+  :root button, :root .ui-button { min-height:44px; border-radius:5px; font-size:12px; touch-action:manipulation; }
+  :root select, :root input[type=number], :root input[type=text], :root input[type=url] { min-height:44px; min-width:0; max-width:100%; font-size:16px; border-radius:5px; }
+  :root select { appearance:none; padding:0 28px 0 10px; background-color:var(--color-control); background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%2394aeb3' stroke-width='1.5'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 8px center; }
+  :root input[type=checkbox] { width:20px; height:20px; margin:0; accent-color:var(--color-accent); flex-shrink:0; }
+  :root .ui-toggle, .toggle-label { min-height:44px; gap:8px; font-size:12px; }
+  :root input[type=range]:not(.legacy-fader-input) { min-height:44px; accent-color:var(--color-accent); }
+  .panel-actions { gap:8px; }
+  .setting-row { flex-wrap:wrap; gap:10px; }
+  .setting-row .ui-select { width:100%; max-width:none; }
+  .detail-list>div { gap:8px; }
+  .detail-list dd { font-size:11px; }
+  .form-grid label, .data-cell span { font-size:11px; }
+  .action-row, .signal-actions { flex-wrap:wrap; }
+  /* Compact inputs retain two comparable meters without stacking tall cards. */
+  .control-inputs .panel-actions { width:auto; }
+  .input-meters { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .input-meter { padding:12px; display:flex; flex-direction:column; gap:8px; }
+  .input-meter header { width:100%; }
+  .input-meter header strong { font-size:13px; }
+  .input-meter output { font-size:17px; white-space:nowrap; }
+  .input-meter .horizontal-meter { width:100%; }
+  #inputScope { height:90px; margin:10px 12px; }
+  .input-trim-panel { gap:10px; padding:12px; }
+  .input-trim-intro { display:block; }
+  .input-trim-kicker { display:none; }
+  .input-trim-intro h2 { font-size:12px; }
+  .input-trim-intro p { font-size:11px; }
+  .input-trim-control { grid-template-columns:44px minmax(0,1fr) 80px 44px; gap:6px; align-items:center; }
+  .input-trim-control label>span { display:none; }
+  .input-trim-control input { margin:0; }
+  .input-trim-control output { min-height:44px; font-size:13px; }
+  .input-trim-safe { grid-template-columns:1fr auto; gap:6px; }
+  .input-trim-safe span { font-size:10px; }
+  .input-trim-safe small { grid-column:1/-1; font-size:10px; }
+  .input-trim-safe button { grid-column:1/-1; width:100%; }
+  .pair-link { min-height:44px; }
+  /* Output uses the same rhythm and keeps mode changes geometrically stable. */
+  .output-toolbar strong { font-size:17px; }
+  .output-lock { font-size:10px; }
+  .way-card { border-radius:5px; }
+  .graph-toolbar { padding:8px; gap:6px; }
+  .graph-options { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:8px; }
+  .graph-options>label { font-size:10px; gap:5px; }
+  .graph-options .ui-select { width:100%; min-width:60px; }
+  #xoControls { grid-template-columns:auto minmax(0,1fr); gap:8px; }
+  #xoControls label { font-size:10px; gap:5px; }
+  #xoPair { max-width:150px; }
+  #xoReadout { white-space:normal; font-size:10px; line-height:1.4; min-height:28px; display:flex; align-items:center; }
+  .graph-wrap { height:210px; }
+  .graph-context { min-height:28px; }
+  .graph-readout { gap:5px; }
+  .control-block { padding:12px; }
+  .protection-strip { padding:12px; }
+}
+@media(prefers-reduced-motion:reduce) { *, *::before, *::after { animation:none!important; scroll-behavior:auto!important; transition:none!important; } }
+@media(max-width:700px) {
+  .input-page .eq-hero, .input-page .eq-workspace, .input-page .delay-console, .input-page .eq-inspector { border-radius:6px; box-shadow:none; }
+  .input-page .workspace-header { padding:12px; gap:12px; border-radius:6px 6px 0 0; background:var(--color-surface-1); }
+  .input-page .workspace-header h2, .input-page .section-heading h2, .input-page .delay-console__lead h2 { font-size:18px; letter-spacing:-.02em; }
+  .input-page .workspace-kicker { font-size:10px; letter-spacing:.06em; }
+  .input-page .workspace-actions { display:grid; grid-template-columns:auto minmax(0,1fr); gap:8px; width:100%; }
+  .input-page .action-cluster { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+  .input-page .action-cluster button { padding:0 6px; font-size:10px; }
+  .input-page .workspace-actions .ui-status { font-size:9px; white-space:nowrap; }
+  .input-page .eq-canvas-wrap { min-height:260px; }
+  .input-page .eq-canvas-wrap canvas { height:260px; }
+  .input-page .eq-workspace, .input-page .delay-console, .input-page .eq-inspector { padding:12px; }
+  .input-page .section-heading { margin-bottom:12px; }
+  .input-page .rotary-number { min-height:44px!important; font-size:16px!important; }
+  .input-page .graph-legend { font-size:9px; left:10px; gap:8px; }
+  .input-page .spectrum-state { font-size:8px; right:10px; }
+  .input-tool-dialog { width:calc(100% - 24px); max-height:calc(100dvh - 24px); padding:12px; }
+  .input-tool-dialog textarea { font-size:16px; }
+}
+
+@media(max-width:700px) {
+  .input-page .eq-band-rail { grid-template-columns:repeat(2,minmax(0,1fr)); overflow:visible; gap:6px; }
+  .input-page .eq-band { min-height:54px; padding:8px 10px; }
+  .input-page .eq-band span { display:inline; margin-left:8px; font-size:13px; }
+  .input-page .eq-band strong { display:inline; }
+  :root .input-page .rotary-knob { border-radius:50%; }
+  .input-page .eq-canvas-wrap { padding-bottom:30px; }
+  .input-page .graph-legend, .input-page .spectrum-state { bottom:10px; }
+  .control-page .console-bank, .control-page .channel-pair { grid-template-columns:minmax(0,1fr); }
+  .control-page .mixer-strip, .control-page .master-strip { display:grid; grid-template-columns:150px minmax(0,1fr); grid-template-rows:44px auto auto auto auto; align-items:center; align-content:start; gap:8px 12px; min-height:330px; padding:0 12px 12px; }
+  .control-page .mixer-strip header, .control-page .master-strip header { grid-column:1/-1; width:100%; }
+  .control-page .legacy-meter-console { grid-column:1; grid-row:2/6; margin:0; }
+  .control-page .strip-value { grid-column:2; grid-row:2; width:100%; margin:0; }
+  .control-page .strip-value .ui-number { width:calc(100% - 18px); }
+  .control-page .strip-value span { margin-left:0; position:static; font-size:10px; }
+  .control-page .nudge-row { grid-column:2; grid-row:3; width:100%; margin:0; min-height:0; }
+  .control-page .strip-protection { grid-column:2; grid-row:4; width:100%; margin:0; }
+  .control-page .mute-button { grid-column:2; grid-row:5; width:100%; margin:0; }
+  .control-page .channel-pair { padding-bottom:0; }
+  .control-page .channel-pair .mixer-strip+.mixer-strip { border-top:1px solid var(--color-border-subtle); border-left:0; }
+  .control-page .pair-link { position:static; transform:none; justify-self:stretch; width:auto; margin:0 12px 12px; }
+}
+@media(max-width:700px) {
+  .setting-row { display:grid; grid-template-columns:minmax(0,1fr) auto; }
+  .setting-row:has(select) { grid-template-columns:minmax(0,1fr); }
+  .setting-row small { overflow-wrap:anywhere; }
+  .signal-controls>label { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:6px 10px; }
+  .signal-controls>label>select, .signal-controls>label>input[type=range] { grid-column:1/-1; width:100%; }
+  .signal-controls>label>output { grid-column:1/-1; }
+  .signal-controls>label>span { font-size:11px; }
+  .control-page .protection-summary strong { font-size:12px; }
+  .control-page .normalize-ways, .control-page .level-lock { font-size:10px; }
+}

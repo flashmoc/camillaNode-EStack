@@ -7,10 +7,6 @@
   mobileNav.innerHTML = '<label for="mobilePageSelect">PAGE</label><select id="mobilePageSelect" aria-label="Choose prototype page"></select>';
   document.querySelector('.shell-nav').before(mobileNav);
   const mobileSelect = mobileNav.querySelector('select');
-  const shellMaster = document.querySelector('[data-shell-master]');
-  const shellHeadroom = document.querySelector('[data-shell-headroom]');
-  const shellClip = document.querySelector('[data-shell-clip]');
-  const shellLimiters = document.querySelector('[data-shell-limiters]');
   const hardwareTransport = new URLSearchParams(location.search).get('transport') === 'camillanode';
   const banner = document.querySelector('.prototype-banner');
   const shellBrand = document.querySelector('.shell-brand strong');
@@ -22,8 +18,6 @@
     banner.querySelector('span').textContent = hardwareTransport ? 'Same-origin CamillaNode API enabled' : 'Local model · DSP transport disabled';
   }
   if (hardwareTransport && shellOnline) shellOnline.textContent = 'DSP API READY';
-  const shellMasterPanel = document.querySelector('.shell-master');
-  const referenceStatus = { master: -12, headroom: 9.8, condition: 'normal' };
   const clone = value => JSON.parse(JSON.stringify(value));
   let prototypeDspState = {
     connected: false,
@@ -31,15 +25,6 @@
     devices: { capture: { type: 'ALSA', device: 'Loopback capture', channels: 2 }, playback: { type: 'ALSA', device: 'E-Stack 6-way', channels: 6 } },
     pipeline: [{ type: 'Filter', channels: [0, 1], description: 'E-Stack input stage' }, { type: 'Mixer', description: 'E-Stack routing' }, { type: 'Filter', channels: [0, 1, 2, 3, 4, 5], description: 'E-Stack output processing' }],
     filters: {}, processors: {}, volume: -12, revision: 1
-  };
-  const renderShellStatus = ({ master, headroom, condition } = referenceStatus) => {
-    const critical = condition === 'hard';
-    const warning = condition === 'compress';
-    if (shellMaster) shellMaster.textContent = `${master.toFixed(1).replace('-', '−')} dB`;
-    if (shellHeadroom) shellHeadroom.textContent = `${Math.max(0, headroom).toFixed(1)} dB`;
-    if (shellMasterPanel) shellMasterPanel.dataset.state = critical ? 'hard' : warning ? 'compress' : 'normal';
-    if (shellClip) { shellClip.textContent = critical ? 'HARD LIMIT ACTIVE' : warning ? 'COMPRESSION ACTIVE' : 'NO CLIP'; shellClip.className = `ui-badge optional ${critical ? 'is-critical' : warning ? 'is-warning' : 'is-success'}`; }
-    if (shellLimiters) { shellLimiters.textContent = critical ? 'LIMITERS ACTIVE' : warning ? 'LIMITERS ENGAGED' : 'LIMITERS ARMED'; shellLimiters.className = `ui-badge optional ${critical ? 'is-critical' : warning ? 'is-warning' : 'is-success'}`; }
   };
   let frameResize = 0;
   const refreshFrameLayout = () => {
@@ -68,7 +53,6 @@
     return [link.dataset.page, route.href];
   }));
   const choose = name => {
-    renderShellStatus();
     const route = routes[name] || routes['output-processing'];
     frame.src = route;
     links.forEach(link => link.setAttribute('aria-current', link.dataset.page === name ? 'page' : 'false'));
@@ -90,8 +74,6 @@
       frame.contentWindow?.postMessage({ type: 'estack-prototype-dsp-state', state: clone(prototypeDspState), reason: detail.reason || 'local change' }, window.location.origin);
       return;
     }
-    if (!detail || detail.type !== 'estack-control-status' || !Number.isFinite(detail.master) || !Number.isFinite(detail.headroom)) return;
-    renderShellStatus(detail);
   });
   window.addEventListener('hashchange', () => choose(location.hash.slice(1)));
   choose(location.hash.slice(1) || 'output-processing');

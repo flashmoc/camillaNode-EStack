@@ -99,7 +99,7 @@ test.describe('Control live CamillaNode demo', () => {
         await page.evaluate(key => window.localStorage.removeItem(key), LEVEL_LOCK_STORAGE_KEY);
         await page.reload();
         await expect(page.locator('.prototype-banner')).toContainText('CAMILLANODE MODE');
-        await expect(page.locator('.shell-context')).toContainText('DSP API READY');
+        await expect(page.locator('.shell-context')).toContainText('DSP ONLINE');
         let frame = await controlFrame(page);
         await expect(frame.locator('.control-page')).toBeVisible();
         await expect.poll(() => frame.evaluate(() => ({
