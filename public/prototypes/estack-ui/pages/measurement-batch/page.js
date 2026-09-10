@@ -3,7 +3,7 @@
   document.documentElement.dataset.prototypePage = 'measurement-batch';
 
   const $ = id => document.getElementById(id);
-  const adapter = window.EStackPrototypeDSP;
+  const adapter = window.EStackDSPBridge.mode === 'camillanode' ? null : window.EStackPrototypeDSP;
   const transport = new URLSearchParams(location.search).get('transport');
   const apiMode = transport === 'camillanode';
   const wayLabels = { SUB: 'SUB', KICK: 'KICK', MID_L: 'MID L', MID_R: 'MID R', HIGH_L: 'HIGH L', HIGH_R: 'HIGH R' };
@@ -11,7 +11,7 @@
   const escape = value => String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
   let state = null;
   let baseline = null;
-  let busy = false;
+  let busy = false, online = !apiMode;
   let localModel = null;
 
   const sample = {
@@ -95,16 +95,16 @@
 
   function renderHeader() {
     const batch = state?.batch;
-    $('transportState').textContent = apiMode ? 'CAMILLANODE API' : 'LOCAL MODEL';
+    $('transportState').textContent = apiMode ? (online ? 'CAMILLANODE API' : 'API UNAVAILABLE') : 'LOCAL MODEL';
     $('transportState').className = `ui-status ${apiMode ? 'is-warning' : 'is-pending'}`;
     $('measurementState').textContent = state?.phase === 'active' ? 'CAPTURED' : state?.phase === 'complete' ? 'RESTORED' : batch ? 'READY' : 'NO BATCH';
     $('measurementState').className = `ui-badge ${state?.active ? 'is-success' : batch ? 'is-pending' : 'is-muted'}`;
     $('batchName').textContent = batch?.name || 'No campaign loaded';
-    $('batchDescription').textContent = batch?.description || 'Import a versioned E-Stack campaign or use the local sample.';
+    $('batchDescription').textContent = batch?.description || (apiMode ? 'Import a campaign JSON to prepare a live measurement session.' : 'Import a campaign or use the local sample.');
     $('exportBatch').disabled = !batch || busy;
     $('clearBatch').disabled = !batch || !!state?.active || busy;
     $('importBatch').disabled = !!state?.active || busy;
-    $('loadSample').disabled = !!state?.active || busy;
+    $('loadSample').hidden = apiMode; $('loadSample').disabled = !!state?.active || busy;
     const progress = state?.progress || { total: 0, completedCount: 0 };
     const total = progress.total || 0;
     const completed = state?.active ? progress.currentNumber || 1 : progress.completedCount || 0;
@@ -113,13 +113,9 @@
     $('progressBar').style.width = `${total ? Math.min(100, completed / total * 100) : 0}%`;
   }
 
-  function renderSequence() {
-    const sequence = state?.sequence || [];
-    $('sequenceCount').textContent = `${sequence.length} measurement${sequence.length === 1 ? '' : 's'}`;
-    $('sequence').innerHTML = sequence.length ? sequence.map(step => `<button class="sequence-item ${state?.current?.index === step.index ? 'is-current' : ''} ${state?.progress?.completed?.includes(step.index) ? 'is-complete' : ''}" data-index="${step.index}" type="button" ${busy || !state?.active ? 'disabled' : ''}><strong>${escape(step.id)} · ${escape(step.name)}</strong><span>${escape(step.activeWayLabels.join(' + '))}</span></button>`).join('') : '<p class="empty-state">No measurements loaded.</p>';
-    document.querySelectorAll('[data-index]').forEach(button => button.addEventListener('click', () => run('goto', Number(button.dataset.index), `Preparing measurement ${Number(button.dataset.index) + 1}…`)));
-  }
-
+  let sequenceSignature='',currentSignature='';
+  function renderSequence(){const sequence=state?.sequence||[],signature=JSON.stringify(sequence);$('sequenceCount').textContent=sequence.length+' measurements';if(signature!==sequenceSignature){sequenceSignature=signature;$('sequence').innerHTML=sequence.length?sequence.map(step=>'<button class="sequence-item" data-index="'+step.index+'" type="button"><strong>'+escape(step.id)+' · '+escape(step.name)+'</strong><span>'+escape(step.activeWayLabels.join(' + '))+'</span></button>').join(''):'<p class="empty-state">Import a campaign to see its sequence.</p>';}document.querySelectorAll('[data-index]').forEach(button=>{const index=Number(button.dataset.index);button.disabled=busy||!state?.active;button.classList.toggle('is-current',state?.current?.index===index);button.classList.toggle('is-complete',!!state?.progress?.completed?.includes(index));});}
+  $('sequence').addEventListener('click',event=>{const button=event.target.closest('[data-index]');if(button&&!button.disabled)run('goto',Number(button.dataset.index),'Preparing measurement…');});
   function deltaRows(step) {
     const values = [];
     Object.entries(step?.ways || {}).forEach(([way, value]) => {
@@ -137,7 +133,9 @@
 
   function renderCurrent() {
     const step = currentStep();
-    $('currentCounter').textContent = step ? `${step.number} / ${step.total}` : '—';
+    $('copyRewName').disabled=busy||!step?.rew?.measurementName;
+    const signature=JSON.stringify([step,state?.active]);if(signature===currentSignature)return;currentSignature=signature;
+    $('currentCounter').textContent = step ? `${state?.active ? 'MEASUREMENT' : 'PREVIEW'} ${step.number} / ${step.total}` : '—';
     $('currentName').textContent = step?.name || 'No active measurement';
     $('currentInstruction').textContent = step?.instruction || 'Start a campaign to capture the live DSP baseline and prepare the first measurement.';
     $('currentPosition').textContent = step?.position || ''; $('currentPosition').hidden = !step?.position;
@@ -166,15 +164,18 @@
 
   function render() { renderHeader(); renderSequence(); renderCurrent(); renderActions(); renderBaseline(); }
 
+  let operationEpoch = 0;
   async function refresh({ silent = false } = {}) {
-    try { state = await actions.status(); baseline = await actions.baseline(); if (!silent) setStatus(state.message || 'Ready', state.active ? 'success' : 'pending'); }
-    catch (error) { setStatus(error.message, 'critical'); if (!state) state = { phase: 'error', sequence: [], progress: {} }; }
+    const epoch = operationEpoch;
+    try { const nextState = await actions.status(); const nextBaseline = await actions.baseline(); if (epoch !== operationEpoch) return; state = nextState; baseline = nextBaseline; online = true; if (!silent) setStatus(state.message || 'Ready', state.active ? 'success' : 'pending'); }
+    catch (error) { online = false; setStatus(error.message, 'critical'); if (!state) state = { phase: 'error', sequence: [], progress: {} }; }
     render();
   }
 
   async function run(name, value, note) {
     if (busy) return;
-    busy = true; setStatus(note, 'warning'); render();
+    operationEpoch++;
+    busy = true; setStatus(note, 'warning'); renderHeader(); renderActions(); renderSequence();
     try { state = await actions[name](value); baseline = await actions.baseline(); setStatus(state.message || 'Done', state.phase === 'error' ? 'critical' : state.active ? 'success' : 'pending'); }
     catch (error) { setStatus(error.message, 'critical'); }
     finally { busy = false; render(); }
@@ -188,7 +189,7 @@
 
   $('importBatch').addEventListener('click', () => $('batchFile').click());
   $('batchFile').addEventListener('change', event => { const file = event.target.files?.[0]; if (file) importFile(file); });
-  $('loadSample').addEventListener('click', () => run('import', sample, 'Loading sample campaign…'));
+  if (!apiMode) $('loadSample').addEventListener('click', () => run('import', sample, 'Loading sample campaign…'));
   $('clearBatch').addEventListener('click', () => { if (confirm('Clear the current Measurement Batch?')) run('clear', null, 'Clearing campaign…'); });
   $('previous').addEventListener('click', () => run('previous', null, 'Preparing previous measurement…'));
   $('retry').addEventListener('click', () => run('retry', null, 'Reapplying measurement state…'));
@@ -198,7 +199,10 @@
   $('exportBatch').addEventListener('click', () => { const batch = state?.batch; if (!batch) return; const blob = new Blob([JSON.stringify({ ...batch, steps: state.sequence.map(({ index, number, total, activeWayLabels, summary: ignored, ...step }) => step) }, null, 2)], { type: 'application/json' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = `${batch.name.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '') || 'measurement-batch'}.json`; link.click(); URL.revokeObjectURL(link.href); });
   $('copyRewName').addEventListener('click', async () => { const name = currentStep()?.rew?.measurementName; if (!name) return; try { await navigator.clipboard.writeText(name); setStatus('REW name copied.', 'success'); } catch (_) { setStatus(`REW name: ${name}`, 'pending'); } });
 
-  adapter.subscribe(config => { if (!apiMode && config.measurementBatch && !localModel) localModel = clone(config.measurementBatch); });
+  adapter?.subscribe(config => { if (!apiMode && config.measurementBatch && !localModel) localModel = clone(config.measurementBatch); });
   if (!apiMode) localModel = { batch: null, active: false, currentIndex: null, completed: [] };
-  refresh();
+  let refreshing=false,closed=false,timer;
+  async function poll(){if(closed)return;if(!busy&&!refreshing){refreshing=true;await refresh({silent:true});refreshing=false;}if(!closed)timer=setTimeout(poll,2000)}
+  refresh().then(()=>{if(apiMode)timer=setTimeout(poll,2000)});
+  addEventListener('pagehide',()=>{closed=true;clearTimeout(timer)});
 })();
