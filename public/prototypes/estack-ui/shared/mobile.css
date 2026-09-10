@@ -116,3 +116,45 @@
   .control-page .protection-summary strong { font-size:12px; }
   .control-page .normalize-ways, .control-page .level-lock { font-size:10px; }
 }
+
+/* Common control surfaces and typography across the secondary workspaces. */
+html { color-scheme:dark; }
+button,input,select,textarea { -webkit-tap-highlight-color:transparent; }
+input[type=range] { accent-color:var(--color-accent); }
+button { touch-action:manipulation; }
+.ui-panel { border-radius:7px; }
+.ui-panel__head { gap:12px; }
+.ui-panel__head h2 { letter-spacing:.035em; }
+input[type=number] { font-variant-numeric:tabular-nums; }
+@media(min-width:701px) {
+ .ui-button { min-height:36px; border-radius:5px; }
+ .form-grid { gap:14px; }
+ .setting-row { padding-block:12px; }
+}
+@media(max-width:700px) {
+ .form-grid { grid-template-columns:1fr; gap:14px; }
+ .ui-panel__head { flex-wrap:wrap; }
+ textarea { width:100%; min-height:120px; font-size:16px; }
+ .action-row>* { flex:1 1 120px; }
+ .detail-list>div { flex-wrap:wrap; }
+}
+@media(prefers-reduced-motion:reduce) { *,*::before,*::after { animation:none!important; scroll-behavior:auto!important; } }.loudness-page,.advanced-page,.signal-page,.measurement-page,.preferences-page,.connections-page { max-width:1800px; margin-inline:auto; }
+.workbench-card,.mixer-card,.filter-card,.preset,.target { border-radius:6px; }
+.workbench-card { overflow:hidden; }
+.workbench-card h3 { font-size:13px; letter-spacing:.025em; }
+.detail-list dd { overflow-wrap:anywhere; }
+.signal-controls #frequencyField { grid-template-columns:minmax(0,1fr) 100px 24px; align-items:center; }
+.signal-controls label:nth-child(3)::before { content:none; }
+.signal-controls label:nth-child(3) { grid-template-columns:1fr auto; }
+.signal-controls #level { grid-column:1/-1; grid-row:2; }
+.signal-controls #levelReadout { grid-column:2; grid-row:1; }
+@media(max-width:700px) {
+ .loudness-page #loudnessCanvas { height:220px; }
+ .loudness-page .preset { min-height:88px; padding:12px; }
+ .signal-page .panel-actions { display:flex; }
+ .signal-page .signal-controls { gap:18px; }
+ .preferences-page .setting-row { padding-block:14px; }
+ .connections-page .detail-list>div { display:grid; grid-template-columns:1fr; gap:4px; }
+ .connections-page .detail-list dd { margin:0; text-align:left; font-size:12px; }
+ .measurement-page .batch-actions { gap:8px; }
+}

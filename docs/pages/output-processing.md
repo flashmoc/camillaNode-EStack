@@ -227,3 +227,8 @@ This focused polish received two screenshot-based refinement passes, across all
 five viewport sizes above at 80/100/125/150% browser zoom, with no document or
 editor overflow. Touch QA additionally checks cancelled gestures perform no write
 and verifies normal vertical scrolling away from the slider.
+
+The PEQ editor pairs exact frequency/gain/Q fields with native sliders using
+the same typography as Input Processing. Frequency dragging is logarithmic.
+Pointer movement updates the local field; release queues one guarded scoped
+write. Pending controls survive readbacks, and cancellation discards previews.

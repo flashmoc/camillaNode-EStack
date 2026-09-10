@@ -185,7 +185,7 @@
   function renderSummary() {
     const root=$('#protectionSummary');
     if(!root.children.length) {
-      root.innerHTML='<div><span>PROTECTION</span><strong data-summary="state"></strong></div><div><span>HEADROOM</span><strong data-summary="margin"></strong></div><div class="protection-load"><span>SYSTEM LOAD</span><i><b data-load-bar></b></i><strong data-control-load></strong></div><div><span>ACTIVE WAY</span><strong data-summary="way"></strong></div>';
+      root.innerHTML='<div><span>PROTECTION</span><strong data-summary="state"></strong></div><div><span>HEADROOM</span><strong data-summary="margin"></strong></div><div class="protection-load"><span>AUDIO LOAD</span><i><b data-load-bar></b></i><strong data-control-load></strong></div><div><span>ACTIVE WAY</span><strong data-summary="way"></strong></div>';
       $('#mixerActions').innerHTML='<div><strong>Output levels</strong><span>Preserve the balance between ways</span></div><button class="normalize-ways" data-normalize type="button">Max gain → 0 dB</button><button class="level-lock" data-level-lock type="button"><i class="lock-icon" aria-hidden="true"></i><span></span></button>';
       $('[data-normalize]').addEventListener('click',normalize); $('[data-level-lock]').addEventListener('click',()=>setLevelLock(!levelLocked));
     }

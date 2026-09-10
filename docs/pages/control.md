@@ -27,7 +27,7 @@ It does not load fixture/mock operational data in that mode.
 
 ## Reads
 
-The shell owns the `GetProcessingLoad` poll and sends its latest real DSP load
+The shell derives Audio Load from real output peaks and hard limiter ceilings and sends it
 to Control through the same-origin `estack-system-load` presentation message.
 Control validates the parent and origin and uses the identical percentage and
 70/90 percent warning thresholds; limiter headroom remains a separate dB value.

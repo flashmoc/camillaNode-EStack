@@ -48,7 +48,9 @@ function delayProtectedView(config) {
 function assertEqScope(before, after, expectedGain) {
   expect(eqProtectedView(after)).toEqual(eqProtectedView(before));
   expect(after.filters.GLOBAL_EQ_01.parameters.gain).toBeCloseTo(expectedGain, 6);
-  const step = after.pipeline.find(entry => entry.description === GLOBAL_STEP); expect(step).toMatchObject({ type: 'Filter', channels: [0, 1], names: ['GLOBAL_EQ_01'], bypassed: false });
+  const expectedNames = globalNames.filter(name => Number(name === 'GLOBAL_EQ_01' ? expectedGain : before.filters[name]?.parameters?.gain || 0) !== 0);
+  for (const name of globalNames.slice(1)) if (before.filters[name]) expect(after.filters[name]).toEqual(before.filters[name]);
+  const step = after.pipeline.find(entry => entry.description === GLOBAL_STEP); expect(step).toMatchObject({ type: 'Filter', channels: [0, 1], names: expectedNames, bypassed: false });
   expect(after.pipeline.indexOf(step)).toBeLessThan(after.pipeline.findIndex(entry => entry.type === 'Mixer'));
 }
 

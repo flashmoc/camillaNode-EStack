@@ -25,3 +25,16 @@
   .control-page .input-trim-panel { gap:8px; }
 }
 #inputTrimValue[hidden] { display: none; }
+.control-page { max-width:1800px; width:100%; margin-inline:auto; }
+.control-page .channel-pair { padding-bottom:0; align-items:stretch; }
+.control-page .channel-pair .mixer-strip { padding-bottom:16px; }
+.control-page .pair-link { position:static; transform:none; grid-column:1/-1; justify-self:stretch; width:auto; margin:8px 12px 12px; min-height:44px; background:var(--color-control); font-size:11px; }
+.control-page .channel-pair { border-radius:6px; overflow:hidden; }
+.control-page .mixer-strip { border-radius:5px; }
+@media(max-width:700px) {
+  .control-page .console-bank { gap:12px; }
+  .control-page .channel-pair { gap:0; }
+  .control-page .mixer-actions { padding:12px; }
+}
+
+@media(min-width:1101px) { .control-page .console-bank>.mixer-strip { padding-bottom:82px; } }

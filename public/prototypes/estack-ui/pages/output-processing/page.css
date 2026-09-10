@@ -276,3 +276,30 @@ input[type=range]::-moz-range-thumb { width:14px; height:14px; border:2px solid 
   .remove-band { justify-self:end; width:44px; }
   .xo-fields input[type=number] { width:115px; font-size:22px; }
 }
+
+/* EQ controls share the Input workspace's precise value-and-slider language. */
+.output-page .peq-table-head { display:none; }
+.output-page .peq-row { grid-template-columns:28px 44px minmax(120px,1fr) 64px 44px; grid-template-areas:"band power type reset delete" "freq freq gain gain q"; padding:14px; gap:12px; align-items:center; }
+.output-page .peq-row .band-number { grid-area:band; }
+.output-page .peq-power { grid-area:power; }
+.output-page .peq-row select { grid-area:type; }
+.output-page .peq-reset { grid-area:reset; }
+.output-page .remove-band { grid-area:delete; }
+.output-page .peq-freq { grid-area:freq; }.output-page .peq-gain { grid-area:gain; }.output-page .peq-q { grid-area:q; }
+.output-page .peq-row { grid-template-columns:28px 44px minmax(100px,1fr) 64px 44px; }
+.output-page .peq-row label { display:grid; grid-template-columns:1fr; gap:4px; min-width:0; }
+.output-page .peq-row label>span { display:block; color:var(--muted); font:10px var(--data); letter-spacing:.06em; }
+.output-page .peq-row .value-unit input { border:0; border-bottom:1px solid #40626a; border-radius:0; background:transparent; font:25px var(--data); min-height:40px; padding:3px 6px; }
+.output-page .peq-row .value-unit>span { display:block; font-size:10px; }
+.output-page .peq-row input[type=range] { padding:0; min-height:44px; height:44px; touch-action:none; }
+.output-page .peq-row button,.output-page .peq-row select { min-height:44px; }
+@media(min-width:701px) {
+ .output-page .peq-row { grid-template-columns:28px 44px repeat(3,minmax(0,1fr)) 44px; grid-template-areas:"band power type type reset delete" ". freq freq gain q ."; }
+}
+@media(max-width:700px) {
+ .output-page .peq-row { grid-template-columns:28px 44px minmax(0,1fr) 48px 44px; grid-template-areas:"band power type reset delete" "freq freq freq freq freq" "gain gain gain gain gain" "q q q q q"; gap:8px; }
+ .output-page .peq-row label { grid-template-columns:minmax(0,1fr) 135px; align-items:center; }
+ .output-page .peq-row label input[type=range] { grid-column:1/-1; }
+ .output-page .peq-row .value-unit input { font-size:23px; }
+ .output-page .peq-editor { display:grid; gap:12px; padding:10px; }
+}

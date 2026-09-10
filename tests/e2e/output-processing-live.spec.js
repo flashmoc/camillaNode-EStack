@@ -305,6 +305,13 @@ test.describe('Output mobile touch', () => {
       const row=frame.locator('.peq-row').first(),power=row.locator('[data-peq-toggle]');
       const state=await power.getAttribute('aria-pressed');await power.tap();await ready();await expect(power).toHaveAttribute('aria-pressed',String(state!=='true'));
       const frequency=row.locator('[data-peq-field="freq"]');await frequency.fill('710');await frequency.press('Tab');await ready();await expect(frequency).toHaveValue('710');
+      const peqSlot=await row.getAttribute('data-peq-slot');
+      for(const field of ['freq','gain','q']) {
+        const before=writes;
+        await drag(`[data-peq-slider="${field}"][data-slot="${peqSlot}"]`,.35,.6);
+        await ready();expect(writes).toBe(before+1);
+        await expect(row.locator(`[data-peq-field="${field}"]`)).not.toHaveValue('');
+      }
       // Horizontal way scrolling remains native, and vertical page scrolling is
       // available outside the range's isolated touch gesture area.
       const strip=frame.locator('#waySelector');await strip.evaluate(el=>{el.scrollLeft=0;el.scrollIntoView({block:'center'});});

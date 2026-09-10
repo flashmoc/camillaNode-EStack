@@ -87,10 +87,14 @@ then schedules the next poll one second after completion (no overlapping polls).
 Navigation does not reset these values to preview fixtures.
 
 `shared/domain/system-status.js` derives display states using the existing
-Control/pipeline discovery helpers. SYSTEM LOAD is main CamillaDSP processing
-load, not operating-system CPU utilization: green below 70%, orange from 70%,
-red from 90%. Unsupported/invalid load is unknown, never zero.
-
+Control/pipeline discovery helpers. AUDIO LOAD expresses the largest output
+peak amplitude relative to its hard limiter ceiling: `100 * 10^(-margin/20)`,
+capped at 100%. Thus -6 dB of margin is approximately 50%, and the ceiling is
+100%. Green is below 70%, orange from 70%, red from 90%. It is not CPU load,
+amplifier power, or measured gain reduction. The shell publishes this same
+reading to Control. Missing coverage or unavailable telemetry is unknown;
+valid silent/muted outputs contribute zero. CPU processing load remains a
+separate raw measurement and does not drive this audio indication.
 HARD LIMITER reports ARMED only when every active output has an enabled hard
 limiter. It reports MISSING for incomplete coverage. For unmuted outputs with
 signal above -90 dBFS, the smallest sampled margin is shown as HEADROOM;

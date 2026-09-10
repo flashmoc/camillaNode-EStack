@@ -16,7 +16,7 @@
   let realtimeSpectrum = null, infiniteSpectrum = null, spectrumPower = null, spectrumCount = 0, spectrumTimer = null, spectrumBusy = false;
   const drafts = new WeakSet();
   const pendingControls = new Map();
-  const queueable = '[data-value],[data-range],[data-xo-freq],[data-xo-range],[data-xo-family],[data-xo-slope]';
+  const queueable = '[data-value],[data-range],[data-xo-freq],[data-xo-range],[data-xo-family],[data-xo-slope],[data-peq-field],[data-peq-slider]';
   let writeQueue = Promise.resolve(), pendingWrites = 0, queueEpoch = 0, activeRange = null;
   const responsePaths = new Map();
   let responseConfig = null;
@@ -31,9 +31,13 @@
     if (el && !drafts.has(el) && pendingControls.get(el)?.channel !== selectedChannel && el.value !== String(next)) el.value = next;
   }
   function pairedControls(el) {
+    const field=el.dataset.peqField || el.dataset.peqSlider;
+    if(field) return $$(`[data-peq-field="${field}"][data-slot="${el.dataset.slot}"],[data-peq-slider="${field}"][data-slot="${el.dataset.slot}"]`);
     const id = el.dataset.range || el.dataset.value, edge = el.dataset.xoRange || el.dataset.xoFreq;
     return id ? $$(`[data-range="${id}"],[data-value="${id}"]`) : edge ? $$(`[data-xo-range="${edge}"],[data-xo-freq="${edge}"]`) : [el];
   }
+  const peqPosition = (field,n) => field==='freq' ? Math.log(n/20)/Math.log(1000)*1000 : n;
+  const peqValue = (field,n) => field==='freq' ? Math.round(20*1000**(n/1000)) : Number(n);
   function numberInput(attributes, label, unit) { return `<div class="value-unit"><input type="number" ${attributes} aria-label="${label}" data-mutation><span>${unit}</span></div>`; }
   function range(id, min, max, step, label) { return `<input type="range" data-range="${id}" min="${min}" max="${max}" step="${step}" aria-label="${label}" data-mutation>`; }
   function mountEditors() {
@@ -101,7 +105,7 @@
   }
   function createPeqRow(slot) {
     const row = document.createElement('div'); row.className = 'peq-row'; row.dataset.peqSlot = slot;
-    row.innerHTML = `<strong class="band-number">${String(slot + 1).padStart(2, '0')}</strong><button type="button" class="peq-power" data-peq-toggle="${slot}" aria-label="Band ${slot + 1} enabled" data-mutation></button><select data-peq-type="${slot}" aria-label="Band ${slot + 1} type" data-mutation><option value="Peaking">Peak</option><option value="Lowshelf">Low shelf</option><option value="Highshelf">High shelf</option></select>${[['freq',20,20000,1,'Hz'],['gain',-20,20,.1,'dB'],['q',.1,20,.1,'Q']].map(([f,min,max,step,unit]) => `<label class="peq-${f}"><span>${f === 'freq' ? 'FREQ / Hz' : f === 'gain' ? 'GAIN / dB' : 'Q'}</span>${numberInput(`data-peq-field="${f}" data-slot="${slot}" min="${min}" max="${max}" step="${step}"`, `Band ${slot + 1} ${f}`, unit)}</label>`).join('')}<button class="peq-reset" type="button" data-peq-reset="${slot}" aria-label="Reset band ${slot + 1}" data-mutation>Reset</button><button class="remove-band" type="button" data-peq-delete="${slot}" aria-label="Delete band ${slot + 1}" data-mutation>×</button>`;
+    row.innerHTML = `<strong class="band-number">${String(slot + 1).padStart(2, '0')}</strong><button type="button" class="peq-power" data-peq-toggle="${slot}" aria-label="Band ${slot + 1} enabled" data-mutation></button><select data-peq-type="${slot}" aria-label="Band ${slot + 1} type" data-mutation><option value="Peaking">Peak</option><option value="Lowshelf">Low shelf</option><option value="Highshelf">High shelf</option></select>${[['freq',20,20000,1,'Hz'],['gain',-20,20,.1,'dB'],['q',.1,20,.1,'Q']].map(([f,min,max,step,unit]) => `<label class="peq-${f}"><span>${f === 'freq' ? 'FREQUENCY' : f === 'gain' ? 'GAIN' : 'Q'}</span>${numberInput(`data-peq-field="${f}" data-slot="${slot}" min="${min}" max="${max}" step="${step}"`, `Band ${slot + 1} ${f}`, unit)}<input type="range" data-peq-slider="${f}" data-slot="${slot}" min="${f === 'freq' ? 0 : min}" max="${f === 'freq' ? 1000 : max}" step="${f === 'freq' ? 1 : step}" aria-label="Band ${slot + 1} ${f} slider" data-mutation></label>`).join('')}<button class="peq-reset" type="button" data-peq-reset="${slot}" aria-label="Reset band ${slot + 1}" data-mutation>Reset</button><button class="remove-band" type="button" data-peq-delete="${slot}" aria-label="Delete band ${slot + 1}" data-mutation>×</button>`;
     return row;
   }
   function updatePeq(item) {
@@ -117,6 +121,7 @@
       row.querySelector('[data-peq-toggle]').setAttribute('aria-pressed', String(!off));
       value(row.querySelector('select'), p.type);
       ['freq','gain','q'].forEach(f => value(row.querySelector(`[data-peq-field="${f}"]`), p[f]));
+      ['freq','gain','q'].forEach(f => value(row.querySelector(`[data-peq-slider="${f}"]`), peqPosition(f,p[f])));
     });
     $('#peqEmpty').hidden = entries.length > 0;
     text('#peqMeta', `${entries.length} / 10 bands · ${item.name}`);
@@ -173,6 +178,12 @@
     document.addEventListener('input', e => {
       const el = e.target; if (!el.matches('[data-mutation]') || !editing || (busy && !el.matches(queueable))) return;
       pairedControls(el).forEach(control => drafts.add(control));
+      if(el.dataset.peqSlider) {
+        const field=el.dataset.peqSlider;
+        $(`[data-peq-field="${field}"][data-slot="${el.dataset.slot}"]`).value=peqValue(field,el.value);
+      } else if(el.dataset.peqField && Number(el.value)>=(el.dataset.peqField==='freq'?20:-20)) {
+        $(`[data-peq-slider="${el.dataset.peqField}"][data-slot="${el.dataset.slot}"]`).value=peqPosition(el.dataset.peqField,Number(el.value));
+      }
       if (activeRange?.element === el) activeRange.changed = true;
       if (el.dataset.range) $(`[data-value="${el.dataset.range}"]`).value = el.value;
       if (el.dataset.xoRange) $(`[data-xo-freq="${el.dataset.xoRange}"]`).value = Math.round(16 * (20000 / 16) ** (Number(el.value) / 1000));
@@ -210,11 +221,11 @@
         const field = el.dataset.xoFamily ? 'family' : el.dataset.xoSlope ? 'slope' : 'freq';
         return run(() => service.setCrossover(channel, edge, {[field]:patch[field]}), undefined, {queue:true,controls});
       }
-      if (el.dataset.peqField || el.dataset.peqType !== undefined) {
-        const slot = Number(el.dataset.slot ?? el.dataset.peqType), field = el.dataset.peqField || 'type';
-        const next = field === 'type' ? el.value : Number(el.value);
+      if (el.dataset.peqField || el.dataset.peqSlider || el.dataset.peqType !== undefined) {
+        const slot = Number(el.dataset.slot ?? el.dataset.peqType), field = el.dataset.peqField || el.dataset.peqSlider || 'type';
+        const next = field === 'type' ? el.value : el.dataset.peqSlider ? peqValue(field,el.value) : Number(el.value);
         if (selected().peq[slot]?.filter.parameters[field] === next) return;
-        return run(() => service.setPeq(channel, slot, {[field]:next}, disabledSlots(channel)));
+        return run(() => service.setPeq(channel, slot, {[field]:next}, disabledSlots(channel)),undefined,{queue:true,controls});
       }
     });
     document.addEventListener('click', e => {
