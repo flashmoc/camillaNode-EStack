@@ -1,154 +1,188 @@
 (() => {
   'use strict';
-  const service = window.EStackInputProcessingService;
-  const model = window.EStackInputProcessingModel;
-  const importer = window.EStackInputProcessingImport;
-  const savedConfigs = window.EStackSavedConfigClient;
+  const service = window.EStackInputProcessingService, model = window.EStackInputProcessingModel;
+  const importer = window.EStackInputProcessingImport, savedConfigs = window.EStackSavedConfigClient;
   if (!service || !model || !importer || !savedConfigs || window.EStackDSPBridge?.mode !== 'camillanode') throw new Error('Live Input Processing domain is unavailable.');
-
   const $ = selector => document.querySelector(selector);
+  const names = model.GLOBAL_EQ_SLOT_NAMES;
+  const bandColors = ['#58cce4','#ed83bd','#ebae59','#78d19a','#809eec','#b693e8','#ed887a','#bfce72','#62c5ba','#d4a37f'];
   const spectrumFrequencies = [25,30,40,50,63,80,100,125,160,200,250,315,400,500,630,800,1000,1250,1600,2000,2500,3150,4000,5000,6300,8000,10000,12500,16000,20000];
   const disabledKey = slot => `estack.globalEq.disabled.${slot}`;
-  let latest = null;
-  let disabled = new Set();
-  let analyzerFast = true;
-  let spectrum = spectrumFrequencies.map(() => -100);
-  let spectrumTimer = null;
-  let busy = false;
-  let dragging = null;
-  let pendingImport = null;
-  let selectedPresetId = null;
-  let selectedBand = 'GLOBAL_EQ_01';
-
-  const db = value => `${Number(value).toFixed(1).replace('-', '−')}`;
-  const hz = value => Number(value) >= 1000 ? `${(Number(value) / 1000).toFixed(Number(value) >= 10000 ? 0 : 1).replace('.0', '')} kHz` : `${Math.round(value)} Hz`;
-  const q = value => Number(value).toFixed(2).replace(/0$/, '');
-  const disabledSlots = () => [...disabled];
   const clamp = model.clamp;
-  const formatValue = (field, value) => field === 'frequency' ? hz(value) : field === 'gain' ? `${db(value)} dB` : q(value);
-  const valueLimits = field => field === 'frequency' ? [20, 20000, 1] : field === 'gain' ? [-12, 12, .1] : [.1, 20, .1];
-
-  function loadDisabled() {
-    disabled = new Set(model.GLOBAL_EQ_SLOT_NAMES.filter(slot => { try { return window.localStorage.getItem(disabledKey(slot)) === 'true'; } catch (_) { return false; } }));
+  let latest = null, selectedBand = names[0], analyzerFast = true, spectrum = [], spectrumTimer;
+  let disabled = new Set(names.filter(slot => localStorage.getItem(disabledKey(slot)) === 'true'));
+  let dragging = null, processing = false, busy = false, pendingImport = null, selectedPresetId = null;
+  let operations = [], graphGeometry = null, responseCache = null, drawFrame = 0, stopped = false, hoverFrequency = null;
+  const db = value => Number(value).toFixed(1).replace('-', '−');
+  const hz = value => value >= 1000 ? `${Number((value / 1000).toFixed(2))} kHz` : `${Math.round(value)} Hz`;
+  const number = slot => String(model.slotIndex(slot) + 1).padStart(2, '0');
+  const valueLimits = field => field === 'frequency' ? [20,20000,1] : field === 'gain' ? [-12,12,.1] : [.1,20,.1];
+  const effectiveDisabled = () => new Set(operations.length ? operations[operations.length - 1].disabled : disabled);
+  const disabledSlots = () => [...effectiveDisabled()];
+  function liveBands() {
+    let bands = (latest?.slots || names.map(model.defaultBand)).map(band => ({...band}));
+    operations.forEach(op => { if (op.bands) bands = op.bands.map(b => ({...b})); if (op.slot) { const i = model.slotIndex(op.slot); bands[i] = model.normalizeBand(i, {...bands[i], ...op.patch}); } });
+    if (dragging?.slot) { const i = model.slotIndex(dragging.slot); bands[i] = model.normalizeBand(i, {...bands[i], ...dragging.patch}); }
+    return bands;
   }
-  function persistDisabled(slot, value) { try { window.localStorage.setItem(disabledKey(slot), String(!!value)); } catch (_) { /* browser preference only */ } }
-  function setBusy(value) { busy = value; document.querySelectorAll('#eqBands button,#eqInspector button,#eqInspector input,#eqInspector select,#eqReset,#delayRange,#delayNumber,.delay-nudge button,#delayReset,#importDialog button,#presetDialog button,#presetDialog input').forEach(control => { control.disabled = value; }); }
-  function setStatus(text, state = '') { const el = $('#inputState'); el.textContent = text; el.className = `ui-status ${state ? `is-${state}` : ''}`; }
-  function liveBands() { return latest?.slots || model.GLOBAL_EQ_SLOT_NAMES.map(model.defaultBand); }
-  function activeBands() { return liveBands().filter(band => !disabled.has(band.slot) && !model.isNeutral(band)); }
-  function serializableBands() { return importer.serializeBands(liveBands().map(band => ({ ...band, enabled: !disabled.has(band.slot) }))); }
-  function setDisabledStates(bands) {
-    const next = new Set((bands || []).filter(band => band.enabled === false).map(band => model.slotName(band.slot)));
-    model.GLOBAL_EQ_SLOT_NAMES.forEach(slot => persistDisabled(slot, next.has(slot))); disabled = next;
+  function liveDelay() { let value = latest?.delay || 0; operations.forEach(op => { if (op.delay !== undefined) value = op.delay; }); return dragging?.kind === 'delay' ? dragging.value : value; }
+  const activeBands = () => liveBands().filter(band => !effectiveDisabled().has(band.slot) && !model.isNeutral(band));
+  const serializableBands = () => importer.serializeBands(liveBands().map(band => ({...band,enabled:!effectiveDisabled().has(band.slot)})));
+  function setStatus(text, state = '') { $('#inputState').textContent = text; $('#inputState').dataset.state = state; }
+  function persistDisabled() { names.forEach(slot => localStorage.setItem(disabledKey(slot), String(disabled.has(slot)))); }
+  function setBusy() {
+    busy = operations.length > 0;
+    document.querySelectorAll('#eqReset,#bandReset,#savePreset,#loadPreset,#deletePreset').forEach(el => { el.disabled = busy || !latest; });
+    $('#loadPreset').disabled = busy || !selectedPresetId;
+    $('#deletePreset').disabled = busy || !selectedPresetId;
+    $('#applyImport').disabled = busy || !pendingImport;
+    $('#eqInspector').setAttribute('aria-busy', String(busy));
   }
-  function setPreview(slot, field, value) {
-    if (!latest) return; const index = model.slotIndex(slot); const limits = valueLimits(field);
-    latest.slots[index] = model.normalizeBand(index, { ...latest.slots[index], [field]: clamp(value, limits[0], limits[1]), present: latest.slots[index].present });
-    const button = document.querySelector(`[data-knob="${slot}"][data-field="${field}"]`); const number = document.querySelector(`[data-input-slot="${slot}"][data-field="${field}"]`); const output = document.querySelector(`[data-output-slot="${slot}"][data-field="${field}"]`);
-    if (button) applyKnob(button, latest.slots[index][field]); if (number) number.value = latest.slots[index][field]; if (output) output.textContent = formatValue(field, latest.slots[index][field]);
-    draw();
-  }
-  async function commitBand(slot, patch) {
-    if (busy) return; setBusy(true); setStatus('APPLYING');
-    try { await service.setBand(slot, patch, { disabledSlots: disabledSlots() }); setStatus('DSP API READY', 'success'); }
-    catch (error) { setStatus(`ERROR · ${error.message}`, 'danger'); await service.refresh().catch(() => {}); }
-    finally { setBusy(false); render(); }
-  }
-  function knobFraction(field, value) {
-    const [min, max] = valueLimits(field); return field === 'frequency' ? (Math.log(value) - Math.log(min)) / (Math.log(max) - Math.log(min)) : (value - min) / (max - min);
-  }
-  function valueForKnob(field, fraction) {
-    const [min, max] = valueLimits(field); const f = clamp(fraction, 0, 1);
-    const raw = field === 'frequency' ? Math.exp(Math.log(min) + f * (Math.log(max) - Math.log(min))) : min + f * (max - min);
-    return field === 'frequency' ? Math.round(raw) : Math.round(raw * 10) / 10;
-  }
-  function applyKnob(button, value) {
-    const fraction = knobFraction(button.dataset.field, Number(value));
-    button.style.setProperty('--knob-angle', `${-132 + fraction * 264}deg`);
-    button.setAttribute('aria-valuenow', String(value));
-    button.querySelector('output').textContent = formatValue(button.dataset.field, value);
-  }
-  function knob(slot, field, value) {
-    const [min, max, step] = valueLimits(field);
-    return `<div class="rotary-field"><span>${field === 'frequency' ? 'FREQ' : field.toUpperCase()}</span><button class="rotary-knob" type="button" role="slider" aria-label="${slot} ${field}" aria-valuemin="${min}" aria-valuemax="${max}" aria-valuenow="${value}" data-knob="${slot}" data-field="${field}"><i></i><output>${formatValue(field, value)}</output></button><input class="ui-number rotary-number" data-input-slot="${slot}" data-field="${field}" type="number" min="${min}" max="${max}" step="${step}" value="${value}" aria-label="${slot} ${field} value"></div>`;
-  }
-  function renderBands() {
-    const bands = liveBands(); const root = $('#eqBands');
-    if (!bands.some(band => band.slot === selectedBand)) selectedBand = bands[0]?.slot || 'GLOBAL_EQ_01';
-    root.innerHTML = bands.map((band, index) => {
-      const off = disabled.has(band.slot); const active = !off && !model.isNeutral(band);
-      return `<button class="eq-band ${off ? 'is-bypassed' : ''}" type="button" data-band="${band.slot}" aria-current="${band.slot === selectedBand}"><strong>${String(index + 1).padStart(2, '0')}</strong><span>${hz(band.frequency)}</span><small>${off ? 'BYPASSED' : active ? `${db(band.gain)} dB · ACTIVE` : 'NEUTRAL'}</small><i class="eq-band__dot ${active ? 'is-active' : ''}"></i></button>`;
-    }).join('');
-    root.querySelectorAll('[data-band]').forEach(button => button.addEventListener('click', () => { selectedBand = button.dataset.band; renderBands(); draw(); }));
-    const band = bands[model.slotIndex(selectedBand)]; if (!band) return;
-    const off = disabled.has(band.slot); const inspector = $('#eqInspector');
-    inspector.innerHTML = `<div class="eq-inspector__top"><div class="eq-inspector__identity"><b class="eq-inspector__number">${String(model.slotIndex(band.slot) + 1).padStart(2, '0')}</b><div><strong>${band.slot.replace('GLOBAL_EQ_', 'Band ')}</strong><span>${off ? 'BYPASSED · retained in DSP state' : model.isNeutral(band) ? 'NEUTRAL · ready to shape' : 'ACTIVE · in input EQ pipeline'}</span></div></div><button class="band-toggle" type="button" data-toggle-slot="${band.slot}" aria-pressed="${!off}">${off ? 'ENABLE' : 'ENABLED'}</button></div><label class="eq-inspector__type"><span>FILTER TOPOLOGY</span><select class="ui-select band-type" data-type-slot="${band.slot}" aria-label="${band.slot} filter type"><option ${band.type === 'Peaking' ? 'selected' : ''}>Peaking</option><option ${band.type === 'Lowshelf' ? 'selected' : ''}>Lowshelf</option><option ${band.type === 'Highshelf' ? 'selected' : ''}>Highshelf</option></select></label><div class="eq-band__params">${knob(band.slot, 'frequency', band.frequency)}${knob(band.slot, 'gain', band.gain)}${knob(band.slot, 'q', band.q)}</div>`;
-    inspector.querySelector('[data-toggle-slot]').addEventListener('click', async () => {
-      const slot = band.slot; const next = !disabled.has(slot); if (next) disabled.add(slot); else disabled.delete(slot); persistDisabled(slot, next); await commitBand(slot, {});
+  function enqueue(operation) {
+    return new Promise((resolve,reject) => {
+      operations.push({...operation, disabled:operation.disabled || disabledSlots(), resolve,reject});
+      setBusy(); render(); drain();
     });
-    inspector.querySelector('[data-type-slot]').addEventListener('change', event => commitBand(band.slot, { type: event.target.value }));
-    inspector.querySelectorAll('[data-input-slot]').forEach(input => input.addEventListener('change', () => {
-      const [min, max] = valueLimits(input.dataset.field); const value = clamp(input.value, min, max); input.value = value; commitBand(input.dataset.inputSlot, { [input.dataset.field]: value });
-    }));
-    inspector.querySelectorAll('[data-knob]').forEach(bindKnob);
-    inspector.querySelectorAll('[data-knob]').forEach(button => applyKnob(button, liveBands()[model.slotIndex(button.dataset.knob)][button.dataset.field]));
   }
-  function bindKnob(button) {
-    const slot = button.dataset.knob; const field = button.dataset.field;
-    const keyboardDelta = event => event.key === 'ArrowUp' || event.key === 'ArrowRight' ? 1 : event.key === 'ArrowDown' || event.key === 'ArrowLeft' ? -1 : 0;
-    button.addEventListener('pointerdown', event => {
-      if (busy) return; event.preventDefault(); const start = liveBands()[model.slotIndex(slot)][field]; dragging = { slot, field, start, y: event.clientY, pointerId: event.pointerId, value: start }; button.setPointerCapture(event.pointerId);
+  async function drain() {
+    if (processing) return; processing = true;
+    while (operations.length) {
+      const op = operations[0]; setStatus('Applying…', 'pending');
+      try {
+        if (op.bands) await service.applyBands(op.bands,{disabledSlots:op.disabled});
+        else if (op.reset) await service.resetAll();
+        else if (op.slot) await service.setBand(op.slot,op.patch,{disabledSlots:op.disabled});
+        else await service.setDelay(op.delay);
+        disabled = new Set(op.disabled); persistDisabled(); operations.shift(); op.resolve(true);
+      } catch(error) {
+        const failed = operations; operations = []; dragging = null;
+        await service.refresh().catch(() => {}); failed.forEach(item => item.reject(error));
+        setStatus(`Not applied · ${error.message}`, 'error'); processing = false; setBusy(); render(true); return;
+      }
+      setBusy(); render();
+    }
+    processing = false; setStatus('EQ synchronized', 'success');
+  }
+  function commitBand(slot, patch, nextDisabled) { if (!latest) return; return enqueue({slot,patch,disabled:nextDisabled}).catch(() => {}); }
+  function setDelay(value) { if (!latest || !Number.isFinite(Number(value))) return; return enqueue({delay:model.normalizeDelay(value)}).catch(() => {}); }
+  async function applyCompleteBands(bands) {
+    if (busy) throw new Error('Wait for the current edit to finish.');
+    const complete = importer.completeBands(bands);
+    return enqueue({bands:complete,disabled:complete.filter(b=>b.enabled===false).map(b=>b.slot)});
+  }
+  function writeValue(el,value,force=false) { if (force || (document.activeElement !== el && dragging?.target !== el)) el.value = String(value); }
+  function selectBand(slot) { if (dragging) return; selectedBand = slot; render(true); }
+  function mount() {
+    $('#eqBands').innerHTML = names.map(slot=>`<button type="button" class="eq-band" data-band="${slot}"><strong>${number(slot)}</strong><span></span><small></small></button>`).join('');
+    $('#eqBands').addEventListener('click',e=>{const button=e.target.closest('[data-band]');if(button)selectBand(button.dataset.band);});
+    $('#eqPoints').innerHTML = names.map(slot=>`<button type="button" class="eq-point" data-point="${slot}" aria-label="Band ${number(slot)} frequency and gain"><span>${Number(number(slot))}</span></button>`).join('');
+    document.querySelectorAll('[data-band],[data-point]').forEach(el=>el.style.setProperty('--band-color',bandColors[model.slotIndex(el.dataset.band||el.dataset.point)]));
+    $('#bandFields').innerHTML = ['frequency','gain','q'].map(field=>{const [min,max,step]=valueLimits(field);return `<label class="parameter"><span>${field==='frequency'?'FREQUENCY':field==='q'?'Q / WIDTH':'GAIN'}</span><div class="parameter-value"><input type="number" min="${min}" max="${max}" step="${step}" data-input-slot="${selectedBand}" data-field="${field}" aria-label="Band ${field}"><b>${field==='frequency'?'Hz':field==='gain'?'dB':'Q'}</b></div><input type="range" data-range="${field}" min="${field==='frequency'?0:min}" max="${field==='frequency'?1000:max}" step="${field==='frequency'?1:step}" aria-label="Adjust band ${field}"><small>${field==='frequency'?'20 Hz – 20 kHz':field==='gain'?'−12 dB – +12 dB':'Wide 0.1 — Narrow 20'}</small></label>`;}).join('');
+    document.querySelectorAll('[data-range]').forEach(el=>bindRange(el,'band'));
+    bindRange($('#delayRange'),'delay');
+    document.querySelectorAll('[data-point]').forEach(el=>{el.title='Drag horizontally for frequency, vertically for gain. Arrow keys make fine adjustments.';bindPoint(el);});
+  }
+  function render(force=false) {
+    if (!latest) return;
+    const bands=liveBands(), off=effectiveDisabled(), band=bands[model.slotIndex(selectedBand)];
+    $('#eqInspector').style.setProperty('--selected-color',bandColors[model.slotIndex(selectedBand)]);
+    document.querySelectorAll('[data-band]').forEach(el=>{
+      const b=bands[model.slotIndex(el.dataset.band)], state=off.has(b.slot)?'disabled':model.isNeutral(b)?'neutral':'active';
+      el.dataset.state=state;el.setAttribute('aria-current',String(b.slot===selectedBand));el.querySelector('span').textContent=hz(b.frequency);el.querySelector('small').textContent=state==='active'?`${b.gain>0?'+':''}${db(b.gain)} dB`:state==='disabled'?'Disabled':'Neutral';el.setAttribute('aria-label',`Band ${number(b.slot)}, ${hz(b.frequency)}, ${state}`);
     });
-    button.addEventListener('pointermove', event => {
-      if (!dragging || dragging.pointerId !== event.pointerId) return; const scale = field === 'frequency' ? .007 : .006; const value = valueForKnob(field, knobFraction(field, dragging.start) + (dragging.y - event.clientY) * scale); dragging.value = value; setPreview(slot, field, value);
+    $('#bandNumber').textContent=number(band.slot);$('#bandTitle').textContent=`Band ${number(band.slot)}`;
+    $('#bandState').textContent=off.has(band.slot)?'Disabled':model.isNeutral(band)?'Neutral':'Active';$('#bandState').dataset.state=off.has(band.slot)?'disabled':model.isNeutral(band)?'neutral':'active';
+    $('#bandToggle').dataset.toggleSlot=band.slot;$('#bandToggle').setAttribute('aria-pressed',String(!off.has(band.slot)));$('#bandToggle').textContent=off.has(band.slot)?'Enable':'Enabled';
+    $('#bandType').dataset.typeSlot=band.slot;writeValue($('#bandType'),band.type,force);
+    $('#typeHelp').textContent=band.type==='Peaking'?'Bell-shaped correction':band.type==='Lowshelf'?'Shape below the frequency':'Shape above the frequency';
+    document.querySelectorAll('[data-input-slot]').forEach(el=>{el.dataset.inputSlot=band.slot;writeValue(el,band[el.dataset.field],force);});
+    document.querySelectorAll('[data-range]').forEach(el=>{const value=band[el.dataset.range];writeValue(el,el.dataset.range==='frequency'?Math.log(value/20)/Math.log(1000)*1000:value,force);el.setAttribute('aria-valuetext',el.dataset.range==='frequency'?hz(value):String(value));});
+    $('#eqActiveCount').textContent=`${activeBands().length} active`;
+    const delay=liveDelay();writeValue($('#delayRange'),delay,force);writeValue($('#delayNumber'),delay.toFixed(1),force);
+    $('#delayReadout').textContent=`${delay.toFixed(1)} ms`;$('#delayState').textContent=delay>0?'Active':'Bypassed';$('#delayState').dataset.active=String(delay>0);
+    $('#sampleRate').textContent=`${Number(latest.sampleRate)/1000} kHz · L/R`;
+    setBusy();draw();
+  }
+  function rangeValue(el) { return el.dataset.range==='frequency'?Math.round(20*Math.pow(1000,Number(el.value)/1000)):Number(el.value); }
+  function bindRange(el,kind) {
+    let pointerActive=false;
+    el.addEventListener('pointerdown',event=>{
+      if(!latest||dragging)return;pointerActive=true;el.setPointerCapture(event.pointerId);
+      const start=kind==='delay'?liveDelay():liveBands()[model.slotIndex(selectedBand)][el.dataset.range];
+      dragging={kind,slot:kind==='band'?selectedBand:null,patch:{},value:start,start,target:el,id:event.pointerId};
     });
-    const finish = event => {
-      if (!dragging || dragging.pointerId !== event.pointerId) return; const change = dragging; dragging = null; try { button.releasePointerCapture(event.pointerId); } catch (_) {} if (change.value !== change.start) commitBand(slot, { [field]: change.value });
-    };
-    button.addEventListener('pointerup', finish); button.addEventListener('pointercancel', finish);
-    button.addEventListener('keydown', event => {
-      const direction = keyboardDelta(event); if (!direction) return; event.preventDefault(); const [min, max, step] = valueLimits(field); const jump = event.shiftKey ? step * 10 : step; const current = liveBands()[model.slotIndex(slot)][field]; const next = field === 'frequency' ? Math.round(current * (direction > 0 ? 1.1 : 1 / 1.1)) : clamp(current + direction * jump, min, max); setPreview(slot, field, next); commitBand(slot, { [field]: next });
+    el.addEventListener('input',()=>{
+      if(!latest)return;const value=rangeValue(el);
+      if(dragging?.target===el){if(kind==='delay')dragging.value=value;else dragging.patch[el.dataset.range]=value;render();}
     });
-    button.addEventListener('wheel', event => { event.preventDefault(); const direction = event.deltaY < 0 ? 1 : -1; const [min, max, step] = valueLimits(field); const current = liveBands()[model.slotIndex(slot)][field]; const next = field === 'frequency' ? Math.round(current * (direction > 0 ? 1.1 : 1 / 1.1)) : clamp(current + direction * step, min, max); setPreview(slot, field, next); commitBand(slot, { [field]: next }); }, { passive: false });
+    function finish(event,cancel=false){
+      if(dragging?.target!==el||dragging.id!==event.pointerId)return;
+      const d=dragging,value=rangeValue(el);dragging=null;
+      if(!cancel&&value!==d.start){if(kind==='delay')setDelay(value);else commitBand(d.slot,{[el.dataset.range]:value});}
+      writeValue(el,cancel?(el.dataset.range==='frequency'?Math.log(d.start/20)/Math.log(1000)*1000:d.start):el.value,true);
+      render();setTimeout(()=>{pointerActive=false;},0);
+    }
+    el.addEventListener('pointerup',e=>finish(e));el.addEventListener('pointercancel',e=>finish(e,true));el.addEventListener('lostpointercapture',e=>{if(dragging?.target===el)finish(e,true);});
+    el.addEventListener('change',()=>{if(pointerActive||!latest)return;const value=rangeValue(el);if(kind==='delay')setDelay(value);else commitBand(selectedBand,{[el.dataset.range]:value});});
   }
-  function renderDelay() {
-    const value = latest?.delay || 0; $('#delayRange').value = value; $('#delayNumber').value = value; $('#delayReadout').textContent = `${Number(value).toFixed(1)} ms`;
-    const active = value > 0; const state = $('#delayState'); state.textContent = active ? 'ACTIVE' : 'BYPASS'; state.className = `ui-badge ${active ? 'is-success' : 'is-bypassed'}`;
+  function bindPoint(el) {
+    el.addEventListener('pointerdown',event=>{
+      if(!latest||dragging)return;event.preventDefault();selectedBand=el.dataset.point;render(true);
+      const b=liveBands()[model.slotIndex(selectedBand)];dragging={kind:'graph',slot:selectedBand,patch:{},start:{frequency:b.frequency,gain:b.gain},x:event.clientX,y:event.clientY,target:el,id:event.pointerId,geometry:{...graphGeometry}};el.setPointerCapture(event.pointerId);
+    });
+    el.addEventListener('pointermove',event=>{
+      if(dragging?.target!==el||dragging.id!==event.pointerId)return;
+      const d=dragging,g=d.geometry;d.patch={frequency:Math.round(clamp(d.start.frequency*Math.pow(1000,(event.clientX-d.x)/g.plotW),20,20000)),gain:Math.round(clamp(d.start.gain-(event.clientY-d.y)/g.plotH*2*g.range,-12,12)*10)/10};render();
+    });
+    const finish=(e,cancel=false)=>{if(dragging?.target!==el||dragging.id!==e.pointerId)return;const d=dragging;dragging=null;if(!cancel&&Object.keys(d.patch).some(k=>d.patch[k]!==d.start[k]))commitBand(d.slot,d.patch);render();};
+    el.addEventListener('pointerup',e=>finish(e));el.addEventListener('pointercancel',e=>finish(e,true));el.addEventListener('lostpointercapture',e=>finish(e,true));
+    el.addEventListener('click',()=>selectBand(el.dataset.point));
+    el.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key))return;e.preventDefault();const b=liveBands()[model.slotIndex(el.dataset.point)];const field=e.key==='ArrowLeft'||e.key==='ArrowRight'?'frequency':'gain';const value=field==='frequency'?Math.round(b.frequency*Math.pow(2,(e.key==='ArrowRight'?1:-1)/24)):Math.round(clamp(b.gain+(e.key==='ArrowUp'?.1:-.1),-12,12)*10)/10;commitBand(b.slot,{[field]:value});});
   }
-  function draw() {
-    const canvas = $('#eqCanvas'); const rect = canvas.getBoundingClientRect(); if (!rect.width) return;
-    const ratio = Math.min(window.devicePixelRatio || 1, 2); const width = Math.round(rect.width * ratio); const height = Math.round(rect.height * ratio);
-    if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
-    const ctx = canvas.getContext('2d'); const w = width / ratio; const h = height / ratio; ctx.setTransform(ratio, 0, 0, ratio, 0, 0); ctx.clearRect(0, 0, w, h);
-    const left = 46; const right = 44; const top = 18; const bottom = 27; const plotW = w - left - right; const plotH = h - top - bottom;
-    const xFor = frequency => left + (Math.log10(frequency) - Math.log10(20)) / 3 * plotW; const yFor = value => top + (14 - clamp(value, -80, 14)) / 94 * plotH;
-    ctx.strokeStyle = 'rgba(223,241,244,.14)'; ctx.lineWidth = 1; ctx.font = '10px ui-monospace,monospace';
-    [-60,-48,-36,-24,-12,0,12].forEach(value => { const y = yFor(value); ctx.beginPath(); ctx.moveTo(left, y); ctx.lineTo(w - right, y); ctx.stroke(); ctx.fillStyle = 'rgba(223,241,244,.6)'; ctx.fillText(String(value), 8, y + 3); });
-    (w < 600 ? [20,50,100,500,1000,5000,20000] : [20,30,50,80,100,200,500,1000,2000,5000,10000,20000]).forEach(frequency => { const x = xFor(frequency); ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, h - bottom); ctx.stroke(); ctx.fillStyle = 'rgba(223,241,244,.55)'; ctx.fillText(frequency >= 1000 ? `${frequency / 1000}k` : frequency, x - 8, h - 8); });
-    if (spectrum.some(value => value > -100)) { ctx.beginPath(); spectrumFrequencies.forEach((frequency, index) => { const x = xFor(frequency); const y = yFor(spectrum[index]); index ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.strokeStyle = 'rgba(230,240,241,.68)'; ctx.lineWidth = 1.25; ctx.stroke(); }
-    const bands = liveBands(); ctx.beginPath(); for (let px = 0; px <= plotW; px += 1) { const frequency = 20 * Math.pow(1000, px / plotW); const y = yFor(model.totalResponse(bands, frequency, latest?.sampleRate || 48000, disabledSlots())); px ? ctx.lineTo(left + px, y) : ctx.moveTo(left + px, y); } ctx.strokeStyle = '#59d5e3'; ctx.lineWidth = 2.4; ctx.stroke();
-    const selected = bands[model.slotIndex(selectedBand)]; if (selected) { const x = xFor(selected.frequency); const y = yFor(model.totalResponse(bands, selected.frequency, latest?.sampleRate || 48000, disabledSlots())); ctx.strokeStyle = 'rgba(89,213,227,.33)'; ctx.setLineDash([3,4]); ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, h - bottom); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = disabled.has(selected.slot) ? '#718387' : '#59d5e3'; ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI * 2); ctx.fill(); }
-  }
-  function render() {
-    if (!latest) return; $('#eqActiveCount').textContent = `${activeBands().length} ACTIVE`; renderBands(); renderDelay(); draw();
-  }
-  async function setDelay(value) {
-    if (busy) return; setBusy(true); setStatus('APPLYING');
-    try { await service.setDelay(value); setStatus('DSP API READY', 'success'); } catch (error) { setStatus(`ERROR · ${error.message}`, 'danger'); await service.refresh().catch(() => {}); } finally { setBusy(false); render(); }
-  }
-  async function applyCompleteBands(bands, label) {
-    const complete = importer.completeBands(bands); const nextDisabled = complete.filter(band => band.enabled === false).map(band => band.slot);
-    if (busy) return false; setBusy(true); setStatus('APPLYING');
-    try { await service.applyBands(complete, { disabledSlots: nextDisabled }); setDisabledStates(complete); setStatus('DSP API READY', 'success'); return true; }
-    catch (error) { setStatus(`ERROR · ${error.message}`, 'danger'); await service.refresh().catch(() => {}); throw error; }
-    finally { setBusy(false); render(); }
+  function draw() { if(drawFrame)return;drawFrame=requestAnimationFrame(()=>{drawFrame=0;paint();}); }
+  function paint() {
+    if(!latest)return;const canvas=$('#eqCanvas'),box=canvas.getBoundingClientRect();if(!box.width)return;
+    const w=box.width,h=box.height,ratio=Math.min(devicePixelRatio||1,2);if(canvas.width!==Math.round(w*ratio)||canvas.height!==Math.round(h*ratio)){canvas.width=Math.round(w*ratio);canvas.height=Math.round(h*ratio);}
+    const ctx=canvas.getContext('2d');ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,w,h);
+    const left=w<600?35:46,right=w<600?34:44,top=24,bottom=28,plotW=w-left-right,plotH=h-top-bottom;
+    const bands=liveBands(),off=disabledSlots();const key=JSON.stringify([bands,off,latest.sampleRate,plotW]);
+    if(responseCache?.key!==key){
+      const values=[],individual=bands.map(()=>[]);
+      for(let x=0;x<=plotW;x+=2){
+        const frequency=20*Math.pow(1000,x/plotW);
+        values.push({x,value:model.totalResponse(bands,frequency,latest.sampleRate,off)});
+        bands.forEach((band,i)=>{if(!off.includes(band.slot)&&!model.isNeutral(band))individual[i].push({x,value:model.responseAt(band,frequency,latest.sampleRate)});});
+      }
+      responseCache={key,values,individual};
+    }
+    const max=Math.max(...responseCache.values.map(v=>Math.abs(v.value)));const range=dragging?.geometry?.range||Math.max(18,Math.ceil(max/6)*6);
+    graphGeometry={left,right,top,bottom,plotW,plotH,range};const xFor=f=>left+Math.log(f/20)/Math.log(1000)*plotW,yFor=v=>top+(range-v)/(2*range)*plotH,ySpectrum=v=>top+(0-clamp(v,-96,0))/96*plotH;
+    ctx.font='10px ui-monospace,monospace';ctx.fillStyle='#81979b';ctx.textAlign='left';ctx.fillText('dB',8,13);ctx.textAlign='right';ctx.fillText('dBFS',w-4,13);
+    for(let i=0;i<=6;i++){const value=range-i*range/3,y=yFor(value);ctx.strokeStyle=i===3?'#3c6166':'#1a3034';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(w-right,y);ctx.stroke();ctx.fillStyle=i===3?'#c2d5d7':'#7d999e';ctx.textAlign='right';ctx.fillText(`${value>0?'+':''}${Math.round(value)}`,left-8,y+3);ctx.textAlign='left';ctx.fillStyle='#677d82';ctx.fillText(String(-i*16),w-right+6,y+3);}
+    const ticks=w<600?[20,50,100,500,1000,5000,20000]:[20,30,50,100,200,500,1000,2000,5000,10000,20000];
+    ticks.forEach(f=>{const x=xFor(f);ctx.strokeStyle=[100,1000,10000].includes(f)?'#294146':'#182c30';ctx.beginPath();ctx.moveTo(x,top);ctx.lineTo(x,h-bottom);ctx.stroke();ctx.textAlign=f===20?'left':f===20000?'right':'center';ctx.fillStyle='#89a2a6';ctx.fillText(f>=1000?`${f/1000}k`:String(f),x,h-8);});
+    ctx.save();ctx.beginPath();ctx.rect(left,top,plotW,plotH);ctx.clip();
+    if(spectrum.length){ctx.beginPath();ctx.moveTo(xFor(spectrumFrequencies[0]),h-bottom);spectrum.forEach((value,i)=>ctx.lineTo(xFor(spectrumFrequencies[i]),ySpectrum(value)));ctx.lineTo(xFor(spectrumFrequencies.at(-1)),h-bottom);ctx.closePath();ctx.fillStyle='rgba(135,161,172,.06)';ctx.fill();ctx.beginPath();spectrum.forEach((value,i)=>i?ctx.lineTo(xFor(spectrumFrequencies[i]),ySpectrum(value)):ctx.moveTo(xFor(spectrumFrequencies[i]),ySpectrum(value)));ctx.strokeStyle='rgba(149,175,185,.42)';ctx.lineWidth=1.2;ctx.stroke();}
+    responseCache.individual.forEach((curve,i)=>{
+      if(!curve.length)return;
+      const selected=bands[i].slot===selectedBand;
+      ctx.beginPath();ctx.moveTo(left,yFor(0));curve.forEach(({x,value})=>ctx.lineTo(left+x,yFor(value)));ctx.lineTo(left+curve.at(-1).x,yFor(0));ctx.closePath();
+      ctx.fillStyle=bandColors[i];ctx.globalAlpha=selected?.28:.18;ctx.fill();
+      ctx.beginPath();curve.forEach(({x,value},index)=>index?ctx.lineTo(left+x,yFor(value)):ctx.moveTo(left+x,yFor(value)));ctx.strokeStyle=bandColors[i];ctx.globalAlpha=selected?.95:.65;ctx.lineWidth=selected?1.7:1;ctx.stroke();ctx.globalAlpha=1;
+    });
+    const selected=bands[model.slotIndex(selectedBand)];const sx=xFor(selected.frequency);ctx.fillStyle='rgba(89,213,227,.035)';ctx.fillRect(sx-12,top,24,plotH);ctx.strokeStyle='rgba(89,213,227,.35)';ctx.setLineDash([3,5]);ctx.beginPath();ctx.moveTo(sx,top);ctx.lineTo(sx,h-bottom);ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();responseCache.values.forEach(({x,value},i)=>i?ctx.lineTo(left+x,yFor(value)):ctx.moveTo(left+x,yFor(value)));ctx.strokeStyle='#e6f7fa';ctx.lineWidth=2.6;ctx.stroke();ctx.restore();
+    if(hoverFrequency!==null&&!dragging){const x=xFor(hoverFrequency),value=model.totalResponse(bands,hoverFrequency,latest.sampleRate,off);ctx.strokeStyle='#78989d';ctx.setLineDash([2,4]);ctx.beginPath();ctx.moveTo(x,top);ctx.lineTo(x,h-bottom);ctx.stroke();ctx.setLineDash([]);ctx.fillStyle='#e4f9fb';ctx.beginPath();ctx.arc(x,yFor(value),3,0,Math.PI*2);ctx.fill();}
+    document.querySelectorAll('[data-point]').forEach(el=>{const b=bands[model.slotIndex(el.dataset.point)],selected=b.slot===selectedBand;el.hidden=!selected&&(off.includes(b.slot)||model.isNeutral(b));el.dataset.selected=String(selected);el.dataset.disabled=String(off.includes(b.slot));el.style.left=`${xFor(b.frequency)}px`;el.style.top=`${yFor(b.gain)}px`;el.setAttribute('aria-label',`Band ${number(b.slot)}, ${hz(b.frequency)}, ${db(b.gain)} dB. Drag to adjust.`);});
+    $('#graphReadout').textContent=`${dragging?'Preview · ':''}Band ${number(selectedBand)} · ${hz(selected.frequency)} · ${selected.gain>0?'+':''}${db(selected.gain)} dB · Q ${selected.q.toFixed(2)}`;
+    if(hoverFrequency!==null&&!dragging)$('#graphReadout').textContent=`${hz(hoverFrequency)} · EQ response ${db(model.totalResponse(bands,hoverFrequency,latest.sampleRate,off))} dB`;
   }
   function importStatus(text, state = '') { const output = $('#importStatus'); output.textContent = text; output.dataset.state = state; }
   function presetStatus(text, state = '') { const output = $('#presetStatus'); output.textContent = text; output.dataset.state = state; }
   async function refreshPresetList() {
-    const list = $('#presetList'); const records = await savedConfigs.listByType('global-eq'); selectedPresetId = null; list.replaceChildren();
+    const list = $('#presetList'); const records = await savedConfigs.listByType('global-eq'); selectedPresetId = null; list.replaceChildren(); setBusy();
     if (!records.length) { const empty = document.createElement('p'); empty.className = 'preset-empty'; empty.textContent = 'No saved Global EQ presets.'; list.append(empty); return records; }
-    records.forEach(record => { const button = document.createElement('button'); button.type = 'button'; button.className = 'preset-item'; button.dataset.presetId = String(record.id); button.textContent = record.name; button.addEventListener('click', () => { selectedPresetId = String(record.id); list.querySelectorAll('.preset-item').forEach(item => item.classList.toggle('is-selected', item === button)); $('#presetName').value = record.name; presetStatus(`Selected '${record.name}'.`); }); list.append(button); }); return records;
+    records.forEach(record => { const button = document.createElement('button'); button.type = 'button'; button.className = 'preset-item'; button.dataset.presetId = String(record.id); button.textContent = record.name; button.addEventListener('click', () => { selectedPresetId = String(record.id); list.querySelectorAll('.preset-item').forEach(item => item.classList.toggle('is-selected', item === button)); $('#presetName').value = record.name; presetStatus(`Selected '${record.name}'.`); setBusy(); }); list.append(button); }); return records;
   }
   async function saveCurrentPreset() {
     const name = String($('#presetName').value || '').trim(); if (!name) { presetStatus('Enter a preset name.', 'error'); return; }
@@ -171,27 +205,46 @@
     catch (error) { presetStatus(`DELETE ERROR · ${error.message}`, 'error'); }
   }
   async function pollSpectrum() {
+    if(stopped)return;
     try {
-      const levels = await service.readSpectrum(); if (!Array.isArray(levels)) throw new Error('invalid spectrum data');
-      const alpha = analyzerFast ? .58 : .16; spectrum = spectrum.map((previous, index) => alpha * Number(levels[index * 2] ?? -100) + (1 - alpha) * previous); $('#spectrumState').textContent = 'LIVE SPECTRUM'; $('#spectrumState').className = 'spectrum-state is-live'; draw();
-    } catch (_) { spectrum = spectrumFrequencies.map(() => -100); $('#spectrumState').textContent = 'SPECTRUM UNAVAILABLE'; $('#spectrumState').className = 'spectrum-state is-unavailable'; draw(); }
+      const levels=await service.readSpectrum();const samples=spectrumFrequencies.map((_,i)=>levels?.[i*2]);
+      if(samples.some(v=>typeof v!=='number'||!Number.isFinite(v)))throw new Error('Invalid spectrum');
+      const alpha=analyzerFast?.58:.16;spectrum=samples.map((v,i)=>spectrum.length?alpha*v+(1-alpha)*spectrum[i]:v);
+      $('#spectrumState').textContent='LIVE';$('#spectrumState').className='spectrum-state is-live';draw();
+    } catch(_){spectrum=[];$('#spectrumState').textContent='UNAVAILABLE';$('#spectrumState').className='spectrum-state is-unavailable';draw();}
+    if(!stopped)spectrumTimer=setTimeout(pollSpectrum,170);
   }
   function bind() {
-    $('#eqReset').addEventListener('click', async () => { if (!confirm('Reset all Global EQ slots to their neutral defaults?')) return; disabled.clear(); model.GLOBAL_EQ_SLOT_NAMES.forEach(slot => persistDisabled(slot, false)); setBusy(true); try { await service.resetAll(); setStatus('DSP API READY', 'success'); } catch (error) { setStatus(`ERROR · ${error.message}`, 'danger'); } finally { setBusy(false); render(); } });
-    $('#analyzerSpeed').addEventListener('click', event => { analyzerFast = !analyzerFast; event.currentTarget.textContent = analyzerFast ? 'FAST' : 'SLOW'; event.currentTarget.classList.toggle('is-active', analyzerFast); });
-    $('#delayRange').addEventListener('input', event => { $('#delayNumber').value = event.target.value; $('#delayReadout').textContent = `${Number(event.target.value).toFixed(1)} ms`; });
-    $('#delayRange').addEventListener('change', event => setDelay(event.target.value)); $('#delayNumber').addEventListener('change', event => setDelay(event.target.value)); $('#delayReset').addEventListener('click', () => setDelay(0));
-    document.querySelectorAll('[data-nudge]').forEach(button => button.addEventListener('click', () => setDelay((latest?.delay || 0) + Number(button.dataset.nudge)))); window.addEventListener('resize', draw);
-    document.querySelectorAll('[data-dialog-close]').forEach(button => button.addEventListener('click', () => $(`#${button.dataset.dialogClose}`).close()));
-    $('#importEq').addEventListener('click', () => { pendingImport = null; $('#importText').value = ''; $('#applyImport').disabled = true; importStatus('Paste text or choose a file.'); $('#importDialog').showModal(); });
-    $('#chooseImportFile').addEventListener('click', () => $('#importFile').click());
-    $('#importFile').addEventListener('change', async event => { const file = event.target.files?.[0]; if (!file) return; $('#importText').value = await file.text(); pendingImport = null; $('#applyImport').disabled = true; importStatus(`${file.name} loaded. Select PARSE before applying.`, 'success'); });
-    $('#parseImport').addEventListener('click', () => { try { pendingImport = importer.parse($('#importText').value); $('#applyImport').disabled = false; importStatus(`${pendingImport.detected} band${pendingImport.detected === 1 ? '' : 's'} detected (${pendingImport.format}).`, 'success'); } catch (error) { pendingImport = null; $('#applyImport').disabled = true; importStatus(error.message, 'error'); } });
-    $('#applyImport').addEventListener('click', async () => { if (!pendingImport) return; try { await applyCompleteBands(pendingImport.bands, 'Imported EQ'); importStatus(`${pendingImport.detected} band${pendingImport.detected === 1 ? '' : 's'} imported.`, 'success'); pendingImport = null; $('#applyImport').disabled = true; } catch (error) { importStatus(error.message, 'error'); } });
-    $('#presetEq').addEventListener('click', async () => { $('#presetDialog').showModal(); presetStatus('Loading presets…'); try { await refreshPresetList(); presetStatus('Select a preset or save the current EQ.'); } catch (error) { presetStatus(`ERROR · ${error.message}`, 'error'); } });
-    $('#savePreset').addEventListener('click', saveCurrentPreset); $('#loadPreset').addEventListener('click', loadSelectedPreset); $('#deletePreset').addEventListener('click', deleteSelectedPreset);
+    $('#eqCanvas').addEventListener('pointermove',event=>{if(event.pointerType!=='mouse'||dragging||!graphGeometry)return;const box=event.currentTarget.getBoundingClientRect(),g=graphGeometry;hoverFrequency=20*Math.pow(1000,clamp((event.clientX-box.left-g.left)/g.plotW,0,1));draw();});
+    $('#eqCanvas').addEventListener('pointerleave',()=>{hoverFrequency=null;draw();});
+    $('#bandToggle').addEventListener('click',()=>{if(!latest)return;const off=effectiveDisabled();if(off.has(selectedBand))off.delete(selectedBand);else off.add(selectedBand);commitBand(selectedBand,{},[...off]);});
+    $('#bandType').addEventListener('change',e=>commitBand(selectedBand,{type:e.target.value}));
+    $('#bandReset').addEventListener('click',()=>commitBand(selectedBand,model.defaultBand(model.slotIndex(selectedBand)),disabledSlots().filter(s=>s!==selectedBand)));
+    document.querySelectorAll('[data-input-slot]').forEach(el=>{
+      el.addEventListener('change',()=>{if(el.value===''||!Number.isFinite(el.valueAsNumber)){render(true);return;}const[min,max]=valueLimits(el.dataset.field);const value=clamp(el.valueAsNumber,min,max);el.value=value;commitBand(el.dataset.inputSlot,{[el.dataset.field]:value});});
+    });
+    $('#eqReset').addEventListener('click',()=>{if(busy||!confirm('Reset all 10 EQ bands to neutral? Input delay will stay unchanged.'))return;enqueue({reset:true,disabled:[]}).catch(()=>{});});
+    $('#analyzerSpeed').addEventListener('click',e=>{analyzerFast=!analyzerFast;e.currentTarget.textContent=analyzerFast?'FAST':'SLOW';e.currentTarget.setAttribute('aria-pressed',String(analyzerFast));});
+    $('#delayNumber').addEventListener('change',e=>{if(e.target.value===''){render(true);return;}const value=model.normalizeDelay(e.target.value);e.target.value=value.toFixed(1);setDelay(value);});
+    $('#delayReset').addEventListener('click',()=>setDelay(0));
+    document.querySelectorAll('[data-nudge]').forEach(el=>el.addEventListener('click',()=>setDelay(liveDelay()+Number(el.dataset.nudge))));
+    document.querySelectorAll('[data-dialog-close]').forEach(el=>el.addEventListener('click',()=>$('#'+el.dataset.dialogClose).close()));
+    $('#importEq').addEventListener('click',()=>{pendingImport=null;$('#importText').value='';$('#importFile').value='';$('#applyImport').disabled=true;$('#importPreview').replaceChildren();importStatus('Paste EQ text or choose a file, then preview.');$('#importDialog').showModal();});
+    $('#chooseImportFile').addEventListener('click',()=>$('#importFile').click());
+    function invalidateImport(){pendingImport=null;$('#applyImport').disabled=true;$('#importPreview').replaceChildren();importStatus('Preview this text before applying.');}
+    $('#importText').addEventListener('input',invalidateImport);
+    $('#importFile').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;$('#importText').value=await file.text();invalidateImport();importStatus(`${file.name} loaded. Preview before applying.`);});
+    $('#parseImport').addEventListener('click',()=>{
+      try{pendingImport=importer.parse($('#importText').value);$('#applyImport').disabled=busy;importStatus(`${pendingImport.detected} band${pendingImport.detected===1?'':'s'} detected (${pendingImport.format}).`,'success');
+        const rows=importer.completeBands(pendingImport.bands);$('#importPreview').replaceChildren(...rows.map((b,i)=>{const row=document.createElement('div');row.textContent=`${String(i+1).padStart(2,'0')} · ${hz(b.frequency)} · ${db(b.gain)} dB · Q ${b.q} · ${b.enabled===false?'Disabled':model.isNeutral(b)?'Neutral':b.type}`;return row;}));
+      }catch(error){invalidateImport();importStatus(error.message,'error');}
+    });
+    $('#applyImport').addEventListener('click',async()=>{if(!pendingImport||busy)return;const parsed=pendingImport;try{await applyCompleteBands(parsed.bands);importStatus(`${parsed.detected} band${parsed.detected===1?'':'s'} imported.`,'success');pendingImport=null;$('#applyImport').disabled=true;}catch(error){importStatus(error.message,'error');}});
+    $('#presetEq').addEventListener('click',async()=>{$('#presetDialog').showModal();presetStatus('Loading presets…');try{await refreshPresetList();presetStatus('Select a preset or save the current EQ.');}catch(error){presetStatus(error.message,'error');}});
+    $('#savePreset').addEventListener('click',saveCurrentPreset);$('#loadPreset').addEventListener('click',loadSelectedPreset);$('#deletePreset').addEventListener('click',deleteSelectedPreset);
+    new ResizeObserver(draw).observe($('#eqCanvas'));
   }
-  service.subscribe(snapshot => { latest = { ...snapshot, slots: snapshot.slots.map(slot => ({ ...slot })) }; render(); });
-  loadDisabled(); bind(); setStatus('CONNECTING'); service.refresh().then(() => { setStatus('DSP API READY', 'success'); spectrumTimer = window.setInterval(pollSpectrum, 170); pollSpectrum(); }).catch(error => setStatus(`UNAVAILABLE · ${error.message}`, 'danger'));
-  window.addEventListener('beforeunload', () => { if (spectrumTimer) window.clearInterval(spectrumTimer); });
+  mount();bind();setBusy();service.subscribe(snapshot=>{latest={...snapshot,slots:snapshot.slots.map(b=>({...b}))};render();});
+  service.refresh().then(()=>{setStatus('EQ synchronized','success');pollSpectrum();}).catch(error=>setStatus(`Unavailable · ${error.message}`,'error'));
+  window.addEventListener('beforeunload',()=>{stopped=true;clearTimeout(spectrumTimer);cancelAnimationFrame(drawFrame);});
 })();

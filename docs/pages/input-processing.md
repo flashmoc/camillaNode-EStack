@@ -79,19 +79,43 @@ protection or other processing.
 
 ## Presentation and analyzer
 
-The compact rotary controls are presentation-only: pointer/touch vertical
-drag, keyboard arrows, optional wheel movement and numerical fields call the
-same service mutations. They retain the old Camilla E-Stack control feel—a
-small circular technical body, a radial position mark and an embedded value—
-while using the new product layout.
+The graph is the main workspace, followed by a compact ten-band selector and
+one persistent selected-band editor. Desktop shows all ten slots in a row
+(two rows on smaller tablets); phone uses a horizontal strip. Active, neutral
+and browser-disabled bands are distinct. Each slot has a stable presentation
+color shared by its individual response, graph point and editor.
 
-The cyan theoretical line is calculated in
-`shared/domain/input-processing-model.js` using RBJ biquad equations at the
-sample rate from the live CamillaDSP config, over a logarithmic `20 Hz…20 kHz`
-axis. It is separate from the analyzer. The analyzer reads real
-`GetPlaybackSignalPeak` samples through `/ws/spectrum`; FAST smoothing is
-`0.58` and SLOW smoothing is `0.16`. If spectrum transport is unavailable the
-page shows an unavailable analyzer state and never creates synthetic data.
+The white combined curve uses the unchanged RBJ total response. Individual
+colored curves and their translucent fills use the unchanged per-band response.
+Both use the real configuration sample rate and a logarithmic 20 Hz–20 kHz
+axis. EQ uses a symmetric dB scale; real spectrum uses a separate labeled
+0…−96 dBFS scale. Disabled/neutral contributions are excluded. No synthetic
+spectrum or response fallback is used while live data is unavailable.
+
+Graph points adjust frequency horizontally and gain vertically. Native ranges
+and numerical fields expose exact frequency/gain/Q; type, enable and band reset
+are adjacent. Pointer movement is a local preview; release enqueues exactly one
+existing guarded service transaction. Cancellation restores the preview without
+writing. Numerical edits remain available during queued readbacks. Structural
+DOM is mounted once; readbacks update data and retained nodes, preserving focus,
+selection, scrolling and active gestures. A failed transaction clears pending
+edits, refreshes state and reports the error.
+
+Spectrum still reads real GetPlaybackSignalPeak samples through /ws/spectrum,
+with FAST 0.58 and SLOW 0.16 smoothing. Polling does not overlap. A restrained
+unavailable state replaces invalid/disconnected data.
+
+Input Delay presents an exact millisecond value, a 0…2000 ms native slider,
+−10/−1/+1/+10 ms nudges and its own reset. Global EQ reset remains separate and
+confirmed. Import and Presets are secondary header actions in touch-friendly
+dialogs. Import requires text/file → parsed preview → explicit Apply; modifying
+the source invalidates the parsed preview.
+
+The frontend was reviewed in four deliberate desktop/phone visual passes,
+including the final individual colored-band direction. The responsive matrix
+covers 1920×1080, 1440×900, 1280×800, 1024×768 and 390×844, each at browser zoom
+80%, 100%, 125% and 150%. Input E2E retains the original DSP/preset preservation
+assertions and adds one touch/queue/DOM stability regression.
 
 ## Global EQ presets and import
 

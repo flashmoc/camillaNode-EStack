@@ -67,7 +67,7 @@ test.describe('Input Processing live CamillaNode demo', () => {
     try {
       await expect(page.locator('.prototype-banner')).toContainText('CAMILLANODE MODE'); await expect(page.locator('.shell-context')).toContainText('DSP ONLINE');
       await expect.poll(() => frame.evaluate(() => ({ mode: window.EStackDSPBridge?.mode, page: document.documentElement.dataset.prototypePage, mock: !!window.EStackPrototypeDSP }))).toEqual({ mode: 'camillanode', page: 'input-processing', mock: false });
-      await expect(frame.locator('.eq-band')).toHaveCount(10); await expect(frame.locator('[data-knob="GLOBAL_EQ_01"]')).toHaveCount(3); await expect(frame.locator('#spectrumState')).toHaveClass(/is-live/);
+      await expect(frame.locator('.eq-band')).toHaveCount(10); await expect(frame.locator('[data-range]')).toHaveCount(3); await expect(frame.locator('#spectrumState')).toHaveClass(/is-live/);
       const gain = frame.locator('[data-input-slot="GLOBAL_EQ_01"][data-field="gain"]'); await gain.fill(String(testGain)); await gain.press('Tab');
       await expect.poll(async () => Number((await dspCommand('GetConfigJson')).filters.GLOBAL_EQ_01?.parameters?.gain)).toBeCloseTo(testGain, 6);
       const eqChanged = await dspCommand('GetConfigJson'); assertEqScope(original, eqChanged, testGain);
@@ -119,5 +119,57 @@ test.describe('Input Processing live CamillaNode demo', () => {
       expect(await loadSavedConfigs(request)).toEqual(originalSavedConfigs);
       await page.evaluate(items => items.forEach(({ key, value }) => value === null ? window.localStorage.removeItem(key) : window.localStorage.setItem(key, value)), Object.entries(storage).map(([key, value]) => ({ key, value })));
     }
+  });
+});
+
+test.describe('Input EQ touch workspace', () => {
+  test.use({ viewport:{width:390,height:844}, isMobile:true, hasTouch:true });
+  test('keeps controls stable, queues edits, and commits touch previews only on release', async ({page,request}) => {
+    test.setTimeout(90000);await requireDemoRuntime(request);const original=await dspCommand('GetConfigJson');
+    let writes=0,hold=false,release=null;
+    await page.routeWebSocket('**/ws/dsp',ws=>{const server=ws.connectToServer();ws.onMessage(message=>{if(String(message).includes('SetConfigJson'))writes++;server.send(message);});server.onMessage(message=>{if(hold&&String(message).includes('SetConfigJson')){hold=false;release=()=>ws.send(message);}else ws.send(message);});});
+    page.on('dialog',dialog=>dialog.accept());const errors=[];page.on('pageerror',error=>errors.push(error.message));
+    await page.goto('/estack-dsp/?transport=camillanode#input-processing');const frame=await inputFrame(page);
+    const cdp=await page.context().newCDPSession(page);
+    const touch=(type,x,y)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:['touchEnd','touchCancel'].includes(type)?[]:[{x,y,id:1,radiusX:7,radiusY:7,force:1}]});
+    const settled=()=>expect(frame.locator('#inputState')).toHaveText('EQ synchronized');
+    const drag=async(selector,from,to,cancel=false)=>{
+      const el=frame.locator(selector);await el.evaluate(e=>e.scrollIntoView({block:'center'}));const box=await el.boundingBox();expect(box.height).toBeGreaterThanOrEqual(44);
+      const before=writes,scroll=await frame.evaluate(()=>scrollY),value=await el.inputValue();const y=box.y+box.height/2+10;
+      await touch('touchStart',box.x+box.width*from,y);for(let i=1;i<=6;i++)await touch('touchMove',box.x+box.width*(from+(to-from)*i/6),y);
+      expect(writes).toBe(before);expect(await frame.evaluate(()=>scrollY)).toBe(scroll);expect(await el.inputValue()).not.toBe(value);
+      await touch(cancel?'touchCancel':'touchEnd');if(cancel){await expect(el).toHaveValue(value);expect(writes).toBe(before);}else await expect.poll(()=>writes).toBe(before+1);
+    };
+    try {
+      await settled();await expect(frame.locator('.eq-band')).toHaveCount(10);
+      await frame.evaluate(()=>{window.inputNodes=[document.querySelector('#eqInspector'),...document.querySelectorAll('[data-input-slot]'),...document.querySelectorAll('[data-range]')];});
+      for(const slot of globalNames){const band=frame.locator(`[data-band="${slot}"]`);await band.scrollIntoViewIfNeeded();await band.tap();await expect(band).toHaveAttribute('aria-current','true');await expect(frame.locator('#bandTitle')).toHaveText(`Band ${slot.slice(-2)}`);}
+      await frame.locator('[data-band="GLOBAL_EQ_04"]').scrollIntoViewIfNeeded();await frame.locator('[data-band="GLOBAL_EQ_04"]').tap();
+      hold=true;await drag('[data-range="gain"]',.5,.65);await expect.poll(()=>typeof release).toBe('function');
+      const q=frame.locator('[data-input-slot][data-field="q"]');await q.fill('1.3');await q.dispatchEvent('change');await q.focus();
+      const beforeScroll=await frame.evaluate(()=>scrollY);release();await settled();await expect(q).toBeFocused();expect(await frame.evaluate(()=>scrollY)).toBe(beforeScroll);
+      expect((await dspCommand('GetConfigJson')).filters.GLOBAL_EQ_04.parameters.q).toBe(1.3);
+      await frame.locator('#bandType').selectOption('Lowshelf');await settled();await frame.locator('#bandType').selectOption('Highshelf');await settled();await frame.locator('#bandType').selectOption('Peaking');await settled();
+      const freq=frame.locator('[data-input-slot][data-field="frequency"]');await freq.fill('600');await freq.dispatchEvent('change');await settled();
+      await frame.locator('#bandToggle').tap();await settled();await expect(frame.locator('[data-band="GLOBAL_EQ_04"]')).toHaveAttribute('data-state','disabled');
+      expect((await dspCommand('GetConfigJson')).pipeline.find(step=>step.description===GLOBAL_STEP)?.names||[]).not.toContain('GLOBAL_EQ_04');
+      await frame.locator('#bandToggle').tap();await settled();
+      await drag('[data-range="frequency"]',.35,.45);await settled();await drag('[data-range="q"]',.1,.3);await settled();await drag('[data-range="gain"]',.6,.7,true);
+      const point=frame.locator('[data-point="GLOBAL_EQ_04"]');await point.evaluate(e=>e.scrollIntoView({block:'center'}));let box=await point.boundingBox();let before=writes;
+      await touch('touchStart',box.x+22,box.y+22);await touch('touchMove',box.x+52,box.y+12);expect(writes).toBe(before);await expect(frame.locator('#graphReadout')).toContainText('Preview');await touch('touchEnd');await expect.poll(()=>writes).toBe(before+1);await settled();
+      await point.evaluate(e=>e.scrollIntoView({block:'center'}));box=await point.boundingBox();before=writes;const bandBefore=(await dspCommand('GetConfigJson')).filters.GLOBAL_EQ_04;
+      await touch('touchStart',box.x+22,box.y+22);await touch('touchMove',box.x+12,box.y+32);await touch('touchCancel');expect(writes).toBe(before);expect((await dspCommand('GetConfigJson')).filters.GLOBAL_EQ_04).toEqual(bandBefore);
+      await frame.locator('#analyzerSpeed').tap();await expect(frame.locator('#analyzerSpeed')).toHaveText('SLOW');
+      await frame.locator('#bandReset').tap();await settled();await expect(frame.locator('[data-band="GLOBAL_EQ_04"]')).toHaveAttribute('data-state','neutral');await expect(frame.locator('#analyzerSpeed')).toHaveText('SLOW');
+      await drag('#delayRange',.001,.05);await settled();await frame.locator('#delayNumber').fill('1.2');await frame.locator('#delayNumber').dispatchEvent('change');await settled();
+      for(const nudge of [-10,-1,1,10]){await frame.locator(`[data-nudge="${nudge}"]`).tap();await settled();}
+      await frame.locator('#delayReset').tap();await settled();await expect(frame.locator('#delayNumber')).toHaveValue('0.0');
+      await frame.locator('#eqReset').tap();await settled();expect((await dspCommand('GetConfigJson')).pipeline.some(step=>step.description===GLOBAL_STEP)).toBe(false);
+      expect(await frame.evaluate(()=>window.inputNodes.every(el=>el.isConnected))).toBe(true);
+      await frame.locator('#importEq').tap();await frame.locator('#importText').fill('Filter 1: ON PK Fc 125 Hz Gain 2 dB Q 0.7');await frame.locator('#parseImport').tap();await expect(frame.locator('#importPreview')).toContainText('125 Hz');await frame.locator('#importText').fill('invalid');await expect(frame.locator('#applyImport')).toBeDisabled();await frame.locator('[data-dialog-close="importDialog"]').tap();
+      await frame.locator('#eqInspector').evaluate(el=>el.scrollIntoView({block:'start'}));const oldScroll=await frame.evaluate(()=>scrollY);box=await frame.locator('#bandTitle').boundingBox();
+      await touch('touchStart',box.x+10,box.y+20);await touch('touchMove',box.x+10,box.y-80);await touch('touchEnd');await expect.poll(()=>frame.evaluate(()=>scrollY)).not.toBe(oldScroll);
+      expect(errors).toEqual([]);
+    } finally { if(release)release();await dspCommand({SetConfigJson:JSON.stringify(original)});expect(await dspCommand('GetConfigJson')).toEqual(original); }
   });
 });
