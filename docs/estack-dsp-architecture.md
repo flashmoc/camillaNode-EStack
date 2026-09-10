@@ -73,8 +73,13 @@ capability belongs in the product page plus a reusable domain/service layer.
 
 - **Control:** product domain implementation; code parity accepted at `d1c803e`;
   Raspberry acceptance pending.
-- **Other product pages:** visual/product scaffolding exists; their live DSP
-  semantics are migrated only when an explicit task covers them.
+- **Input/Output Processing:** existing validated workflows, unchanged by this batch.
+- **Loudness, Signal Generator, Measurement Batch:** live server-owned workflows;
+  software validation only, hardware acceptance remains separate.
+- **Connections:** read-only live runtime/DSP/spectrum diagnostics.
+- **Preferences:** browser-local density and contrast with consumers in these five pages.
+- **Advanced, System Presets/Startup Configuration:** not migrated by this batch;
+  not claimed production-complete here.
 - **Legacy frontend:** retained as behavioral reference until each capability
   has a product-owned replacement.
 

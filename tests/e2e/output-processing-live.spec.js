@@ -302,6 +302,9 @@ test.describe('Output mobile touch', () => {
       }
       await frame.locator('[data-polarity="true"]').tap();await ready();await expect(frame.locator('[data-polarity="true"]')).toHaveAttribute('aria-pressed','true');
       await frame.locator('[data-mute]').tap();await ready();await expect(frame.locator('#muteDetail')).toHaveText('MUTED');await expect(frame.locator('[data-mute]')).toHaveText('Unmute');
+      // A fresh canonical demo has no MID PEQ. Create the test band explicitly;
+      // the original configuration is restored in finally below.
+      if(await frame.locator('.peq-row').count()===0){await frame.locator('#addPeq').tap();await ready();}
       const row=frame.locator('.peq-row').first(),power=row.locator('[data-peq-toggle]');
       const state=await power.getAttribute('aria-pressed');await power.tap();await ready();await expect(power).toHaveAttribute('aria-pressed',String(state!=='true'));
       const frequency=row.locator('[data-peq-field="freq"]');await frequency.fill('710');await frequency.press('Tab');await ready();await expect(frequency).toHaveValue('710');

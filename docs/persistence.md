@@ -47,3 +47,7 @@ Read live DSP state through CamillaDSP for operational controls. Use persisted
 server APIs only for their designated preset/configuration workflows. Do not
 invent a browser persistence format for processing, limiter, mixer or device
 state.
+
+Product workflow display preferences use estack.product.presentation (density
+and contrast). They are consumed only as CSS presentation by the five migrated
+workflow surfaces; they never represent processing or safety state.

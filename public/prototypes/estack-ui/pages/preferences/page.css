@@ -1,3 +1,1 @@
-.preferences-page { min-height: 100%; }
-.preferences-page .workbench-grid { padding: 14px; }
-@media (max-width: 700px) { .preferences-page .workbench-grid { padding: 10px; } }
+.toggle-row select{min-width:160px}@media(max-width:700px){.toggle-row{display:grid;gap:12px;grid-template-columns:1fr}.toggle-row select{width:100%;font-size:16px}}

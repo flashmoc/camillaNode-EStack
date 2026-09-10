@@ -24,6 +24,14 @@ DSP backend.
 8. [Development simulation and E2E](development.md) — canonical Linux
    Dev Container/Codespaces workflow and software-validation gate.
 
+## Completed product workflow surfaces
+
+- [Loudness](pages/loudness.md) — live server presets and WiiM bridge state.
+- [Signal Generator](pages/signal-generator.md) — server-owned safe test workflow.
+- [Measurement Batch operator UI](pages/measurement-batch.md) — live sequencing and restore.
+- [Connections](pages/connections.md) — read-only runtime diagnostics.
+- [Preferences](pages/preferences.md) — browser-only presentation settings.
+
 ## Supporting documents
 
 - [Raspberry deployment](raspberry.md) — CamillaNode installation/update and
