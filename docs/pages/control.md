@@ -27,6 +27,17 @@ It does not load fixture/mock operational data in that mode.
 
 ## Reads
 
+The shell owns the `GetProcessingLoad` poll and sends its latest real DSP load
+to Control through the same-origin `estack-system-load` presentation message.
+Control validates the parent and origin and uses the identical percentage and
+70/90 percent warning thresholds; limiter headroom remains a separate dB value.
+
+Live meter refreshes update existing elements rather than rebuilding controls.
+Input Trim keeps a local pointer preview and commits on release through the
+existing guarded service; exact numeric edits and half-dB nudges are serialized.
+Pointer cancellation discards the preview. Mobile places output normalization
+and Level Lock on a dedicated row below the protection summary.
+
 - `GetVolume` for Master;
 - `GetCaptureSignalPeak` for capture/input meters;
 - one shared `GetPlaybackSignalPeak` loop for output meters;

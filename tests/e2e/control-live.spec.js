@@ -86,6 +86,42 @@ async function setSubGainThroughFader(frame, targetGain) {
 }
 
 test.describe('Control live CamillaNode demo', () => {
+    test('mobile trim survives telemetry and shares shell processing load', async ({ page, request }) => {
+        await requireDemoRuntime(request);
+        const original = await dspCommand('GetConfigJson');
+        const volume = await dspCommand('GetVolume');
+        await page.setViewportSize({ width: 390, height: 844 });
+        await page.goto('/estack-dsp/?transport=camillanode#control');
+        const frame = await controlFrame(page);
+        const slider = frame.locator('#inputTrimRange');
+        await expect(slider).toBeEnabled();
+        await expect.poll(() => frame.locator('[data-control-load]').textContent()).toMatch(/\d+\.\d+ %/);
+        await expect.poll(async () => {
+            return (await page.locator('[data-shell-load]').textContent()) === (await frame.locator('[data-control-load]').textContent());
+        }).toBeTruthy();
+        const initial = Number(await slider.inputValue());
+        const target = initial > 0 ? initial - 1 : initial + 1;
+        try {
+            await slider.scrollIntoViewIfNeeded();
+            await slider.dispatchEvent('pointerdown', { pointerId: 7, pointerType: 'touch' });
+            await slider.evaluate((element, value) => { element.value = value; element.dispatchEvent(new Event('input', { bubbles: true })); }, String(target));
+            await page.waitForTimeout(650);
+            await expect(slider).toHaveValue(String(target));
+            expect(await dspCommand('GetConfigJson')).toEqual(original);
+            await slider.dispatchEvent('pointerup', { pointerId: 7, pointerType: 'touch' });
+            await expect(frame.locator('#controlStatus')).toContainText('synchronized');
+            expect(await dspCommand('GetVolume')).toBeCloseTo(volume, 5);
+            const number = frame.locator('#inputTrimNumber');
+            await number.fill(String(initial));
+            await number.press('Tab');
+            await expect.poll(() => dspCommand('GetConfigJson')).toEqual(original);
+            await expect(slider).toBeEnabled();
+            expect(await frame.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+        } finally {
+            if (JSON.stringify(await dspCommand('GetConfigJson')) !== JSON.stringify(original)) await dspCommand({ SetConfigJson: JSON.stringify(original) });
+            if ((await dspCommand('GetVolume')) !== volume) await dspCommand({ SetVolume: volume });
+        }
+    });
     test('renders live Control and restores a narrow SUB gain round trip', async ({ page, request }) => {
         await requireDemoRuntime(request);
         const original = await dspCommand('GetConfigJson');

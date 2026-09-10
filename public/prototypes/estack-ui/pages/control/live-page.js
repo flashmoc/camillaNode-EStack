@@ -13,6 +13,7 @@
   const LEVEL_LOCK_STORAGE_KEY = 'estack.control.level.locked';
   let latest = null;
   let busy = false;
+  let trimGesture=null, trimTargets=[], trimWorking=false, trimInFlight=null, dspLoad=null;
   let levelLocked = readLevelLock();
   let faderDragging = false;
   let spectrumBusy = false;
@@ -36,11 +37,10 @@
   const formatDb = (value, suffix = 'dB') => Number.isFinite(Number(value)) ? `${Number(value).toFixed(1).replace('-', '−')} ${suffix}` : '—';
   const wayHeadroom = channel => latest?.headroom?.find(item => item.channel === channel) || null;
   const wayPeak = channel => Number(latest?.outputPeaks?.[channel]);
-  const message = (text, state = 'info') => { const root = $('.control-page'); if (root) { root.dataset.message = state; root.title = text; } };
+  const message = (text, state = 'info') => { const root = $('.control-page'); if (root) { root.dataset.message = state; $('#controlStatus').textContent = text; $('#controlStatus').dataset.state = state; } };
   const setBusy = value => {
     busy = value;
-    if (!value) { render(); return; }
-    document.querySelectorAll('button,input').forEach(el => { if (el.id === 'analyzerToggle') return; el.disabled = true; });
+    render();
   };
   const sendShellStatus = () => {
     const item = latest?.system;
@@ -58,6 +58,7 @@
       previous.visible = level > INPUT_SHOW_THRESHOLD_DB || (previous.visible && now - previous.lastSignalAt <= INPUT_HIDE_DELAY_MS);
       inputActivity.set(index, previous); return previous.visible ? index : null;
     }).filter(Number.isInteger);
+    const signature=active.join(','); if ($('#inputMeters').dataset.channels === signature) return; $('#inputMeters').dataset.channels=signature;
     $('#inputMeters').innerHTML = active.length ? active.map(index => `<article class="input-meter" data-input-meter="${index}"><header><strong>${index === 0 ? 'IN L' : index === 1 ? 'IN R' : `IN ${index + 1}`}</strong><span>CAPTURE ${index + 1}</span></header><output data-input-readout="${index}">—</output><div class="horizontal-meter"><i data-input-fill="${index}"></i><b data-input-peak="${index}"></b><span>−60</span><span>0</span></div></article>`).join('') : '<div class="input-meter-empty">No active input</div>';
   }
   function paintInputMeters() {
@@ -89,6 +90,7 @@
   }
   function pairs(key, left, right) { const label = model.LINK_DEFINITIONS[key].label; return `<section class="channel-pair channel-pair-${key}">${strip(left)}${strip(right)}<button class="pair-link" data-link-toggle="${key}" type="button" aria-pressed="${latest.links[key]}">${label} · ${latest.links[key] ? 'LINKED' : 'FREE'}</button></section>`; }
   function mixer() {
+    if ($('#controlMixer').children.length) { updateMixer(); return; }
     const ways = latest.ways; const by = channel => ways.find(item => item.channel === channel);
     $('#controlMixer').innerHTML = `<div class="console-bank">${strip(null, true)}${[0,1].map(channel => strip(by(channel))).join('')}${pairs('mid', by(2), by(3))}${pairs('high', by(4), by(5))}</div>`;
     document.querySelectorAll('[data-fader]').forEach(input => {
@@ -97,9 +99,31 @@
     });
     document.querySelectorAll('[data-fader-core]').forEach(core => attachFaderPointer(core));
     document.querySelectorAll('[data-number]').forEach(input => input.addEventListener('change', event => { if (isWayLocked(event.target.dataset.number)) return; applyGain(event.target.dataset.number, event.target.value); }));
-    document.querySelectorAll('[data-nudge]').forEach(button => button.addEventListener('click', () => { const key = button.dataset.nudge; if (isWayLocked(key)) return; const value = key === 'master' ? latest.master : latest.ways.find(item => item.channel === Number(key))?.gain; applyGain(key, Number(value) + Number(button.dataset.delta)); }));
+    document.querySelectorAll('[data-nudge]').forEach(button => button.addEventListener('click', () => { const key = button.dataset.nudge; if (busy) return; if (isWayLocked(key)) return; const value = key === 'master' ? latest.master : latest.ways.find(item => item.channel === Number(key))?.gain; applyGain(key, Number(value) + Number(button.dataset.delta)); }));
     document.querySelectorAll('[data-link-toggle]').forEach(button => button.addEventListener('click', () => service.setLink(button.dataset.linkToggle, !latest.links[button.dataset.linkToggle])));
     document.querySelectorAll('[data-mute]').forEach(button => button.addEventListener('click', () => { if (button.dataset.mute !== 'master') run(() => service.setWayMute(Number(button.dataset.mute), !latest.ways.find(item => item.channel === Number(button.dataset.mute))?.muted)); }));
+  }
+  function updateMixer() {
+    document.querySelectorAll('[data-fader-core]').forEach(core=>{
+      const key=core.dataset.faderCore, master=key==='master', item=latest.ways.find(w=>String(w.channel)===key);
+      const card=core.closest('.mixer-strip'), gain=master?latest.master:item.gain, muted=!master&&item.muted;
+      const peak=master?Math.max(-60,...latest.ways.filter(w=>!w.muted).map(w=>Number(latest.outputPeaks[w.channel])||-60)):wayPeak(item.channel);
+      const level=muted?-60:Number.isFinite(peak)?peak:-60, locked=isWayLocked(key);
+      card.querySelector('[data-meter-readout]').textContent=master?formatDb(gain):muted?'−∞':formatDb(level,'dBFS');
+      card.querySelector('[data-meter-fill]').style.height=meter(level);card.querySelector('[data-meter-peak]').style.bottom=meter(level);
+      const fader=card.querySelector('[data-fader]'),numeric=card.querySelector('[data-number]');
+      if(!faderDragging&&document.activeElement!==numeric&&document.activeElement!==core&&document.activeElement!==fader){
+        fader.value=String(gain);numeric.value=Number(gain).toFixed(1);core.setAttribute('aria-valuenow',String(gain));
+        card.querySelector('.legacy-fader-handle').className=`legacy-fader-handle ${faderPresentation.positionClass(gain,Number(fader.min),Number(fader.max))}`;
+      }
+      fader.disabled=busy||locked;numeric.disabled=busy||locked;core.setAttribute('aria-disabled',String(busy||locked));core.tabIndex=busy||locked?-1:0;
+      card.querySelectorAll('[data-nudge]').forEach(el=>el.disabled=busy||locked);
+      if(!master){const room=wayHeadroom(item.channel),protection=protectionState(room);card.dataset.protection=protection;card.classList.toggle('is-muted',muted);
+        const status=card.querySelector('.strip-protection');status.dataset.state=protection;status.querySelector('strong').textContent=room?.hardMargin<=.1?'HARD LIMIT':room?.protectionMargin<=0?'COMPRESSION':Number.isFinite(room?.hardMargin)?`SAFE +${Math.max(0,room.hardMargin).toFixed(1)} dB`:'WAITING';
+        const mute=card.querySelector('[data-mute]');mute.disabled=busy;mute.textContent=muted?'MUTED':'MUTE';mute.setAttribute('aria-pressed',String(muted));
+      }
+    });
+    document.querySelectorAll('[data-link-toggle]').forEach(el=>{const key=el.dataset.linkToggle;el.disabled=busy;el.setAttribute('aria-pressed',String(latest.links[key]));el.textContent=`${model.LINK_DEFINITIONS[key].label} · ${latest.links[key]?'LINKED':'FREE'}`;});
   }
   function previewGain(core, key, value) {
     if (!core || isWayLocked(key)) return;
@@ -129,14 +153,14 @@
       if (!isWayLocked(key)) applyGain(key, next);
     };
     core.addEventListener('pointerdown', event => {
-      if (event.button > 0 || isWayLocked(key)) return;
+      if (busy || event.button > 0 || isWayLocked(key)) return;
       event.preventDefault(); pointerId = event.pointerId; faderDragging = true; core.setPointerCapture?.(pointerId); core.focus({ preventScroll:true }); preview(event.clientY);
     });
     core.addEventListener('pointermove', event => { if (event.pointerId === pointerId && !isWayLocked(key)) { event.preventDefault(); preview(event.clientY); } });
     core.addEventListener('pointerup', release);
     core.addEventListener('pointercancel', event => { if (event.pointerId === pointerId) { try { core.releasePointerCapture?.(pointerId); } catch (_) {} pointerId = null; faderDragging = false; } });
     core.addEventListener('keydown', event => {
-      if (isWayLocked(key)) return;
+      if (busy) return; if (isWayLocked(key)) return;
       const keyboardStep = Number(fader.step) || .1;
       const increments = { ArrowUp: keyboardStep, ArrowRight: keyboardStep, ArrowDown: -keyboardStep, ArrowLeft: -keyboardStep, PageUp: 1, PageDown: -1 };
       if (!(event.key in increments)) return;
@@ -149,23 +173,63 @@
       if (!isWayLocked(key)) applyGain(key, fader.value);
     });
   }
+  function trimValue() { return trimGesture ? Number($('#inputTrimRange').value) : trimTargets.length ? trimTargets.at(-1) : trimInFlight ?? Number(latest?.trim || 0); }
   function renderTrim() {
-    const trim = Number(latest.trim || 0); const available = service.availableInputTrim();
-    $('#inputTrimRange').value = String(trim); $('#inputTrimValue').textContent = `${trim > 0 ? '+' : ''}${trim.toFixed(1)} dB`; $('#inputTrimAvailable').textContent = Number.isFinite(available) && available >= .5 ? `+${available.toFixed(1)} dB` : 'HOLD'; $('#inputTrimUse').disabled = !Number.isFinite(available) || available < .5;
+    const trim=trimValue(), available=service.availableInputTrim();
+    if(!trimGesture) $('#inputTrimRange').value=String(trim);
+    if(document.activeElement!==$('#inputTrimNumber')) $('#inputTrimNumber').value=trim.toFixed(1);
+    $('#inputTrimValue').textContent=formatDb(trim); $('#inputTrimAvailable').textContent=Number.isFinite(available)&&available>=.5 ? '+'+available.toFixed(1)+' dB' : 'HOLD';
+    $('#inputTrimUse').disabled=busy||trimWorking||!Number.isFinite(available)||available<.5;
+    $('#inputTrimDown').disabled=trim<=-20; $('#inputTrimUp').disabled=trim>=12;
   }
   function renderSummary() {
-    const system = latest.system; const state = protectionState(system); const margin = Number.isFinite(system?.hardMargin) ? Math.max(0, system.hardMargin) : null; const load = margin === null ? 0 : Math.round(clamp((12 - margin) / 12 * 100, 0, 100));
-    $('#protectionSummary').dataset.state = state;
-    $('#protectionSummary').innerHTML = `<div><span>SYSTEM</span><strong>${state === 'hard' ? 'HARD LIMIT' : state === 'compress' ? 'COMPRESSION' : system ? 'NORMAL' : 'WAITING'}</strong></div><div><span>HEADROOM</span><strong>${margin === null ? '—' : `${margin.toFixed(1)} dB`}</strong></div><div class="protection-load"><span>LIMIT LOAD</span><i><b style="width:${load}%"></b></i><strong>${load}%</strong></div><div><span>ACTIVE WAY</span><strong>${system?.name || 'PLAY SIGNAL'}</strong></div><button class="normalize-ways" data-normalize type="button"><i class="normalize-icon" aria-hidden="true">⇡</i><span>MAX 0 dB</span></button><button class="level-lock${levelLocked ? ' is-locked' : ''}" data-level-lock type="button" aria-pressed="${levelLocked}" aria-label="${levelLocked ? 'Unlock output ways' : 'Lock output ways'}"><i class="lock-icon" aria-hidden="true"></i><span>${levelLocked ? 'LOCKED' : 'UNLOCKED'}</span></button>`;
-    $('[data-normalize]').addEventListener('click', normalize);
-    $('[data-level-lock]').addEventListener('click', () => setLevelLock(!levelLocked));
+    const root=$('#protectionSummary');
+    if(!root.children.length) {
+      root.innerHTML='<div><span>PROTECTION</span><strong data-summary="state"></strong></div><div><span>HEADROOM</span><strong data-summary="margin"></strong></div><div class="protection-load"><span>SYSTEM LOAD</span><i><b data-load-bar></b></i><strong data-control-load></strong></div><div><span>ACTIVE WAY</span><strong data-summary="way"></strong></div>';
+      $('#mixerActions').innerHTML='<div><strong>Output levels</strong><span>Preserve the balance between ways</span></div><button class="normalize-ways" data-normalize type="button">Max gain → 0 dB</button><button class="level-lock" data-level-lock type="button"><i class="lock-icon" aria-hidden="true"></i><span></span></button>';
+      $('[data-normalize]').addEventListener('click',normalize); $('[data-level-lock]').addEventListener('click',()=>setLevelLock(!levelLocked));
+    }
+    const system=latest.system,state=protectionState(system),margin=Number.isFinite(system?.hardMargin)?Math.max(0,system.hardMargin):null;
+    root.dataset.state=state;
+    $('[data-summary="state"]').textContent=state==='hard'?'HARD LIMIT':state==='compress'?'COMPRESSION':system?'NORMAL':'WAITING';
+    $('[data-summary="margin"]').textContent=margin===null?'—':margin.toFixed(1)+' dB'; $('[data-summary="way"]').textContent=system?.name||'PLAY SIGNAL';
+    $('[data-control-load]').textContent=dspLoad===null?'— %':dspLoad.toFixed(1)+' %';
+    $('[data-load-bar]').style.width=(dspLoad===null?0:Math.min(100,dspLoad))+'%';
+    $('.protection-load').dataset.loadState=dspLoad===null?'unknown':dspLoad>=90?'critical':dspLoad>=70?'warning':'ok';
+    const lock=$('[data-level-lock]'); lock.classList.toggle('is-locked',levelLocked);lock.setAttribute('aria-pressed',String(levelLocked));lock.setAttribute('aria-label',levelLocked?'Unlock output ways':'Lock output ways');lock.querySelector('span').textContent=levelLocked?'LOCKED':'UNLOCKED';
+    lock.disabled=busy;$('[data-normalize]').disabled=busy;
   }
   function render() { if (!latest?.config) return; inputMeters(); paintInputMeters(); mixer(); renderTrim(); renderSummary(); sendShellStatus(); drawSpectrum(); }
-  async function run(action) { if (busy) return; try { setBusy(true); await action(); } catch (error) { console.error(error); message(error.message || String(error), 'error'); } finally { setBusy(false); } }
-  function applyGain(key, value) { if (isWayLocked(key)) return; run(() => key === 'master' ? service.setMaster(value) : service.setWayGain(Number(key), value)); }
+  async function run(action) { if (busy) return; try { setBusy(true); await action(); } catch (error) { console.error(error); message(error.message || String(error), 'error'); } finally { setBusy(false); drainTrim(); } }
+  function applyGain(key, value) { if (busy) return; if (isWayLocked(key)) return; run(() => key === 'master' ? service.setMaster(value) : service.setWayGain(Number(key), value)); }
   function normalize() { const highest = Math.max(...latest.ways.map(way => way.gain)); const shift = -highest; const gains = latest.ways.map(way => `${way.name}: ${way.gain.toFixed(1)} → ${(way.gain + shift).toFixed(1)} dB`).join('\n'); if (window.confirm(`Normalize E-Stack ways?\n\nCommon shift: ${shift > 0 ? '+' : ''}${shift.toFixed(1)} dB\nRelative differences are preserved exactly. MASTER is unchanged.\n\n${gains}`)) run(() => service.normalizeWays()); }
   function useInputHeadroom() { const add = service.availableInputTrim(); if (!Number.isFinite(add) || add < .5) return; const current = Number(latest.trim); const target = current + add; if (add >= 3 && !window.confirm(`Use available input headroom?\n\nINPUT TRIM: ${current > 0 ? '+' : ''}${current.toFixed(1)} → ${target > 0 ? '+' : ''}${target.toFixed(1)} dB\nAutomatic increase: +${add.toFixed(1)} dB\nReserve kept before first protection threshold: at least 1.0 dB\n\nThis estimate uses only the loudest peak seen in the last 4 seconds. Play representative loud programme material before confirming.`)) return; run(() => service.setInputTrim(target)); }
-  function bindTrim() { $('#inputTrimDown').addEventListener('click', () => run(() => service.setInputTrim(Number(latest.trim) - .5))); $('#inputTrimUp').addEventListener('click', () => run(() => service.setInputTrim(Number(latest.trim) + .5))); $('#inputTrimRange').addEventListener('change', event => run(() => service.setInputTrim(event.target.value))); $('#inputTrimUse').addEventListener('click', useInputHeadroom); }
+  function queueTrim(value) {
+    const numeric=Number(value);if(!Number.isFinite(numeric))return;
+    trimTargets.push(Math.max(-20,Math.min(12,Math.round(numeric*2)/2)));renderTrim();drainTrim();
+  }
+  async function drainTrim() {
+    if(trimWorking||busy||!trimTargets.length)return;
+    trimWorking=true;
+    while(trimTargets.length) {
+      trimInFlight=trimTargets.shift();setBusy(true);message('Applying input trim…');
+      try { await service.setInputTrim(trimInFlight);message('Input trim synchronized'); }
+      catch(error) { trimTargets=[];await service.refresh().catch(()=>{});message(error.message,'error'); }
+      finally { trimInFlight=null;setBusy(false); }
+    }
+    trimWorking=false;renderTrim();
+  }
+  function bindTrim() {
+    const slider=$('#inputTrimRange'); let pointerActive=false;
+    $('#inputTrimDown').addEventListener('click',()=>queueTrim(trimValue()-.5));$('#inputTrimUp').addEventListener('click',()=>queueTrim(trimValue()+.5));
+    slider.addEventListener('pointerdown',event=>{if(!latest)return;pointerActive=true;trimGesture={id:event.pointerId,start:trimValue()};slider.setPointerCapture(event.pointerId);});
+    slider.addEventListener('input',()=>{if(trimGesture){$('#inputTrimNumber').value=Number(slider.value).toFixed(1);$('#inputTrimValue').textContent=formatDb(slider.value);}});
+    function finish(event,cancel=false){if(trimGesture?.id!==event.pointerId)return;const gesture=trimGesture,value=Number(slider.value);trimGesture=null;if(!cancel&&value!==gesture.start)queueTrim(value);slider.value=String(trimValue());$('#inputTrimNumber').value=trimValue().toFixed(1);renderTrim();setTimeout(()=>pointerActive=false,0);}
+    slider.addEventListener('pointerup',event=>finish(event));slider.addEventListener('pointercancel',event=>finish(event,true));slider.addEventListener('lostpointercapture',event=>finish(event,true));
+    slider.addEventListener('change',()=>{if(!pointerActive)queueTrim(slider.value);});
+    $('#inputTrimNumber').addEventListener('change',event=>{if(event.target.value===''){event.target.value=trimValue().toFixed(1);return;}const value=Math.round(Math.max(-20,Math.min(12,Number(event.target.value)))*2)/2;event.target.value=value.toFixed(1);queueTrim(value);});
+    $('#inputTrimUse').addEventListener('click',useInputHeadroom);
+  }
   function drawSpectrum() {
     const canvas = $('#inputScope'); if (!$('#analyzerToggle').checked) { canvas.hidden = true; return; } canvas.hidden = false;
     const ctx = canvas.getContext('2d'); const width = canvas.width; const height = canvas.height; ctx.clearRect(0, 0, width, height); const top = 18, bottom = 5, gap = Math.max(2, Math.min(4, width / 360)), bar = Math.max(4, (width - gap * (spectrumFrequencies.length - 1) - 4) / spectrumFrequencies.length), part = 4, partGap = 2, count = Math.floor((height - top - bottom) / (part + partGap));
@@ -173,6 +237,7 @@
   }
   async function updateSpectrum() { if (spectrumBusy || !$('#analyzerToggle').checked) return; spectrumBusy = true; try { const raw = await window.EStackDSPBridge.spectrumCommand('GetPlaybackSignalPeak'); if (Array.isArray(raw)) spectrumLevels = spectrumFrequencies.map((_, index) => Math.max(Number(raw[index * 2] ?? -80), Number(raw[index * 2 + 1] ?? -80))); drawSpectrum(); } catch (_) { /* Live spectrum remains empty while its service is unavailable. */ } finally { spectrumBusy = false; } }
   async function init() {
+    window.addEventListener('message',event=>{if(event.origin!==location.origin||event.source!==window.parent||event.data?.type!=='estack-system-load')return;const value=event.data.load;dspLoad=typeof value==='number'&&Number.isFinite(value)&&value>=0?value:null;if(latest)renderSummary();});
     $('#analyzerToggle').addEventListener('change', drawSpectrum); bindTrim(); service.subscribe(next => { latest = next; if (!faderDragging) render(); });
     try { await service.startTelemetry(); spectrumTimer = setInterval(updateSpectrum, 80); updateSpectrum(); } catch (error) { document.body.innerHTML = `<main class="control-page"><section class="ui-panel"><h1>CamillaDSP unavailable</h1><p>${error.message}</p><p>Check the CamillaNode proxy and then use Connections to retry.</p></section></main>`; }
   }

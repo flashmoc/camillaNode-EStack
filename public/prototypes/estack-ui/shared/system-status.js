@@ -6,8 +6,11 @@
   const load = $('[data-shell-load]');
   const limiter = $('[data-shell-limiters]');
   const labels = { unknown: 'UNKNOWN', missing: 'MISSING', armed: 'ARMED', near: 'NEAR LIMIT', limit: 'AT LIMIT' };
-  let timer, stopped = false;
+  let timer, stopped = false, lastLoad = null;
+  const publishLoad = () => $('#pageFrame')?.contentWindow?.postMessage({type:'estack-system-load',load:lastLoad},location.origin);
+  $('#pageFrame')?.addEventListener('load',publishLoad);
   function render(snapshot, connected) {
+    lastLoad=snapshot.load;publishLoad();
     status.textContent = connected ? 'DSP ONLINE' : B.mode === 'local' ? 'LOCAL PREVIEW' : 'DSP OFFLINE';
     status.className = `ui-status ${connected ? 'is-success' : 'is-muted'}`;
     load.textContent = snapshot.load === null ? '— %' : `${snapshot.load.toFixed(1)} %`;
