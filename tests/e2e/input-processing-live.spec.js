@@ -68,7 +68,7 @@ test.describe('Input Processing live CamillaNode demo', () => {
     let frame = await inputFrame(page); const temporaryPresetName = `Stage 2B E2E ${Date.now()}`; let temporaryPresetId = null;
     page.on('dialog', dialog => dialog.accept());
     try {
-      await expect(page.locator('.prototype-banner')).toContainText('CAMILLANODE MODE'); await expect(page.locator('.shell-context')).toContainText('DSP ONLINE');
+      await expect(page.locator('html')).toHaveAttribute('data-transport', 'live'); await expect(page.locator('.shell-context')).toContainText('DSP ONLINE');
       await expect.poll(() => frame.evaluate(() => ({ mode: window.EStackDSPBridge?.mode, page: document.documentElement.dataset.prototypePage, mock: !!window.EStackPrototypeDSP }))).toEqual({ mode: 'camillanode', page: 'input-processing', mock: false });
       await expect(frame.locator('.eq-band')).toHaveCount(10); await expect(frame.locator('[data-range]')).toHaveCount(3); await expect(frame.locator('#spectrumState')).toHaveClass(/is-live/);
       const gain = frame.locator('[data-input-slot="GLOBAL_EQ_01"][data-field="gain"]'); await gain.fill(String(testGain)); await gain.press('Tab');

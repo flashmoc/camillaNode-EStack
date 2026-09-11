@@ -70,7 +70,7 @@ check_once() {
         LAST_FAILURE='E-Stack DSP product route did not respond on CamillaNode.'
         return 1
     fi
-    if [[ "$product" != *'pageFrame'* || "$product" != *'E-Stack UI Prototype Shell'* ]]; then
+    if [[ "$product" != *'pageFrame'* || "$product" != *'<title>E-Stack DSP</title>'* ]]; then
         LAST_FAILURE='E-Stack DSP product route did not return the product shell.'
         return 1
     fi

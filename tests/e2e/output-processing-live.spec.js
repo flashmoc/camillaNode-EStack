@@ -67,7 +67,7 @@ test.describe('Output Processing live CamillaNode demo', () => {
     await requireDemoRuntime(request); const original = await dspCommand('GetConfigJson');
     await page.goto('/estack-dsp/?transport=camillanode#output-processing'); const frame = await outputFrame(page);
     try {
-      await expect(page.locator('.prototype-banner')).toContainText('CAMILLANODE MODE');
+      await expect(page.locator('html')).toHaveAttribute('data-transport', 'live');
       await expect.poll(() => frame.evaluate(() => ({ mode: window.EStackDSPBridge?.mode, page: document.documentElement.dataset.prototypePage, mock: !!window.EStackPrototypeFixtures || !!window.EStackPrototypeDSP }))).toEqual({ mode: 'camillanode', page: 'output-processing', mock: false });
       await expect(frame.locator('.way-card')).toHaveCount(6); await expect(frame.locator('[data-way-channel="6"],[data-way-channel="7"]')).toHaveCount(0);
       await expect(frame.locator('button[data-graph-mode="magnitude"]')).toBeVisible(); await expect(frame.locator('#responseGraph')).toHaveAttribute('data-graph-mode', 'magnitude');

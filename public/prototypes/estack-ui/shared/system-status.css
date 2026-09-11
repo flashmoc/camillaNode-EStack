@@ -31,3 +31,11 @@ html, body { height:100%; overflow:hidden; }
   .shell-mobile-nav { padding:4px 12px; }
   .shell-mobile-nav select { font-size:16px; border-radius:5px; padding:0 10px; appearance:none; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath d='m4 6 4 4 4-4' fill='none' stroke='%2394aeb3' stroke-width='1.5'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 10px center; }
 }
+/* Final product navigation; specialist workspace styling remains unchanged. */
+[hidden] { display:none !important; }
+html[data-transport=live] .app-frame { grid-template-rows:auto auto minmax(0,1fr); }
+.shell-nav .group-start:not(:first-child) { margin-left:12px; border-left:1px solid var(--color-border-subtle); }
+.shell-nav a { font-size:13px; padding-inline:10px; }
+.environment-banner { display:flex; justify-content:center; gap:12px; padding:6px; background:#eab749; color:#142126; font-size:11px; }
+@media(max-width:1180px) { html[data-transport=live] .app-frame { grid-template-rows:auto auto minmax(0,1fr); } }
+@media(max-width:719px) { .shell-top { padding-top:max(8px,env(safe-area-inset-top)); } }
