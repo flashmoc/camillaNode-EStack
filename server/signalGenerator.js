@@ -225,7 +225,8 @@ module.exports = function installEStackSignalGenerator(app, options = {}) {
     }
 
     function queueTransition(operation) {
-        const next = transition.then(operation, operation);
+        const run = () => require('./workflowGate')(operation);
+        const next = transition.then(run, run);
         transition = next.catch(() => {});
         return next;
     }

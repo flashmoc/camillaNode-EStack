@@ -3,6 +3,9 @@
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
+const store = require('./presetStore');
+const gate = require('./workflowGate');
+const { randomUUID } = require('crypto');
 
 const SYSTEM_TYPE = 'estack-system';
 const SAFE_BOOT_VOLUME_DB = -60;
@@ -34,6 +37,13 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
     const savedConfigsFile = options.savedConfigsFile || path.join(root, 'savedConfigs.dat');
     const demo = options.demo === true;
     const jsonParser = express.json({ limit: '64kb' });
+    const signalSnapshot = options.signalSnapshotPath || process.env.ESTACK_SIGNAL_SNAPSHOT || '/tmp/camillanode-estack-test-signal.json';
+    const measurementSession = options.measurementSessionPath || path.join(root, 'config', 'measurement-batch-session.json');
+
+    function assertNormalWorkflow() {
+        if (fs.existsSync(signalSnapshot)) throw new Error('Stop and restore Signal Generator before saving or applying a system preset');
+        if (fs.existsSync(measurementSession)) throw new Error('Complete or abort Measurement Batch before saving or applying a system preset');
+    }
 
     if (!WebSocket) throw new Error('startupConfiguration requires a WebSocket implementation');
 
@@ -87,20 +97,12 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
                 ? next.presetVolumes
                 : {}
         };
-        const tmp = `${stateFile}.tmp`;
-        fs.writeFileSync(tmp, JSON.stringify(state, null, 2), { mode: 0o600 });
-        fs.renameSync(tmp, stateFile);
+        store.atomicWrite(stateFile, state);
         return state;
     }
 
     function readSavedConfigs() {
-        if (!fs.existsSync(savedConfigsFile)) return [];
-        try {
-            const parsed = JSON.parse(fs.readFileSync(savedConfigsFile, 'utf8'));
-            return Array.isArray(parsed) ? parsed : [];
-        } catch (error) {
-            throw new Error(`Saved configuration database is invalid: ${error.message}`);
-        }
+        return store.read(savedConfigsFile);
     }
 
     function findSystemConfig(id, name) {
@@ -196,7 +198,7 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
         });
     }
 
-    function validateProcessingSnapshot(processing, liveMixers) {
+    function validateProcessingSnapshot(processing, liveMixers, devices) {
         if (!processing || typeof processing !== 'object') throw new Error('Saved processing snapshot is missing');
         if (!processing.filters || typeof processing.filters !== 'object') throw new Error('Saved filters are missing');
         if (!Array.isArray(processing.pipeline)) throw new Error('Saved pipeline is missing');
@@ -204,17 +206,26 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
         const filters = processing.filters;
         const processors = processing.processors || {};
         const mixerNames = new Set(Object.keys(liveMixers || {}));
+        let channels = devices?.capture?.channels;
         for (const step of processing.pipeline) {
+            if (!['Mixer', 'Filter', 'Processor'].includes(step?.type)) throw new Error('Unsupported saved pipeline step');
+            if (step.type === 'Mixer' && liveMixers[step.name]) {
+                const mixer = liveMixers[step.name];
+                if (channels != null && mixer.channels?.in != null && mixer.channels.in !== channels) throw new Error('Mixer channel count does not match live hardware');
+                channels = mixer.channels?.out ?? channels;
+            }
             if (step?.type === 'Mixer' && !mixerNames.has(step.name)) {
                 throw new Error(`Saved configuration expects unavailable mixer '${step.name}'`);
             }
             if (step?.type === 'Filter') {
+                const selected = step.channels ?? (step.channel == null ? [] : [step.channel]);
+                if (!Array.isArray(selected) || selected.some(channel => !Number.isInteger(channel) || channel < 0 || channels != null && channel >= channels)) throw new Error('Filter channel is outside live topology');
                 for (const name of (step.names || [])) {
                     if (!filters[name]) throw new Error(`Saved pipeline references missing filter '${name}'`);
                 }
             }
             if (step?.type === 'Processor') {
-                for (const name of (step.names || [])) {
+                for (const name of (step.name ? [step.name] : step.names || [])) {
                     if (!processors[name]) throw new Error(`Saved pipeline references missing processor '${name}'`);
                 }
             }
@@ -224,23 +235,25 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
     function storedVolumeFor(record, state) {
         const byId = state?.presetVolumes?.[String(record?.id)];
         const embedded = record?.data?.masterVolume;
-        const candidate = Number.isFinite(Number(embedded)) ? Number(embedded) : Number(byId);
-        return Number.isFinite(candidate) ? candidate : LEGACY_FALLBACK_VOLUME_DB;
+        const candidate = typeof embedded === 'number' ? embedded : typeof byId === 'number' ? byId : LEGACY_FALLBACK_VOLUME_DB;
+        if (!Number.isFinite(candidate) || candidate < -100 || candidate > 0) throw new Error('Saved Master must be between -100 and 0 dB');
+        return candidate;
     }
 
     async function applyRecord(record) {
+        assertNormalWorkflow();
         if (!record?.data?.processing) throw new Error('Selected startup item is not a full E-Stack system configuration');
         const state = readState();
         const targetVolume = storedVolumeFor(record, state);
         const ws = await openDsp();
         try {
+            const live = await dspRequest(ws, 'GetConfigJson');
             // Attenuate before swapping the processing graph. This does not make
             // the very first milliseconds of CamillaDSP boot intrinsically safe,
             // but it prevents the preset recall itself from happening at 0 dB.
             await dspRequest(ws, { SetVolume: SAFE_BOOT_VOLUME_DB });
 
-            const live = await dspRequest(ws, 'GetConfigJson');
-            validateProcessingSnapshot(record.data.processing, live?.mixers);
+            validateProcessingSnapshot(record.data.processing, live?.mixers, live?.devices);
             const next = clone(live || {});
             next.filters = clone(record.data.processing.filters || {});
             next.pipeline = clone(record.data.processing.pipeline || []);
@@ -249,7 +262,16 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
 
             // Preserve devices/chunksize/ALSA settings and live mixer routing.
             await dspRequest(ws, { SetConfigJson: JSON.stringify(next) });
+            const readback = await dspRequest(ws, 'GetConfigJson');
+            if (JSON.stringify(stable(readback)) !== JSON.stringify(stable(next))) {
+                throw new Error('System preset readback mismatch; Master remains safely attenuated');
+            }
             await dspRequest(ws, { SetVolume: targetVolume });
+            const volume = Number(await dspRequest(ws, 'GetVolume'));
+            if (!Number.isFinite(volume) || Math.abs(volume - targetVolume) > 0.05) throw new Error('Master readback mismatch');
+        } catch (error) {
+            await dspRequest(ws, { SetVolume: SAFE_BOOT_VOLUME_DB }).catch(() => {});
+            throw error;
         } finally {
             try { ws.close(); } catch (_) {}
         }
@@ -333,7 +355,15 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
         const state = readState();
         let resolvedName = null;
         let resolutionError = null;
-        try { resolvedName = resolveConfiguredRecord(state)?.name || null; }
+        try {
+            const resolved = resolveConfiguredRecord(state);
+            resolvedName = resolved?.name || null;
+            if (resolved) {
+                const ws = await openDsp(1400);
+                try { const live = await dspRequest(ws, 'GetConfigJson'); validateProcessingSnapshot(resolved.data?.processing, live.mixers, live.devices); storedVolumeFor(resolved, state); }
+                finally { ws.close(); }
+            }
+        }
         catch (error) { resolutionError = error.message; }
         const live = await livePresetState(state);
         return {
@@ -356,10 +386,82 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
         catch (error) { res.status(500).json({ status: 'error', reason: error.message }); }
     });
 
+    function markApplied(record) {
+        writeState({ ...readState(), activeOrigin: 'system', activeId: record.id,
+            activeName: record.name, lastUsedId: record.id, lastUsedName: record.name });
+    }
+
+    function referenced(record) {
+        const state = readState();
+        return [state.activeId, state.configId, state.lastUsedId].some(id => id != null && String(id) === String(record.id)) ||
+            [state.activeName, state.configName, state.lastUsedName].includes(record.name);
+    }
+
+    app.get('/api/system-presets', async (_req, res) => {
+        try {
+            const records = readSavedConfigs().filter(record => record.type === SYSTEM_TYPE);
+            res.json({ state: await publicState(), blocked: fs.existsSync(signalSnapshot) || fs.existsSync(measurementSession),
+                presets: records.map(record => ({ id: record.id, name: record.name, createdDate: record.createdDate,
+                    deletable: !referenced(record), masterVolume: (() => { try { return storedVolumeFor(record, readState()); } catch (_) { return null; } })() })) });
+        } catch (error) { res.status(503).json({ reason: error.message }); }
+    });
+
+    app.post('/api/system-presets/capture', jsonParser, async (req, res) => {
+        try {
+            const result = await gate(async () => {
+                assertNormalWorkflow();
+                const name = String(req.body?.name || '').trim();
+                if (name.length < 3 || name.length > 80) throw new Error('Use a name of 3–80 characters');
+                const ws = await openDsp();
+                let live, volume;
+                try { live = await dspRequest(ws, 'GetConfigJson'); volume = Number(await dspRequest(ws, 'GetVolume')); }
+                finally { ws.close(); }
+                if (live.devices?.capture?.type === 'SignalGenerator') throw new Error('Temporary capture cannot be saved');
+                if (!Number.isFinite(volume) || volume > 0 || volume < -100) throw new Error('Invalid live Master');
+                validateProcessingSnapshot(processingOf(live), live.mixers, live.devices);
+                return store.update(savedConfigsFile, records => {
+                    const existing = records.find(r => r.type === SYSTEM_TYPE && r.name === name);
+                    if (existing && req.body?.overwrite !== true) throw new Error('Name already exists; explicitly choose Update');
+                    const record = { id: existing?.id || randomUUID(), type: SYSTEM_TYPE, name,
+                        createdDate: existing?.createdDate || new Date().toISOString(),
+                        data: { version: 1, sourcePage: 'system-presets', processing: { title: live.title || '', ...processingOf(live) }, masterVolume: volume } };
+                    if (existing) records.splice(records.indexOf(existing), 1, record); else records.push(record);
+                    return record;
+                });
+            });
+            res.json({ id: result.id, name: result.name });
+        } catch (error) { res.status(409).json({ reason: error.message }); }
+    });
+
+    app.post('/api/system-presets/apply', jsonParser, async (req, res) => {
+        try {
+            await gate(async () => {
+                const record = findSystemConfig(req.body?.id);
+                if (!record) throw new Error('System preset not found');
+                await applyRecord(record);
+                markApplied(record);
+            });
+            res.json({ status: 'ok', ...(await publicState()) });
+        } catch (error) { res.status(409).json({ reason: error.message }); }
+    });
+
+    app.post('/api/system-presets/delete', jsonParser, async (req, res) => {
+        try {
+            await gate(() => store.update(savedConfigsFile, records => {
+                const record = records.find(r => r.type === SYSTEM_TYPE && String(r.id) === String(req.body?.id));
+                if (!record) throw new Error('System preset not found');
+                if (referenced(record)) throw new Error('Preset is active, selected for startup or last used; keep this referenced preset');
+                records.splice(records.indexOf(record), 1);
+            }));
+            res.json({ status: 'ok' });
+        } catch (error) { res.status(409).json({ reason: error.message }); }
+    });
+
     app.post('/api/startup-config', jsonParser, async (req, res) => {
         try {
             const mode = String(req.body?.mode || '').trim();
             if (!['yaml', 'specific', 'last'].includes(mode)) throw new Error('Invalid startup mode');
+            await gate(() => {
             const current = readState();
             const next = { ...current, mode };
             if (mode === 'specific') {
@@ -375,6 +477,7 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
                 throw new Error('No last-used system configuration is available yet');
             }
             writeState(next);
+            });
             res.json({ status: 'ok', ...(await publicState()) });
         } catch (error) {
             res.status(400).json({ status: 'error', reason: error.message });
@@ -383,8 +486,17 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
 
     app.post('/api/startup-config/active', jsonParser, async (req, res) => {
         try {
+            await gate(async () => {
+            assertNormalWorkflow();
             const record = findSystemConfig(req.body?.configId, req.body?.configName);
             if (!record) throw new Error('Applied system configuration no longer exists');
+            const ws = await openDsp();
+            try {
+                const live = await dspRequest(ws, 'GetConfigJson');
+                if (!sameProcessing(live, record.data?.processing)) throw new Error('Preset does not match live processing');
+                const volume = Number(await dspRequest(ws, 'GetVolume'));
+                if (!Number.isFinite(volume) || Math.abs(volume - storedVolumeFor(record, readState())) > 0.05) throw new Error('Preset Master does not match live Master');
+            } finally { ws.close(); }
             const current = readState();
             const liveVolume = await readLiveVolume();
             const presetVolumes = { ...(current.presetVolumes || {}) };
@@ -398,13 +510,14 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
                 lastUsedName: record.name,
                 presetVolumes
             });
+            });
             res.json({ status: 'ok', ...(await publicState()) });
         } catch (error) {
             res.status(400).json({ status: 'error', reason: error.message });
         }
     });
 
-    async function runBootApply(bootId, attempt = 1) {
+    async function runBootApplyUnlocked(bootId, attempt = 1) {
         const state = readState();
         if (!bootId || state.lastBootIdApplied === bootId) return;
 
@@ -481,6 +594,8 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
         }
     }
 
+    const runBootApply = (bootId, attempt) => gate(() => runBootApplyUnlocked(bootId, attempt));
+
     function scheduleBootApply() {
         if (demo) return;
         const bootId = currentBootId();
@@ -495,6 +610,6 @@ module.exports = function registerStartupConfiguration(app, options = {}) {
     return {
         scheduleBootApply,
         getState: publicState,
-        applyRecord
+        applyRecord: record => gate(() => applyRecord(record))
     };
 };

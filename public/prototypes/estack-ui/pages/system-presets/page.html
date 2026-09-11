@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; connect-src 'self'; style-src 'self'; script-src 'self'; object-src 'none'"
+    />
+    <title>System Presets — E-Stack DSP</title>
+    <link rel="stylesheet" href="../../shared/tokens.css" />
+    <link rel="stylesheet" href="../../shared/base.css" />
+    <link rel="stylesheet" href="../../shared/workflow-surface.css" />
+    <link rel="stylesheet" href="./page.css" />
+  </head>
+  <body>
+    <main class="product-surface">
+      <header class="surface-heading">
+        <div>
+          <p class="eyebrow">SYSTEM MEMORY</p>
+          <h1>System Presets</h1>
+        </div>
+        <output id="state">Connecting…</output>
+      </header>
+      <section class="current-system">
+        <p class="eyebrow">CURRENT SYSTEM</p>
+        <h2 id="activeName">—</h2>
+        <div class="surface-metrics">
+          <div><small>PROCESSING</small><strong id="dirty">—</strong></div>
+          <div><small>MASTER</small><strong id="master">—</strong></div>
+          <div><small>STARTUP</small><strong id="bootSummary">—</strong></div>
+        </div>
+        <p id="blocked" class="surface-note" hidden>
+          Temporary workflow active. Restore Signal Generator or Measurement
+          Batch before capturing or applying a system preset.
+        </p>
+      </section>
+      <p id="notice" role="status" aria-live="polite"></p>
+      <div class="system-columns">
+        <section>
+          <header class="surface-actions">
+            <div>
+              <h2>Saved systems</h2>
+              <p class="muted">
+                Processing and Master. Hardware devices and mixer routing stay
+                with this system.
+              </p>
+            </div>
+          </header>
+          <div id="presets" class="preset-list"></div>
+          <p id="empty" class="muted">No system presets saved yet.</p>
+        </section>
+        <div class="system-sidebar">
+          <section>
+            <header>
+              <h2>Save current system</h2>
+              <p class="muted">
+                Capture the current live processing and Master explicitly.
+              </p>
+            </header>
+            <form id="captureForm">
+              <label
+                >Preset name<input
+                  id="name"
+                  maxlength="80"
+                  minlength="3"
+                  required
+                  placeholder="e.g. Venue · balanced" /></label
+              ><button class="primary" id="capture">Save as preset</button>
+            </form>
+          </section>
+          <section>
+            <header>
+              <h2>At next startup</h2>
+              <p class="muted">
+                This changes the next boot only. Use Apply to change the current
+                sound.
+              </p>
+            </header>
+            <form id="startupForm">
+              <label
+                >Startup behavior<select id="bootMode">
+                  <option value="yaml">Hardware YAML</option>
+                  <option value="specific">Specific system preset</option>
+                  <option value="last">Last used system preset</option>
+                </select></label
+              >
+              <label id="targetLabel" hidden
+                >System preset<select id="bootTarget"></select
+              ></label>
+              <p id="bootHelp" class="muted"></p>
+              <button id="saveStartup">Save startup choice</button>
+            </form>
+            <p id="resolution" class="surface-note"></p>
+            <dl>
+              <div>
+                <dt>Last boot</dt>
+                <dd id="lastBoot">—</dd>
+              </div>
+            </dl>
+          </section>
+        </div>
+      </div>
+    </main>
+    <script src="../../shared/estack-dsp-bridge.js"></script>
+    <script src="../../shared/product-surface.js"></script>
+    <script src="./page.js"></script>
+  </body>
+</html>

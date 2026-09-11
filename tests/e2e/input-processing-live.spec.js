@@ -33,7 +33,8 @@ async function loadSavedConfigs(request) {
   const records = await response.json(); expect(Array.isArray(records)).toBeTruthy(); return records;
 }
 async function restoreSavedConfigs(request, records) {
-  const response = await request.post('/saveConfigFile', { data: records }); expect(response.ok()).toBeTruthy();
+  const current = await request.get('/getConfigFile');
+  const response = await request.post('/saveConfigFile', { data: records, headers: { 'If-Match': current.headers().etag } }); expect(response.ok()).toBeTruthy();
 }
 async function inputFrame(page) {
   await expect.poll(() => page.frames().some(frame => new URL(frame.url()).pathname.endsWith('/pages/input-processing/page.html'))).toBeTruthy();

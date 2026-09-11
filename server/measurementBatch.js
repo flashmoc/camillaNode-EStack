@@ -126,7 +126,8 @@ module.exports = function registerMeasurementBatch(app, options = {}) {
     }
 
     function queue(operation) {
-        const next = transition.then(operation, operation);
+        const run = () => require('./workflowGate')(operation);
+        const next = transition.then(run, run);
         transition = next.catch(() => {});
         return next;
     }

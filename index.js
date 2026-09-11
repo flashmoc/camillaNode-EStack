@@ -5,6 +5,7 @@ const fs = require('fs');
 const http = require('http');
 const path = require('path');
 const WebSocket = require('ws');
+const presetStore = require('./server/presetStore');
 
 const ROOT = __dirname;
 const PUBLIC_DIR = path.join(ROOT, 'public');
@@ -239,7 +240,14 @@ app.post('/saveConfig', async (req, res) => {
 app.post('/saveConfigFile', async (req, res) => {
     try {
         const config = parseJson(await readBody(req, 8 * 1024 * 1024), 'saved configuration payload');
-        fs.writeFileSync(SAVED_CONFIGS_FILE, JSON.stringify(config), { mode: 0o600 });
+        const current = presetStore.read(SAVED_CONFIGS_FILE);
+        const next = Array.isArray(config) ? config : config.records;
+        const expected = Array.isArray(config) ? req.get('If-Match') : presetStore.revision(config.base);
+        if (expected !== presetStore.revision(current)) return res.status(409).json({ reason: 'Presets changed; reload before saving' });
+        if (!Array.isArray(next)) throw new Error('Saved configuration collection must be an array');
+        const systems = records => JSON.stringify(records.filter(r => r?.type === 'estack-system'));
+        if (systems(next) !== systems(current)) throw new Error('System presets are owned by /api/system-presets');
+        presetStore.atomicWrite(SAVED_CONFIGS_FILE, next);
         res.end();
     } catch (error) {
         res.status(400).json({ status: 'error', reason: error.message });
@@ -247,8 +255,10 @@ app.post('/saveConfigFile', async (req, res) => {
 });
 
 app.get('/getConfigFile', (_req, res) => {
-    if (!fs.existsSync(SAVED_CONFIGS_FILE)) return res.send(JSON.stringify([]));
-    res.type('application/json').send(fs.readFileSync(SAVED_CONFIGS_FILE, 'utf8'));
+    try {
+        const records = presetStore.read(SAVED_CONFIGS_FILE);
+        res.set('ETag', presetStore.revision(records)).json(records);
+    } catch (error) { res.status(500).json({ reason: error.message }); }
 });
 
 app.get('/getConfigList', (_req, res) => {
