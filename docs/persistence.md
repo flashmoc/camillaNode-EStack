@@ -16,8 +16,9 @@ legacy saved-config client keeps type/name/id semantics; the product must retain
 those data formats and APIs while it migrates the related pages.
 
 `EStackSavedConfigClient` is the product's reusable client for this collection.
-It always reads the complete array before a save or delete and writes the
-complete array back after modifying one record. It matches a replacement by
+It reads the complete array before a save or delete and submits the base plus the
+complete updated array after modifying one record. The server compares the base
+with current storage and rejects stale writes. It matches a replacement by
 `type` plus `name`, preserves the existing ID on overwrite, and deletes only by
 the selected ID. Listing by type is presentation-only; it must never be used to
 produce the collection sent to `/saveConfigFile`.
@@ -49,5 +50,24 @@ invent a browser persistence format for processing, limiter, mixer or device
 state.
 
 Product workflow display preferences use estack.product.presentation (density
-and contrast). They are consumed only as CSS presentation by the five migrated
-workflow surfaces; they never represent processing or safety state.
+and contrast). They are consumed only as CSS presentation by the secondary
+workflow surfaces, System Presets and Advanced; they never represent processing or safety state.
+
+## Atomic system persistence
+
+System capture/update/delete is server-owned and synchronously reads, changes
+one record and atomically renames the complete collection. Mixed record types
+remain untouched. The file writer uses a unique temporary filename, fsync and
+existing permissions. A failed write cannot truncate the original collection.
+System IDs and creation dates survive overwrite; rename is not exposed.
+Active, selected-startup and last-used records cannot be deleted.
+
+startupConfig.json uses the same atomic writer. Startup selection, system apply
+metadata and deletion share the server workflow gate. Metadata is written only
+after verified processing and Master readback. See pages/system-presets.md for
+the unchanged historical schema and safe legacy Master fallback.
+
+The earlier desktop legacy whole-collection save contract now requires ETag /
+If-Match or a matching base array, and cannot modify system records. The product
+saved-config client supplies the base automatically; Global EQ data semantics,
+identity, overwrite rules and unrelated-record preservation are unchanged.

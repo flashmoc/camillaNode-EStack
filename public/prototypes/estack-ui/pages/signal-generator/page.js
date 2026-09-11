@@ -1,1 +1,164 @@
-(()=>{'use strict';const{B,$,note,post}=EStackSurface;let state=null,busy=false,timer,closed=false,lastCap=null;const selected=new Set([0]);$('targets').innerHTML=['SUB','KICK','MID L','MID R','HIGH L','HIGH R'].map((n,i)=>'<button type="button" data-target="'+i+'" aria-pressed="'+(i===0)+'"><strong>'+n+'</strong><small>Output '+(i+1)+'</small></button>').join('');function render(){const active=!!state?.active;$('state').textContent=state?'Live safety service':'Status unavailable';$('activity').textContent=active?'Test signal active':state?.blockedByMeasurementBatch?'Measurement Batch active':state?'Normal input':'Checking backend…';$('remaining').textContent=active?Math.ceil(state.remainingMs/1000)+' s':'—';$('restoreState').textContent=active?state.type+' · '+state.level+' dBFS · outputs '+state.targets.map(x=>x+1).join(', '):state?.lastStopReason?'Restored · '+state.lastStopReason:'Automatic timeout and exact restore are owned by CamillaNode.';$('blocked').textContent=state?.blockedByMeasurementBatch?'Finish or abort Measurement Batch before starting a test.':'';$('start').disabled=busy||!state||active||state.blockedByMeasurementBatch||!selected.size;$('stop').disabled=busy||B.mode!=='camillanode';document.querySelectorAll('#signalForm input,#signalForm select,#targets button,#quick button').forEach(e=>e.disabled=busy||active||B.mode!=='camillanode');$('frequencyLabel').hidden=$('type').value!=='Sine';$('quick').hidden=$('type').value!=='Sine';if(lastCap!==null)$('ceiling').textContent='Last server-approved ceiling: '+lastCap+' dBFS. Active level is reported above.'}async function refresh(){try{state=await B.api('/api/test-signal/status')}catch(e){state=null;note('Status unavailable. Stop & restore remains available; server timeout is still authoritative.',true)}render()}async function action(name,payload){if(busy)return;busy=true;render();note(name==='start'?'Starting guarded test…':'Restoring normal input…');try{const result=await post('/api/test-signal/'+name,payload);if(Number.isFinite(result.safeLevelCap))lastCap=result.safeLevelCap;await refresh();note(name==='stop'?(result.restored?'Exact configuration restored.':'No active snapshot to restore.'):'Test active; automatic restore armed.')}catch(e){note(e.message,true);await refresh()}finally{busy=false;render()}}$('signalForm').onsubmit=e=>{e.preventDefault();if($('start').disabled)return;action('start',{type:$('type').value,freq:Number($('frequency').value),level:Number($('levelNumber').value),duration:Number($('duration').value),targets:[...selected]})};$('stop').onclick=()=>action('stop');$('type').onchange=render;$('targets').onclick=e=>{const b=e.target.closest('[data-target]');if(!b||b.disabled)return;const t=Number(b.dataset.target);selected.has(t)?selected.delete(t):selected.add(t);b.setAttribute('aria-pressed',String(selected.has(t)));render()};$('quick').onclick=e=>{if(e.target.dataset.hz)$('frequency').value=e.target.dataset.hz};$('level').oninput=()=>{$('levelNumber').value=$('level').value};$('levelNumber').oninput=()=>{$('level').value=$('levelNumber').value};async function poll(){if(closed)return;if(!busy)await refresh();if(!closed)timer=setTimeout(poll,500)}if(B.mode==='camillanode')poll();else{render();$('start').disabled=true;$('state').textContent='Offline preview';note('Live test signals require transport=camillanode.')}addEventListener('pagehide',()=>{closed=true;clearTimeout(timer);if(B.mode==='camillanode'&&(state?.active||busy))B.api('/api/test-signal/stop',{method:'POST',headers:{'content-type':'application/json'},body:'{}',keepalive:true}).catch(()=>{})});})();
+(() => {
+  "use strict";
+  const { B, $, note, post } = EStackSurface;
+  let state = null,
+    busy = false,
+    timer,
+    closed = false,
+    lastCap = null;
+  const selected = new Set([0]);
+  $("targets").innerHTML = ["SUB", "KICK", "MID L", "MID R", "HIGH L", "HIGH R"]
+    .map(
+      (n, i) =>
+        '<button type="button" data-target="' +
+        i +
+        '" aria-pressed="' +
+        (i === 0) +
+        '"><strong>' +
+        n +
+        "</strong><small>Output " +
+        (i + 1) +
+        "</small></button>",
+    )
+    .join("");
+  function render() {
+    const active = !!state?.active;
+    $("state").textContent = state
+      ? "Live safety service"
+      : "Status unavailable";
+    $("activity").textContent = active
+      ? "Test signal active"
+      : state?.blockedByMeasurementBatch
+        ? "Measurement Batch active"
+        : state
+          ? "Normal input"
+          : "Checking backend…";
+    $("remaining").textContent = active
+      ? Math.ceil(state.remainingMs / 1000) + " s"
+      : "—";
+    $("restoreState").textContent = active
+      ? state.type +
+        " · " +
+        state.level +
+        " dBFS · outputs " +
+        state.targets.map((x) => x + 1).join(", ")
+      : state?.lastStopReason
+        ? "Restored · " + state.lastStopReason
+        : "Automatic timeout and exact restore are owned by CamillaNode.";
+    $("blocked").textContent = state?.blockedByMeasurementBatch
+      ? "Finish or abort Measurement Batch before starting a test."
+      : "";
+    $("start").disabled =
+      busy ||
+      !state ||
+      active ||
+      state.blockedByMeasurementBatch ||
+      !selected.size;
+    $("stop").disabled = busy || B.mode !== "camillanode";
+    document
+      .querySelectorAll(
+        "#signalForm input,#signalForm select,#targets button,#quick button",
+      )
+      .forEach(
+        (e) => (e.disabled = busy || active || B.mode !== "camillanode"),
+      );
+    $("frequencyLabel").hidden = $("type").value !== "Sine";
+    $("quick").hidden = $("type").value !== "Sine";
+    if (lastCap !== null)
+      $("ceiling").textContent =
+        "Last server-approved ceiling: " +
+        lastCap +
+        " dBFS. Active level is reported above.";
+  }
+  async function refresh() {
+    try {
+      state = await B.api("/api/test-signal/status");
+    } catch (e) {
+      state = null;
+      note(
+        "Status unavailable. Stop & restore remains available; server timeout is still authoritative.",
+        true,
+      );
+    }
+    render();
+  }
+  async function action(name, payload) {
+    if (busy) return;
+    busy = true;
+    render();
+    note(
+      name === "start" ? "Starting guarded test…" : "Restoring normal input…",
+    );
+    try {
+      const result = await post("/api/test-signal/" + name, payload);
+      if (Number.isFinite(result.safeLevelCap)) lastCap = result.safeLevelCap;
+      await refresh();
+      note(
+        name === "stop"
+          ? result.restored
+            ? "Exact configuration restored."
+            : "No active snapshot to restore."
+          : "Test active; automatic restore armed.",
+      );
+    } catch (e) {
+      note(e.message, true);
+      await refresh();
+    } finally {
+      busy = false;
+      render();
+    }
+  }
+  $("signalForm").onsubmit = (e) => {
+    e.preventDefault();
+    if ($("start").disabled) return;
+    action("start", {
+      type: $("type").value,
+      freq: Number($("frequency").value),
+      level: Number($("levelNumber").value),
+      duration: Number($("duration").value),
+      targets: [...selected],
+    });
+  };
+  $("stop").onclick = () => action("stop");
+  $("type").onchange = render;
+  $("targets").onclick = (e) => {
+    const b = e.target.closest("[data-target]");
+    if (!b || b.disabled) return;
+    const t = Number(b.dataset.target);
+    selected.has(t) ? selected.delete(t) : selected.add(t);
+    b.setAttribute("aria-pressed", String(selected.has(t)));
+    render();
+  };
+  $("quick").onclick = (e) => {
+    if (e.target.dataset.hz) $("frequency").value = e.target.dataset.hz;
+  };
+  $("level").oninput = () => {
+    $("levelNumber").value = $("level").value;
+  };
+  $("levelNumber").oninput = () => {
+    $("level").value = $("levelNumber").value;
+  };
+  async function poll() {
+    if (closed) return;
+    if (!busy) await refresh();
+    if (!closed) timer = setTimeout(poll, 500);
+  }
+  if (B.mode === "camillanode") poll();
+  else {
+    render();
+    $("start").disabled = true;
+    $("state").textContent = "Offline preview";
+    note("Live test signals require transport=camillanode.");
+  }
+  addEventListener("pagehide", () => {
+    closed = true;
+    clearTimeout(timer);
+    if (B.mode === "camillanode" && (state?.active || busy))
+      B.api("/api/test-signal/stop", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+        keepalive: true,
+      }).catch(() => {});
+  });
+})();

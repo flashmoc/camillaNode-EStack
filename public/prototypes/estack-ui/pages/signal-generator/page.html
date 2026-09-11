@@ -1,1 +1,121 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self'; style-src 'self'; script-src 'self'; object-src 'none'"><title>Signal Generator — E-Stack DSP</title><link rel="stylesheet" href="../../shared/tokens.css"><link rel="stylesheet" href="../../shared/base.css"><link rel="stylesheet" href="../../shared/workflow-surface.css"><link rel="stylesheet" href="./page.css?v=live-batch1"></head><body><main class="product-surface" data-page="signal-generator"><header class="surface-heading"><div><p class="eyebrow">E-STACK DSP</p><h1>Signal Generator</h1></div><output id="state" role="status">Connecting…</output></header><section class="surface-actions"><div><h2 id="activity">Checking backend…</h2><p id="remaining" class="surface-hero">—</p><p id="restoreState" class="muted">The server owns the test timer and restoration.</p></div><button id="stop" class="danger" disabled>Stop & restore</button></section><form id="signalForm"><div class="surface-grid"><section><header><h2>Test signal</h2></header><div class="surface-fields"><label>TYPE<select id="type"><option value="Sine">Sine</option><option value="WhiteNoise">White noise</option></select></label><label id="frequencyLabel">FREQUENCY · Hz<input id="frequency" type="number" min="10" max="20000" value="130" required></label><label>DURATION · seconds<select id="duration"><option value="5">5</option><option value="10">10</option><option value="30" selected>30</option><option value="60">60</option></select></label></div><div id="quick" class="surface-actions"><button type="button" data-hz="40">40 Hz</button><button type="button" data-hz="80">80 Hz</button><button type="button" data-hz="130">130 Hz</button><button type="button" data-hz="1000">1 kHz</button></div><div class="surface-fields"><label>REQUESTED LEVEL · dBFS<input id="levelNumber" type="number" min="-80" max="-10" step="1" value="-40" required></label><label>LEVEL<input id="level" type="range" min="-80" max="-10" step="1" value="-40"></label></div><p id="ceiling" class="muted">The backend clamps the requested level for the selected outputs and signal type.</p></section><section><header><h2>Output targets</h2><p class="muted">Only selected outputs receive the test signal.</p></header><div id="targets" class="surface-presets"></div><p class="surface-note">Keep the test brief. Stop & restore returns the exact captured configuration. Leaving this page requests a stop; the server timeout remains armed.</p></section></div><div class="surface-actions"><p id="blocked" class="muted"></p><button id="start" class="primary" type="submit" disabled>Start test</button></div></form><p id="notice" role="status"></p></main><script src="../../shared/estack-dsp-bridge.js"></script><script src="../../shared/product-surface.js"></script><script src="./page.js?v=live-batch1"></script></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; connect-src 'self'; style-src 'self'; script-src 'self'; object-src 'none'"
+    />
+    <title>Signal Generator — E-Stack DSP</title>
+    <link rel="stylesheet" href="../../shared/tokens.css" />
+    <link rel="stylesheet" href="../../shared/base.css" />
+    <link rel="stylesheet" href="../../shared/workflow-surface.css" />
+    <link rel="stylesheet" href="./page.css?v=live-batch1" />
+  </head>
+  <body>
+    <main class="product-surface" data-page="signal-generator">
+      <header class="surface-heading">
+        <div>
+          <p class="eyebrow">E-STACK DSP</p>
+          <h1>Signal Generator</h1>
+        </div>
+        <output id="state" role="status">Connecting…</output>
+      </header>
+      <section class="surface-actions">
+        <div>
+          <h2 id="activity">Checking backend…</h2>
+          <p id="remaining" class="surface-hero">—</p>
+          <p id="restoreState" class="muted">
+            The server owns the test timer and restoration.
+          </p>
+        </div>
+        <button id="stop" class="danger" disabled>Stop & restore</button>
+      </section>
+      <form id="signalForm">
+        <div class="surface-grid">
+          <section>
+            <header><h2>Test signal</h2></header>
+            <div class="surface-fields">
+              <label
+                >TYPE<select id="type">
+                  <option value="Sine">Sine</option>
+                  <option value="WhiteNoise">White noise</option>
+                </select></label
+              ><label id="frequencyLabel"
+                >FREQUENCY · Hz<input
+                  id="frequency"
+                  type="number"
+                  min="10"
+                  max="20000"
+                  value="130"
+                  required /></label
+              ><label
+                >DURATION · seconds<select id="duration">
+                  <option value="5">5</option>
+                  <option value="10">10</option>
+                  <option value="30" selected>30</option>
+                  <option value="60">60</option>
+                </select></label
+              >
+            </div>
+            <div id="quick" class="surface-actions">
+              <button type="button" data-hz="40">40 Hz</button
+              ><button type="button" data-hz="80">80 Hz</button
+              ><button type="button" data-hz="130">130 Hz</button
+              ><button type="button" data-hz="1000">1 kHz</button>
+            </div>
+            <div class="surface-fields">
+              <label
+                >REQUESTED LEVEL · dBFS<input
+                  id="levelNumber"
+                  type="number"
+                  min="-80"
+                  max="-10"
+                  step="1"
+                  value="-40"
+                  required /></label
+              ><label
+                >LEVEL<input
+                  id="level"
+                  type="range"
+                  min="-80"
+                  max="-10"
+                  step="1"
+                  value="-40"
+              /></label>
+            </div>
+            <p id="ceiling" class="muted">
+              The backend clamps the requested level for the selected outputs
+              and signal type.
+            </p>
+          </section>
+          <section>
+            <header>
+              <h2>Output targets</h2>
+              <p class="muted">
+                Only selected outputs receive the test signal.
+              </p>
+            </header>
+            <div id="targets" class="surface-presets"></div>
+            <p class="surface-note">
+              Keep the test brief. Stop & restore returns the exact captured
+              configuration. Leaving this page requests a stop; the server
+              timeout remains armed.
+            </p>
+          </section>
+        </div>
+        <div class="surface-actions">
+          <p id="blocked" class="muted"></p>
+          <button id="start" class="primary" type="submit" disabled>
+            Start test
+          </button>
+        </div>
+      </form>
+      <p id="notice" role="status"></p>
+    </main>
+    <script src="../../shared/estack-dsp-bridge.js"></script>
+    <script src="../../shared/product-surface.js"></script>
+    <script src="./page.js?v=live-batch1"></script>
+  </body>
+</html>

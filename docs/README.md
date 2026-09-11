@@ -49,6 +49,16 @@ document the still-present **legacy CamillaNode frontend** under `public/html/`,
 migration. New product work belongs under `public/prototypes/estack-ui/` and
 must follow the canonical documents above.
 
+## Software release gate
+
+- [System Presets and Startup](pages/system-presets.md) — server-owned capture, recall and boot selection.
+- [Advanced](pages/advanced.md) — live read-only topology and ownership inspector.
+- [Operational ownership matrix](operational-ownership.md).
+- [Complete live/mock audit](live-mock-audit.md).
+- [Software release audit](software-release-audit.md).
+
+**E-STACK DSP SOFTWARE PRODUCT COMPLETE — SOFTWARE ACCEPTED IN SIMULATION.**
+
 ## Hardware status
 
 Control is **CODE ACCEPTED — HARDWARE ACCEPTANCE PENDING** at `d1c803e`.

@@ -1,1 +1,86 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self'; style-src 'self'; script-src 'self'; object-src 'none'"><title>Preferences — E-Stack DSP</title><link rel="stylesheet" href="../../shared/tokens.css"><link rel="stylesheet" href="../../shared/base.css"><link rel="stylesheet" href="../../shared/workflow-surface.css"><link rel="stylesheet" href="./page.css?v=live-batch1"></head><body><main class="product-surface" data-page="preferences"><header class="surface-heading"><div><p class="eyebrow">E-STACK DSP</p><h1>Preferences</h1></div><output id="state" role="status">Connecting…</output></header><section><header><h2>Workspace presentation</h2><p class="muted">Saved in this browser. Applies to Loudness, Signal Generator, Measurement Batch, Connections and Preferences.</p></header><label class="toggle-row"><span><strong>Information density</strong><br><small>Adjust spacing without shrinking touch targets.</small></span><select id="density"><option value="comfortable">Comfortable</option><option value="compact">Compact</option></select></label><label class="toggle-row"><span><strong>Control contrast</strong><br><small>Stronger outlines and clearer secondary labels.</small></span><select id="contrast"><option value="standard">Standard</option><option value="high">High</option></select></label></section><section><header><h2>Preview</h2><p class="muted">Changes take effect immediately.</p></header><div class="surface-fields"><label>Example value<input type="number" value="130" readonly aria-label="Read-only appearance preview"></label><label>Example control<button type="button" disabled>Preview only</button></label></div><p class="surface-note">These settings do not change audio processing, presets, gain or safety confirmations.</p></section><div class="surface-actions"><small>No account or server storage is used.</small><button id="reset">Restore display defaults</button></div><p id="notice" role="status"></p></main><script src="../../shared/estack-dsp-bridge.js"></script><script src="../../shared/product-surface.js"></script><script src="./page.js?v=live-batch1"></script></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; connect-src 'self'; style-src 'self'; script-src 'self'; object-src 'none'"
+    />
+    <title>Preferences — E-Stack DSP</title>
+    <link rel="stylesheet" href="../../shared/tokens.css" />
+    <link rel="stylesheet" href="../../shared/base.css" />
+    <link rel="stylesheet" href="../../shared/workflow-surface.css" />
+    <link rel="stylesheet" href="./page.css?v=live-batch1" />
+  </head>
+  <body>
+    <main class="product-surface" data-page="preferences">
+      <header class="surface-heading">
+        <div>
+          <p class="eyebrow">E-STACK DSP</p>
+          <h1>Preferences</h1>
+        </div>
+        <output id="state" role="status">Connecting…</output>
+      </header>
+      <section>
+        <header>
+          <h2>Workspace presentation</h2>
+          <p class="muted">
+            Saved in this browser. Applies to Loudness, Signal Generator,
+            Measurement Batch, Connections, System Presets, Advanced and Preferences.
+          </p>
+        </header>
+        <label class="toggle-row"
+          ><span
+            ><strong>Information density</strong><br /><small
+              >Adjust spacing without shrinking touch targets.</small
+            ></span
+          ><select id="density">
+            <option value="comfortable">Comfortable</option>
+            <option value="compact">Compact</option>
+          </select></label
+        ><label class="toggle-row"
+          ><span
+            ><strong>Control contrast</strong><br /><small
+              >Stronger outlines and clearer secondary labels.</small
+            ></span
+          ><select id="contrast">
+            <option value="standard">Standard</option>
+            <option value="high">High</option>
+          </select></label
+        >
+      </section>
+      <section>
+        <header>
+          <h2>Preview</h2>
+          <p class="muted">Changes take effect immediately.</p>
+        </header>
+        <div class="surface-fields">
+          <label
+            >Example value<input
+              type="number"
+              value="130"
+              readonly
+              aria-label="Read-only appearance preview" /></label
+          ><label
+            >Example control<button type="button" disabled>
+              Preview only
+            </button></label
+          >
+        </div>
+        <p class="surface-note">
+          These settings do not change audio processing, presets, gain or safety
+          confirmations.
+        </p>
+      </section>
+      <div class="surface-actions">
+        <small>No account or server storage is used.</small
+        ><button id="reset">Restore display defaults</button>
+      </div>
+      <p id="notice" role="status"></p>
+    </main>
+    <script src="../../shared/estack-dsp-bridge.js"></script>
+    <script src="../../shared/product-surface.js"></script>
+    <script src="./page.js?v=live-batch1"></script>
+  </body>
+</html>

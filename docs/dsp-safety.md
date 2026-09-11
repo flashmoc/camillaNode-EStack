@@ -49,3 +49,22 @@ use a temporary `−60 dB` Master transition with readback and restoration. See
 Code tests are not hardware acceptance. Real DSP writes require an explicit
 hardware task, an initial live snapshot, reversible steps, readback checks and
 restoration. If any invariant fails, stop; do not fix forward on the Raspberry.
+
+## System Preset transaction and workflow exclusion
+
+System Preset capture/apply runs in the shared server workflowGate, as do
+existing Signal Generator and Measurement Batch transition queues (including
+stop, timeout and restart recovery). Once acquired, the system operation checks
+both persistent temporary-session files. It refuses capture/apply if either
+exists, so it cannot capture temporary routing or invalidate a pending restore.
+Existing Signal-vs-Measurement checks remain unchanged and now share ordering.
+This gate covers operations in the CamillaNode server; Raspberry service restart
+integration remains a separately accepted hardware boundary, unchanged here.
+
+Apply reads live configuration, sets -60 dB Master, validates saved references,
+merges processing into the live hardware/mixer configuration, uploads and verifies
+the expected full readback before restoring the intended Master. Master readback
+is verified before active/last-used metadata is written. Failure attempts to
+retain -60 dB and reports an error, rather than claiming the requested preset active.
+Captured Master is restricted to finite -100..0 dB; old missing/null values use
+the existing -40 dB fallback instead of accidental 0 dB.

@@ -19,7 +19,7 @@ socket to CamillaDSP ports.
 | Contract | Role |
 | --- | --- |
 | `GET /getConfigFile` | Reads the complete `savedConfigs.dat` collection |
-| `POST /saveConfigFile` | Replaces that validated collection atomically at the application layer |
+| `POST /saveConfigFile` | Atomic compare-and-swap of non-system records; see below |
 | `GET /getConfigList`, `GET /getConfig` | Named configuration listing/read |
 | `POST /saveConfig`, `/saveConfigName` | Named/current configuration persistence |
 
@@ -41,3 +41,19 @@ Existing storage names, URL shapes, request/response meanings and baseline
 semantics are part of the E-Stack runtime contract. Product work can add a
 typed domain façade above them, but may not silently fork the backend or create
 a second server.
+
+## System preset and concurrent collection writes
+
+GET /api/system-presets returns current/startup state, preset summaries and
+workflow blocking. POST /api/system-presets/capture accepts name and optional
+explicit overwrite; /apply and /delete accept an existing id. These operations
+never accept a browser-authored processing graph. GET/POST /api/startup-config
+retain yaml/specific/last modes and existing state fields. /active verifies live
+processing and Master before accepting historical active-state notifications.
+
+GET /getConfigFile retains its array response and adds an ETag revision.
+POST /saveConfigFile accepts {base, records}; base must exactly match the current
+collection. Historical array clients must send the current ETag as If-Match.
+Stale or missing revisions return 409. Both forms reject changes to estack-system
+records: use the owned System Preset API. This explicit compatibility tightening
+prevents stale Global EQ/legacy writes from erasing concurrent system changes.

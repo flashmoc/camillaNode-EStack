@@ -33,10 +33,10 @@ same-origin CamillaNode transport, use:
 http://<camillanode-host>:<port>/estack-dsp/?transport=camillanode#connections
 ```
 
-The **Connections** page opens `/ws/dsp` only after the user presses
-**CONNECT CAMILLADSP**. It first reads `/api/runtime` and `GetConfigJson`; it
-does not write DSP state. Measurement Batch uses the existing
-`/api/measurement-batch/*` runner and retains its baseline/restore safeguards.
+Connections automatically reads runtime, DSP configuration and spectrum status.
+It is read-only. Measurement Batch uses its existing server runner and exact
+baseline/restore safeguards. System Presets includes future startup selection;
+Advanced is a live read-only inspector.
 
 ## Compatibility
 

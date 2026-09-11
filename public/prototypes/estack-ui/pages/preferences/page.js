@@ -1,1 +1,46 @@
-(()=>{'use strict';const{$,note,preferences}=EStackSurface;const key='estack.product.presentation';function read(){let p={};try{p=JSON.parse(localStorage.getItem(key)||'{}')}catch{}$('density').value=p.density==='compact'?'compact':'comfortable';$('contrast').value=p.contrast==='high'?'high':'standard';preferences();$('state').textContent='Browser preferences'}function save(){try{localStorage.setItem(key,JSON.stringify({density:$('density').value,contrast:$('contrast').value}));preferences();note('Display preferences saved in this browser.')}catch(e){note('Browser storage unavailable; preferences could not be saved.',true)}}$('density').onchange=save;$('contrast').onchange=save;$('reset').onclick=()=>{try{localStorage.removeItem(key);read();note('Display defaults restored.')}catch{note('Browser storage unavailable.',true)}};addEventListener('storage',read);read()})();
+(() => {
+  "use strict";
+  const { $, note, preferences } = EStackSurface;
+  const key = "estack.product.presentation";
+  function read() {
+    let p = {};
+    try {
+      p = JSON.parse(localStorage.getItem(key) || "{}");
+    } catch {}
+    $("density").value = p.density === "compact" ? "compact" : "comfortable";
+    $("contrast").value = p.contrast === "high" ? "high" : "standard";
+    preferences();
+    $("state").textContent = "Browser preferences";
+  }
+  function save() {
+    try {
+      localStorage.setItem(
+        key,
+        JSON.stringify({
+          density: $("density").value,
+          contrast: $("contrast").value,
+        }),
+      );
+      preferences();
+      note("Display preferences saved in this browser.");
+    } catch (e) {
+      note(
+        "Browser storage unavailable; preferences could not be saved.",
+        true,
+      );
+    }
+  }
+  $("density").onchange = save;
+  $("contrast").onchange = save;
+  $("reset").onclick = () => {
+    try {
+      localStorage.removeItem(key);
+      read();
+      note("Display defaults restored.");
+    } catch {
+      note("Browser storage unavailable.", true);
+    }
+  };
+  addEventListener("storage", read);
+  read();
+})();

@@ -1,1 +1,147 @@
-(()=>{'use strict';const{B,$,note,post}=EStackSurface;let busy=false,live=null,curve=null,dirty=false,timer,closed=false;const presets=[['reference','Reference','Flat · disabled'],['home','Home','Low +6 / high +2.5 dB'],['punch','Punch','Low +8 / high +2.5 dB'],['night','Night','Low +4 / high +1.5 dB'],['outdoor','Outdoor','Low +3 / high +2.5 dB'],['maxspl','Max SPL','Flat · disabled']];$('presets').innerHTML=presets.map(([key,name,desc])=>'<button data-preset="'+key+'" disabled><strong>'+name+'</strong><small>'+desc+'</small></button>').join('');function controls(){document.querySelectorAll('#presets button,#toggle,#saveCurve').forEach(el=>el.disabled=busy||!live||B.mode!=='camillanode');$('toggle').textContent=live?.enabled?'Disable loudness':'Enable loudness';$('toggle').setAttribute('aria-pressed',String(!!live?.enabled));document.querySelectorAll('[data-preset]').forEach(el=>el.setAttribute('aria-pressed',String(el.dataset.preset===live?.preset)))}function draw(){if(!curve)return;let d='';for(let i=0;i<=100;i++){const db=-60+i*.6;const n=Math.max(0,Math.min(1,(curve.startDb-db)/(curve.startDb-curve.fullDb)))**curve.power;d+=(i?'L':'M')+(20+i*4.6)+','+(130-n*110)}$('curvePath').setAttribute('d',d)}async function refresh(){const results=await Promise.allSettled(['preset','settings','bridge'].map(p=>B.api('/api/loudness/'+p)));const[p,s,b]=results;live=p.status==='fulfilled'?p.value:null;$('state').textContent=live?'Live DSP':'DSP unavailable';$('dspState').textContent=live?'Connected':'Unavailable';$('presetName').textContent=live?.preset?.toUpperCase()||'—';if(s.status==='fulfilled'){curve=s.value.curve;if(!dirty)for(const k of ['startDb','fullDb','power'])$(k).value=curve[k];draw()}const bridge=b.status==='fulfilled'?b.value:null;$('bridgeState').textContent=bridge?.serviceAlive?bridge.state:'Offline';$('wiimState').textContent=bridge?.serviceAlive&&bridge.wiimConnected?'Connected':'Unavailable';$('bridgeDetail').textContent=bridge?.serviceAlive?'Running':'Not running';$('bridgeReason').textContent=bridge?.reason||'';$('compensation').textContent=bridge?.connected&&Number.isFinite(bridge.compensationFactor)?(bridge.compensationFactor*100).toFixed(0)+' %':'—';controls()}async function apply(path,data){if(busy)return;busy=true;controls();note('Applying…');try{await post('/api/loudness/'+path,data);await refresh();note('Saved and read back from CamillaNode.')}catch(e){note(e.message,true)}finally{busy=false;controls()}}$('toggle').onclick=()=>live?.enabled?apply('preset',{preset:'reference'}):apply('toggle');$('presets').onclick=e=>{const b=e.target.closest('[data-preset]');if(b)apply('preset',{preset:b.dataset.preset})};$('curveForm').oninput=()=>dirty=true;$('curveForm').onsubmit=async e=>{e.preventDefault();const next=Object.fromEntries(['startDb','fullDb','power'].map(k=>[k,Number($(k).value)]));if(next.fullDb>=next.startDb-2){note('Full compensation must be at least 2 dB below Start.',true);return}await apply('settings',{curve:next});};async function poll(){if(closed)return;if(!busy)await refresh().catch(e=>note(e.message,true));if(!closed)timer=setTimeout(poll,1500)}if(B.mode==='camillanode')poll();else{$('state').textContent='Offline preview';note('Open with transport=camillanode for live loudness.');document.querySelectorAll('input,button').forEach(e=>e.disabled=true)}addEventListener('pagehide',()=>{closed=true;clearTimeout(timer)});})();
+(() => {
+  "use strict";
+  const { B, $, note, post } = EStackSurface;
+  let busy = false,
+    live = null,
+    curve = null,
+    dirty = false,
+    timer,
+    closed = false;
+  const presets = [
+    ["reference", "Reference", "Flat · disabled"],
+    ["home", "Home", "Low +6 / high +2.5 dB"],
+    ["punch", "Punch", "Low +8 / high +2.5 dB"],
+    ["night", "Night", "Low +4 / high +1.5 dB"],
+    ["outdoor", "Outdoor", "Low +3 / high +2.5 dB"],
+    ["maxspl", "Max SPL", "Flat · disabled"],
+  ];
+  $("presets").innerHTML = presets
+    .map(
+      ([key, name, desc]) =>
+        '<button data-preset="' +
+        key +
+        '" disabled><strong>' +
+        name +
+        "</strong><small>" +
+        desc +
+        "</small></button>",
+    )
+    .join("");
+  function controls() {
+    document
+      .querySelectorAll("#presets button,#toggle,#saveCurve")
+      .forEach(
+        (el) => (el.disabled = busy || !live || B.mode !== "camillanode"),
+      );
+    $("toggle").textContent = live?.enabled
+      ? "Disable loudness"
+      : "Enable loudness";
+    $("toggle").setAttribute("aria-pressed", String(!!live?.enabled));
+    document
+      .querySelectorAll("[data-preset]")
+      .forEach((el) =>
+        el.setAttribute(
+          "aria-pressed",
+          String(el.dataset.preset === live?.preset),
+        ),
+      );
+  }
+  function draw() {
+    if (!curve) return;
+    let d = "";
+    for (let i = 0; i <= 100; i++) {
+      const db = -60 + i * 0.6;
+      const n =
+        Math.max(
+          0,
+          Math.min(1, (curve.startDb - db) / (curve.startDb - curve.fullDb)),
+        ) ** curve.power;
+      d += (i ? "L" : "M") + (20 + i * 4.6) + "," + (130 - n * 110);
+    }
+    $("curvePath").setAttribute("d", d);
+  }
+  async function refresh() {
+    const results = await Promise.allSettled(
+      ["preset", "settings", "bridge"].map((p) => B.api("/api/loudness/" + p)),
+    );
+    const [p, s, b] = results;
+    live = p.status === "fulfilled" ? p.value : null;
+    $("state").textContent = live ? "Live DSP" : "DSP unavailable";
+    $("dspState").textContent = live ? "Connected" : "Unavailable";
+    $("presetName").textContent = live?.preset?.toUpperCase() || "—";
+    if (s.status === "fulfilled") {
+      curve = s.value.curve;
+      if (!dirty)
+        for (const k of ["startDb", "fullDb", "power"]) $(k).value = curve[k];
+      draw();
+    }
+    const bridge = b.status === "fulfilled" ? b.value : null;
+    $("bridgeState").textContent = bridge?.serviceAlive
+      ? bridge.state
+      : "Offline";
+    $("wiimState").textContent =
+      bridge?.serviceAlive && bridge.wiimConnected
+        ? "Connected"
+        : "Unavailable";
+    $("bridgeDetail").textContent = bridge?.serviceAlive
+      ? "Running"
+      : "Not running";
+    $("bridgeReason").textContent = bridge?.reason || "";
+    $("compensation").textContent =
+      bridge?.connected && Number.isFinite(bridge.compensationFactor)
+        ? (bridge.compensationFactor * 100).toFixed(0) + " %"
+        : "—";
+    controls();
+  }
+  async function apply(path, data) {
+    if (busy) return;
+    busy = true;
+    controls();
+    note("Applying…");
+    try {
+      await post("/api/loudness/" + path, data);
+      await refresh();
+      note("Saved and read back from CamillaNode.");
+    } catch (e) {
+      note(e.message, true);
+    } finally {
+      busy = false;
+      controls();
+    }
+  }
+  $("toggle").onclick = () =>
+    live?.enabled ? apply("preset", { preset: "reference" }) : apply("toggle");
+  $("presets").onclick = (e) => {
+    const b = e.target.closest("[data-preset]");
+    if (b) apply("preset", { preset: b.dataset.preset });
+  };
+  $("curveForm").oninput = () => (dirty = true);
+  $("curveForm").onsubmit = async (e) => {
+    e.preventDefault();
+    const next = Object.fromEntries(
+      ["startDb", "fullDb", "power"].map((k) => [k, Number($(k).value)]),
+    );
+    if (next.fullDb >= next.startDb - 2) {
+      note("Full compensation must be at least 2 dB below Start.", true);
+      return;
+    }
+    await apply("settings", { curve: next });
+  };
+  async function poll() {
+    if (closed) return;
+    if (!busy) await refresh().catch((e) => note(e.message, true));
+    if (!closed) timer = setTimeout(poll, 1500);
+  }
+  if (B.mode === "camillanode") poll();
+  else {
+    $("state").textContent = "Offline preview";
+    note("Open with transport=camillanode for live loudness.");
+    document
+      .querySelectorAll("input,button")
+      .forEach((e) => (e.disabled = true));
+  }
+  addEventListener("pagehide", () => {
+    closed = true;
+    clearTimeout(timer);
+  });
+})();

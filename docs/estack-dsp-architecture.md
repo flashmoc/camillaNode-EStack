@@ -2,7 +2,7 @@
 
 ## Product boundary
 
-**E-Stack DSP** is the canonical future frontend for E-Stack. Its mount point
+**E-Stack DSP** is the canonical frontend for E-Stack. Its mount point
 is `/estack-dsp/`, served by the existing CamillaNode Node process. The legacy
 frontend remains temporarily in the repository as a behavioral specification;
 it is not a runtime dependency of the product and must not be extended as the
@@ -77,9 +77,9 @@ capability belongs in the product page plus a reusable domain/service layer.
 - **Loudness, Signal Generator, Measurement Batch:** live server-owned workflows;
   software validation only, hardware acceptance remains separate.
 - **Connections:** read-only live runtime/DSP/spectrum diagnostics.
-- **Preferences:** browser-local density and contrast with consumers in these five pages.
-- **Advanced, System Presets/Startup Configuration:** not migrated by this batch;
-  not claimed production-complete here.
+- **Preferences:** browser-local density and contrast consumed by the secondary workflow pages, System Presets and Advanced.
+- **System Presets/Startup:** server-owned capture, verified apply, protected deletion and boot selection.
+- **Advanced:** read-only live topology/ownership inspector.
 - **Legacy frontend:** retained as behavioral reference until each capability
   has a product-owned replacement.
 
@@ -113,3 +113,17 @@ state instead of retaining a green status. Local preview uses unknown readings.
 spacing, 44 px touch targets, 16 px editable fields and page-specific responsive
 arrangements. The shell occupies the viewport; only the selected workspace
 scrolls, keeping the system overview and navigation visible.
+
+## Final shell and workflow integration
+
+The shell mounts once and defaults to Control. Desktop navigation groups
+Processing (Control/Input/Output), Systems (Loudness/System Presets), Tools
+(Signal/Measurement), and System (Advanced/Connections/Preferences). Mobile
+uses a grouped native select. Every route preserves transport=camillanode.
+The live shell imports no fixtures; preview messaging is isolated in a separate
+conditionally loaded module. Design System is retained only as developer reference.
+
+New system APIs extend startupConfiguration rather than creating a second
+backend. workflowGate serializes system capture/apply and Signal/Measurement
+transitions, including recovery, within CamillaNode. See the safety and
+persistence contracts, ownership matrix and release audit for exact boundaries.
