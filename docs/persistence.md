@@ -9,6 +9,7 @@
 | `currentConfig.json` | CamillaNode | Current named configuration selection metadata |
 | `config/*.json` | CamillaNode | Named configuration records |
 | `camillaNodeConfig.json` | CamillaNode deployment | Application HTTP port/runtime configuration |
+| `wiimLoudnessConfig.json` | WiiM integration | Machine-local bridge/settings configuration; preserved by deployment |
 
 `estack-system` records are full processing snapshots used by the server-owned
 startup recall workflow. `global-eq` records are input/global EQ presets. The

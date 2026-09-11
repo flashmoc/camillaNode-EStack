@@ -16,19 +16,35 @@ RUNTIME_PATHS=(
     currentConfig.json
     savedConfigs.dat
     startupConfig.json
+    wiimLoudnessConfig.json
+    wiimLoudnessStatus.json
     config
     setupFiles/spectrum_preview.yml
     setupFiles/spectrum_real.yml
     setupFiles/spectrum_real.yml.bak
     setupFiles/spectrum_white.yml
+    setupFiles/spectrum_preview.yml.bak
+    setupFiles/spectrum_white.yml.bak
 )
-RUNTIME_PATTERN='^(camillaNodeConfig\.json|currentConfig\.json|savedConfigs\.dat|startupConfig\.json|config(/|$)|setupFiles/spectrum_(preview|real|white)\.yml(\.bak)?)$'
+RUNTIME_PATTERN='^(camillaNodeConfig\.json|currentConfig\.json|savedConfigs\.dat|startupConfig\.json|wiimLoudness(Config|Status)\.json|config(/.*)?|setupFiles/spectrum_(preview|real|white)\.yml(\.bak)?)$'
 # package-lock.json is repository-owned, not runtime state. Old npm versions or
 # previous installs can leave it locally modified; it is safe to discard because
 # the update restores the canonical lockfile from Git before running npm ci.
 SAFE_RESET_PATTERN='^package-lock\.json$'
 BACKUP_DIR="$(mktemp -d)"
-trap 'rm -rf "$BACKUP_DIR"' EXIT
+RUNTIME_SAVED=0
+cleanup() {
+    local result=$?
+    if [[ "$RUNTIME_SAVED" == 1 ]]; then
+        if ! restore_runtime; then
+            echo "ERROR: runtime restore failed; backup retained: $BACKUP_DIR" >&2
+            exit 1
+        fi
+    fi
+    rm -rf "$BACKUP_DIR"
+    exit "$result"
+}
+trap cleanup EXIT
 
 backup_runtime() {
     for item in "${RUNTIME_PATHS[@]}"; do
@@ -42,9 +58,9 @@ backup_runtime() {
 restore_runtime() {
     for item in "${RUNTIME_PATHS[@]}"; do
         if [[ -e "$BACKUP_DIR/$item" ]]; then
-            rm -rf "$item"
-            mkdir -p "$(dirname "$item")"
-            cp -a "$BACKUP_DIR/$item" "$item"
+            rm -rf "$item" || return 1
+            mkdir -p "$(dirname "$item")" || return 1
+            cp -a "$BACKUP_DIR/$item" "$item" || return 1
         fi
     done
     mkdir -p config
@@ -75,6 +91,7 @@ while IFS= read -r line; do
 done < <(git status --porcelain=v1)
 
 backup_runtime
+RUNTIME_SAVED=1
 PREVIOUS_HEAD="$(git rev-parse HEAD)"
 
 # Before the cleanup release some runtime files were tracked by Git. Normalize
@@ -83,8 +100,13 @@ PREVIOUS_HEAD="$(git rev-parse HEAD)"
 # This also restores package-lock.json to the repository-owned version.
 git reset --hard HEAD >/dev/null
 
-git remote set-url origin "$REPO"
-git fetch --prune origin "$BRANCH"
+if [[ -n "${ESTACK_FETCHED_SHA:-}" ]]; then
+    [[ "$ESTACK_FETCHED_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'Invalid pinned SHA' >&2; exit 1; }
+    [[ "$(git rev-parse "refs/remotes/origin/$BRANCH^{commit}")" == "$ESTACK_FETCHED_SHA" ]] || { echo 'Pinned ref changed' >&2; exit 1; }
+else
+    git remote set-url origin "$REPO"
+    git fetch --prune origin "$BRANCH"
+fi
 if git show-ref --verify --quiet "refs/heads/$BRANCH"; then
     git switch "$BRANCH"
 else
@@ -96,8 +118,21 @@ fi
 # misleading ahead/behind counts against that stale remote.
 git branch --set-upstream-to="origin/$BRANCH" "$BRANCH" >/dev/null
 
-git pull --ff-only origin "$BRANCH"
+if [[ -n "${ESTACK_FETCHED_SHA:-}" ]]; then
+    git merge --ff-only "$ESTACK_FETCHED_SHA"
+    [[ "$(git rev-parse HEAD)" == "$ESTACK_FETCHED_SHA" ]] || { echo 'Deployed SHA mismatch' >&2; exit 1; }
+else
+    git pull --ff-only origin "$BRANCH"
+fi
 restore_runtime
+RUNTIME_SAVED=0
+
+# The RC orchestrator owns dependencies, health checks and the sole service
+# restart. Normal updater defaults and behavior remain unchanged.
+if [[ "${ESTACK_UPDATE_CODE_ONLY:-0}" == 1 ]]; then
+    printf 'Application code updated: %s\n' "$(git rev-parse HEAD)"
+    exit 0
+fi
 
 # Deterministic production dependencies only. CamillaDSP itself is not touched.
 npm ci --omit=dev --no-audit --no-fund

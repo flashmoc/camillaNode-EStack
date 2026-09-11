@@ -4,6 +4,17 @@
 
 The deployment scripts in this repository manage **CamillaNode only**. They do not install or rewrite CamillaDSP, ALSA, RASPIAUDIO configuration or the live DSP YAML.
 
+## First software-complete release candidate
+
+Use the [RC1 preparation and acceptance procedure](raspberry-rc1.md) for
+`release/raspi-rc1`, based on `e4929159b86690191cdfc51eac35bc21310acf5b`.
+It adds read-only preflight, a persistent backup, exact commit pinning, a
+CamillaNode-only deploy, read-only smoke and deterministic application rollback.
+Do not use the bootstrap/setup instructions below to commission RC1 hardware.
+The normal updater's default remains `camilladsp-4.1-estack`.
+
+**DEPLOYMENT SCRIPTS SOFTWARE-VALIDATED. PHYSICAL RASPBERRY DEPLOYMENT PENDING.**
+
 ## Existing E-Stack Raspberry
 
 ### First update from a legacy checkout
@@ -44,7 +55,12 @@ Runtime files preserved by the updater:
 camillaNodeConfig.json
 currentConfig.json
 savedConfigs.dat
+startupConfig.json
+wiimLoudnessConfig.json
+wiimLoudnessStatus.json
 config/
+setupFiles/spectrum_{preview,real,white}.yml
+setupFiles/spectrum_{preview,real,white}.yml.bak
 ```
 
 If the update script reports local **code** changes, inspect them before continuing. Do not force/reset a Raspberry that contains unidentified hardware-specific edits.
@@ -86,3 +102,8 @@ It exposes only runtime mode and endpoint ports; it does not expose the DSP conf
 The Signal Generator stores its temporary normal-config snapshot under `/tmp` with restrictive permissions. If CamillaNode restarts while the capture device is still a test generator, the backend attempts to restore the normal configuration automatically.
 
 The Raspberry updater never deliberately edits the main CamillaDSP configuration. A UI update should therefore remain separate from hardware routing and limiter commissioning.
+
+CamillaNode startup may recall a selected System Preset or recover a temporary
+Measurement/Signal session. The RC preflight refuses these states by default;
+normal legacy updates do not provide that RC gate. No optional startup hook or
+WiiM service is installed by the RC deploy script.

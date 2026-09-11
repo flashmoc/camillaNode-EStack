@@ -36,6 +36,8 @@ DSP backend.
 
 - [Raspberry deployment](raspberry.md) — CamillaNode installation/update and
   the boundary with the physical audio stack.
+- [Raspberry RC1 procedure](raspberry-rc1.md) — reversible CamillaNode-only
+  deployment preparation; physical deployment and hardware acceptance pending.
 - [Measurement Batch](measurement-batch.md) — batch format and its existing
   server-owned safety workflow.
 - [Product entry and migration status](estack-dsp-product.md) — launch modes
