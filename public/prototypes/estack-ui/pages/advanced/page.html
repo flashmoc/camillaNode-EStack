@@ -1,14 +1,77 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'none'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'"><title>Advanced — E-Stack Prototype</title><link rel="stylesheet" href="../../shared/tokens.css"><link rel="stylesheet" href="../../shared/base.css"><link rel="stylesheet" href="../../shared/components.css"><link rel="stylesheet" href="./page.css?v=advanced-v2"><link rel="stylesheet" href="../../shared/mobile.css?v=audio-polish1"></head>
-<body><main class="advanced-page"><header class="advanced-titlebar"><div><p class="eyebrow">SYSTEM CONFIGURATION</p><h1>Advanced</h1><p>Pipeline, mixers, filters and processors.</p></div><output id="advancedState" class="ui-status is-success">LOCAL MODEL</output></header>
-
-  <section id="pipelineVisual" class="ui-panel advanced-group"><header class="ui-panel__head"><div><h2>PIPELINE</h2><p>Signal flow per playback channel · select a stage to inspect it.</p></div><button id="pipelineReset" class="ui-button" type="button">RESTORE ROUTING</button></header><div id="pipelineContainer" class="pipeline-container"></div></section>
-
-  <section id="channelMapping" class="ui-panel advanced-group"><header class="ui-panel__head"><div><h2>MIXERS</h2><p>Capture-source mapping for each playback channel.</p></div><output id="mixerState" class="ui-badge">6 OUTPUTS</output></header><div id="mixers" class="mixers-grid"></div></section>
-
-  <section id="advancedFilters" class="ui-panel advanced-group"><header class="ui-panel__head"><div><h2>FILTERS</h2><p>Per-way filter chains, following the same order as the legacy editor.</p></div><button id="resetFilters" class="ui-button" type="button">RESTORE FILTERS</button></header><div id="filterChannels" class="filter-channels"></div></section>
-
-  <section id="processors" class="ui-panel advanced-group"><header class="ui-panel__head"><div><h2>PROCESSOR</h2><p>Shared processing and protection state.</p></div><button id="toggleLimiter" class="ui-button" type="button">LIMITER OFF</button></header><div id="processorList" class="processor-list"></div></section>
-
-  <p class="mock-note">LOCAL CAMILLADSP CONFIGURATION MODEL · NO SOCKET · NO FETCH · NO DSP WRITE</p>
-</main><script src="../../shared/mock-camilladsp.js?v=advanced-v2"></script><script src="./fixtures.js?v=advanced-v2"></script><script src="./page.js?v=advanced-v2"></script></body></html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; connect-src 'self'; style-src 'self'; script-src 'self'; object-src 'none'"
+    />
+    <title>Advanced — E-Stack DSP</title>
+    <link rel="stylesheet" href="../../shared/tokens.css" />
+    <link rel="stylesheet" href="../../shared/base.css" />
+    <link rel="stylesheet" href="../../shared/workflow-surface.css" />
+    <link rel="stylesheet" href="./page.css" />
+  </head>
+  <body>
+    <main class="product-surface">
+      <header class="surface-heading">
+        <div>
+          <p class="eyebrow">LIVE SYSTEM INSPECTOR</p>
+          <h1>Advanced</h1>
+        </div>
+        <div class="surface-actions">
+          <output id="state">Connecting…</output
+          ><button id="refresh">Refresh</button>
+        </div>
+      </header>
+      <p class="surface-note">
+        Read-only topology. Expand a stage or definition to inspect it;
+        processing changes belong to the indicated workspace.
+      </p>
+      <p id="notice" role="status"></p>
+      <section>
+        <header><h2>Hardware & runtime</h2></header>
+        <div class="surface-metrics">
+          <div><small>SAMPLE RATE</small><strong id="rate">—</strong></div>
+          <div><small>CHUNKSIZE</small><strong id="chunksize">—</strong></div>
+          <div>
+            <small>PIPELINE STAGES</small><strong id="stages">—</strong>
+          </div>
+        </div>
+        <dl id="devices"></dl>
+      </section>
+      <section>
+        <header class="surface-actions">
+          <h2>Pipeline · processing order</h2>
+          <small>Channels are zero-indexed DSP channels</small>
+        </header>
+        <ol id="pipeline" class="pipeline-list"></ol>
+      </section>
+      <section>
+        <header>
+          <h2>Definitions & ownership</h2>
+          <p class="muted">
+            Hardware routing stays with the runtime. System anchors are shown
+            for inspection.
+          </p>
+        </header>
+        <label
+          >Find a definition<input
+            id="search"
+            type="search"
+            placeholder="Filter, mixer, processor or owner"
+        /></label>
+        <div id="definitions"></div>
+        <p id="noMatches" hidden>No matching definitions.</p>
+      </section>
+      <details class="raw-view">
+        <summary>Raw live configuration · read only</summary>
+        <pre id="raw"></pre>
+      </details>
+    </main>
+    <script src="../../shared/estack-dsp-bridge.js"></script>
+    <script src="../../shared/product-surface.js"></script>
+    <script src="./page.js"></script>
+  </body>
+</html>
